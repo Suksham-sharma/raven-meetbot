@@ -14,10 +14,35 @@ class BadRequestError extends AppError {
   }
 }
 
+class UnauthorizedError extends AppError {
+  constructor(message: string = "Unauthorized Request") {
+    super(message, 401);
+  }
+}
+
+class ForbiddenError extends AppError {
+  constructor(message: string = "Forbidden Request") {
+    super(message, 403);
+  }
+}
+
 class NotFoundError extends AppError {
   constructor(message: string = "Resource Not Found") {
     super(message, 404);
   }
 }
 
-export { AppError, BadRequestError, NotFoundError };
+class ConflictError extends AppError {
+  constructor(message: string = "Conflict") {
+    super(message, 409);
+  }
+}
+
+export {
+  AppError,
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError,
+  NotFoundError,
+  ConflictError,
+};

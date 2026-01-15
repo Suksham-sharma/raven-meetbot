@@ -1,12 +1,7 @@
 import { Request, Response } from "express";
-import { Queue } from "bullmq";
 import { BadRequestError } from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
-import systemConfig from "../config";
-
-const meetQueue = new Queue("gmeet-bot", {
-  connection: { url: systemConfig.REDIS_URL },
-});
+import { meetQueue } from "../lib/queueManager";
 
 export const joinMeet = asyncHandler(async (req: Request, res: Response) => {
   const { url, botName, maxDurationMinutes } = req.body;
