@@ -1,8 +1,3 @@
-/**
- * Type declarations for browser-context globals used in page.evaluate().
- * Extends Window for properties set at runtime during recording.
- */
-
 interface MeetBotWindow {
   __saveChunk: (data: string) => void;
   __finishRecording: () => Promise<void>;
