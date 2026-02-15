@@ -68,7 +68,6 @@ export const TIMEOUTS = {
   ALONE_GRACE_PERIOD: 20_000,
   ALONE_EXIT_DELAY: 40_000,
   RECORDING_STOP_WAIT: 2_000,
-  AUDIO_RESCAN_INTERVAL: 20_000,
 };
 
 export const VIEWPORT = { width: 1280, height: 720 };

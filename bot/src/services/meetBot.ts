@@ -1,4 +1,6 @@
 import { chromium, Browser, BrowserContext, Page } from "playwright";
+import path from "path";
+import fs from "fs";
 import botConfig from "../config";
 import {
   CHROME_ARGS,
@@ -11,6 +13,11 @@ class MeetBot {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
+  private isRecording = false;
+  private recordingPath: string | null = null;
+  private writeStream: fs.WriteStream | null = null;
+  private startTime: number = 0;
+  private shouldStop = false;
 
   async start(): Promise<void> {
     try {
@@ -19,12 +26,17 @@ class MeetBot {
       await this.attemptJoin();
       await this.waitForAdmission();
 
-      console.log("[Bot] Successfully joined meeting, ready for recording");
+      console.log("[Bot] Successfully joined meeting, starting recording");
 
-      // Part B: startRecording, monitorAndAutoExit
+      await this.startRecording();
+      await this.monitorAndAutoExit();
     } finally {
       await this.cleanup();
     }
+  }
+
+  stop(): void {
+    this.shouldStop = true;
   }
 
 
@@ -183,12 +195,312 @@ class MeetBot {
     throw new Error("Admission timed out after 5 minutes");
   }
 
-  // ── Cleanup (Part B will expand this) ───────────────────────────────
+
+  private async startRecording(): Promise<void> {
+    const page = this.getPage();
+
+    const meetingId =
+      (botConfig.MEET_URL.split("/").pop() || "recording").split("?")[0];
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}-${String(now.getSeconds()).padStart(2, "0")}`;
+    const filename = `${meetingId}_${timestamp}.webm`;
+
+    const recordingsDir = path.resolve("/app/recordings");
+    if (!fs.existsSync(recordingsDir)) {
+      fs.mkdirSync(recordingsDir, { recursive: true });
+    }
+    this.recordingPath = path.join(recordingsDir, filename);
+    this.writeStream = fs.createWriteStream(this.recordingPath);
+
+    console.log(`[Bot] Starting recording → ${filename}`);
+
+    // Expose chunk callback — receives base64 string from browser
+    await page.exposeFunction("__saveChunk", (base64Data: string) => {
+      const buffer = Buffer.from(base64Data, "base64");
+      this.writeStream?.write(buffer);
+    });
+
+    await page.exposeFunction("__finishRecording", () => {
+      return new Promise<void>((resolve) => {
+        if (this.writeStream) {
+          this.writeStream.end(resolve);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    // Wait for media elements to load, then trigger user gesture for MediaRecorder
+    await page.waitForTimeout(5000);
+    try {
+      await page.click("body", { force: true });
+    } catch {
+      // Gesture may fail, non-critical
+    }
+
+    try {
+      await page.evaluate(async () => {
+        console.log("Browser: Starting composite stream capture...");
+
+        // 1. Tab capture for video only — no audio device in Docker (Xvfb only)
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { displaySurface: "browser" },
+          preferCurrentTab: true,
+          audio: false,
+        });
+
+        const videoTrack = displayStream.getVideoTracks()[0];
+        if (!videoTrack) throw new Error("No video track from tab capture");
+        console.log("Browser: Got video track:", videoTrack.label);
+
+        // 2. AudioContext to capture WebRTC audio from page media elements
+        const audioCtx = new AudioContext();
+        if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+        }
+
+        const destination = audioCtx.createMediaStreamDestination();
+        const connectedElements = new WeakSet<HTMLMediaElement>();
+
+        const connectElements = () => {
+          const mediaElements: HTMLMediaElement[] = [
+            ...Array.from(document.querySelectorAll<HTMLVideoElement>("video")),
+            ...Array.from(document.querySelectorAll<HTMLAudioElement>("audio")),
+          ];
+
+          mediaElements.forEach((el) => {
+            if (connectedElements.has(el)) return;
+
+            try {
+              const stream = el.srcObject;
+              if (!(stream instanceof MediaStream)) return;
+
+              const audioTracks = stream.getAudioTracks();
+              if (audioTracks.length === 0) return;
+
+              const source = audioCtx.createMediaStreamSource(stream);
+              source.connect(destination);
+              connectedElements.add(el);
+              console.log("Browser: Connected audio from <" + el.tagName + ">");
+            } catch (e) {
+              console.warn("Browser: Failed to connect source:", e);
+            }
+          });
+        };
+
+        connectElements();
+        const audioScanTimer = setInterval(connectElements, 3000);
+
+        // 3. Composite stream: video from tab capture + audio from AudioContext
+        const compositeStream = new MediaStream([videoTrack]);
+        const audioTracks = destination.stream.getAudioTracks();
+        if (audioTracks[0]) {
+          compositeStream.addTrack(audioTracks[0]);
+          console.log("Browser: Added AudioContext audio track");
+        }
+
+        window._audioScanTimer = audioScanTimer as unknown as number;
+        window._audioCtx = audioCtx;
+
+        // 4. MediaRecorder with sequential write queue to prevent out-of-order chunks
+        const recorder = new MediaRecorder(compositeStream, {
+          mimeType: "video/webm",
+        });
+
+        let writeChain = Promise.resolve();
+
+        recorder.ondataavailable = (e: BlobEvent) => {
+          if (e.data.size > 0) {
+            writeChain = writeChain.then(async () => {
+              const buffer = await e.data.arrayBuffer();
+              const bytes = new Uint8Array(buffer);
+              let binary = "";
+              for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+              }
+              window.__saveChunk(btoa(binary));
+            });
+          }
+        };
+
+        recorder.onstop = () => {
+          console.log("Browser: MediaRecorder stopped");
+          if (window._audioScanTimer) clearInterval(window._audioScanTimer);
+          if (window._audioCtx) window._audioCtx.close();
+        };
+
+        recorder.start(1000);
+        console.log("Browser: MediaRecorder started");
+
+        window._mediaRecorder = recorder;
+        window._recordingStream = compositeStream;
+      });
+
+      this.isRecording = true;
+      this.startTime = Date.now();
+      console.log("[Bot] Recording started");
+    } catch (err) {
+      // Close the write stream if recording setup fails
+      this.writeStream.end();
+      this.writeStream = null;
+      throw err;
+    }
+  }
+
+
+  private async monitorAndAutoExit(): Promise<void> {
+    const page = this.getPage();
+    console.log("[Bot] Monitoring meeting...");
+
+    let aloneStartTime: number | null = null;
+    let gracePeriodPassed = false;
+
+    while (!this.shouldStop) {
+      // Duration cap
+      if (botConfig.MAX_DURATION_MINUTES) {
+        const elapsed = (Date.now() - this.startTime) / 60_000;
+        if (elapsed >= botConfig.MAX_DURATION_MINUTES) {
+          console.log("[Bot] Max duration reached, exiting");
+          return;
+        }
+      }
+
+      // Kick detection
+      if (await this.isKicked(page)) {
+        console.log("[Bot] Kicked from meeting, exiting");
+        return;
+      }
+
+      // URL-based kick detection
+      if (page.url().includes("/bye")) {
+        console.log("[Bot] Redirected to /bye, meeting ended");
+        return;
+      }
+
+      // Participant count
+      const count = await this.getParticipantCount(page);
+      if (count !== null) {
+        console.log(`[Bot] Participants: ${count}`);
+      }
+
+      // Alone detection
+      if (count !== null && count <= 1) {
+        if (!aloneStartTime) {
+          aloneStartTime = Date.now();
+          console.log("[Bot] Alone in meeting, starting exit timer");
+        } else if (!gracePeriodPassed) {
+          if (Date.now() - aloneStartTime >= TIMEOUTS.ALONE_GRACE_PERIOD) {
+            gracePeriodPassed = true;
+            console.log("[Bot] Grace period passed, waiting for others...");
+          }
+        } else if (
+          Date.now() - aloneStartTime >=
+          TIMEOUTS.ALONE_GRACE_PERIOD + TIMEOUTS.ALONE_EXIT_DELAY
+        ) {
+          console.log("[Bot] Alone too long, exiting");
+          return;
+        }
+      } else {
+        if (aloneStartTime) {
+          console.log("[Bot] No longer alone, resetting timer");
+        }
+        aloneStartTime = null;
+        gracePeriodPassed = false;
+      }
+
+      await page.waitForTimeout(TIMEOUTS.MONITOR_INTERVAL);
+    }
+  }
+
+  private async isKicked(page: Page): Promise<boolean> {
+    const bodyText = await page.textContent("body").catch(() => "");
+    if (!bodyText) return false;
+
+    return MEET_SELECTORS.KICK_INDICATORS.some((text) =>
+      bodyText.includes(text)
+    );
+  }
+
+  private async getParticipantCount(page: Page): Promise<number | null> {
+    return page.evaluate(() => {
+      // Strategy 1: data-participant-id elements
+      const participantEls = document.querySelectorAll(
+        "[data-participant-id]"
+      );
+      if (participantEls.length > 0) return participantEls.length;
+
+      // Strategy 2: button text that's a plain number (people panel button)
+      const buttons = document.querySelectorAll("button");
+      for (const btn of buttons) {
+        const text = btn.textContent?.trim() || "";
+        if (/^\d+$/.test(text)) {
+          const num = parseInt(text, 10);
+          if (num > 0 && num < 500) return num;
+        }
+      }
+
+      // Strategy 3: aria-label patterns
+      const allElements = document.querySelectorAll("[aria-label]");
+      for (const el of allElements) {
+        const label = el.getAttribute("aria-label") || "";
+        const patterns = [
+          /\((\d+)\)/,
+          /(\d+)\s*participant/i,
+          /(\d+)\s*person/i,
+          /(\d+)\s*people/i,
+        ];
+        for (const pattern of patterns) {
+          const match = label.match(pattern);
+          if (match) return parseInt(match[1], 10);
+        }
+      }
+
+      return null;
+    });
+  }
+
 
   private async cleanup(): Promise<void> {
     console.log("[Bot] Cleaning up...");
 
-    // Part B: stop recording, leave call, save file
+    // Stop browser-side recording
+    if (this.isRecording && this.page) {
+      try {
+        await this.page.evaluate(async (stopWait: number) => {
+          const recorder = window._mediaRecorder;
+          if (recorder && recorder.state !== "inactive") {
+            recorder.stop();
+            await new Promise((r) => setTimeout(r, stopWait));
+          }
+
+          const stream = window._recordingStream;
+          stream?.getTracks().forEach((t) => t.stop());
+        }, TIMEOUTS.RECORDING_STOP_WAIT);
+      } catch (err) {
+        console.error("[Bot] Error stopping browser recording:", err);
+      }
+    }
+
+    // Always flush and close the write stream from Node side — even if page.evaluate failed
+    if (this.writeStream) {
+      await new Promise<void>((resolve) => this.writeStream!.end(resolve));
+      this.writeStream = null;
+      console.log(`[Bot] Recording saved → ${this.recordingPath}`);
+    }
+
+    // Leave the call
+    if (this.page) {
+      try {
+        const leaveBtn = this.page.locator(MEET_SELECTORS.LEAVE_BUTTON).first();
+        if (await leaveBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await leaveBtn.click();
+          await this.page.waitForTimeout(1000);
+          console.log("[Bot] Left the call");
+        }
+      } catch {
+        // Page may already be closed
+      }
+    }
 
     if (this.context) {
       await this.context.close().catch(() => {});
@@ -200,7 +512,6 @@ class MeetBot {
     console.log("[Bot] Cleanup complete");
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────────
 
   private getPage(): Page {
     if (!this.page) {
