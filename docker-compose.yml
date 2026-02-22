@@ -1,0 +1,32 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  api-server:
+    build: ./api-server
+    ports:
+      - "3000:3000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+
+  orchestrator:
+    build: ./orchestrator
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - BOT_IMAGE=meet-bot:latest
+      - RECORDINGS_PATH=/recordings
+      - MAX_CONCURRENT_BOTS=10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./recordings:/recordings
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:
