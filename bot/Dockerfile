@@ -11,6 +11,8 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN pnpm build
 
+RUN mkdir -p /app/recordings /app/screenshots
+
 ENV DISPLAY=:99
 
 COPY entrypoint.sh /entrypoint.sh

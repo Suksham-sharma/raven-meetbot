@@ -1,5 +1,4 @@
 import Docker from "dockerode";
-import path from "path";
 import systemConfig from "../config";
 
 interface BotContainerOptions {
@@ -37,14 +36,15 @@ class DockerManager {
       env.push(`MAX_DURATION_MINUTES=${maxDurationMinutes}`);
     }
 
-    const recordingsPath = path.resolve(systemConfig.RECORDINGS_PATH);
-
     const container = await this.docker.createContainer({
       Image: systemConfig.BOT_IMAGE,
       Env: env,
       HostConfig: {
         ShmSize: 2 * 1024 * 1024 * 1024,
-        Binds: [`${recordingsPath}:/app/recordings`],
+        Binds: [
+          `${systemConfig.RECORDINGS_HOST_PATH}:/app/recordings`,
+          `${systemConfig.SCREENSHOTS_HOST_PATH}:/app/screenshots`,
+        ],
       },
     });
 

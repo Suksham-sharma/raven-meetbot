@@ -20,11 +20,11 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - BOT_IMAGE=meet-bot:latest
-      - RECORDINGS_PATH=/recordings
+      - RECORDINGS_HOST_PATH=${PWD}/recordings
+      - SCREENSHOTS_HOST_PATH=${PWD}/screenshots
       - MAX_CONCURRENT_BOTS=10
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./recordings:/recordings
     depends_on:
       - redis
 
