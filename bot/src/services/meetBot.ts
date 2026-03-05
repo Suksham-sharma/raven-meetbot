@@ -9,6 +9,17 @@ import {
   VIEWPORT,
 } from "../config/constants";
 
+type BotState =
+  | "joining_meeting"
+  | "waiting_admission"
+  | "admitted"
+  | "recording"
+  | "alone_detected"
+  | "ended"
+  | "kicked"
+  | "error"
+  | "timeout";
+
 class MeetBot {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
@@ -19,17 +30,25 @@ class MeetBot {
   private startTime: number = 0;
   private shouldStop = false;
 
+  private reportStatus(state: BotState, extra?: Record<string, unknown>): void {
+    const payload = { state, timestamp: new Date().toISOString(), ...extra };
+    console.log(`[BOT_STATUS] ${JSON.stringify(payload)}`);
+  }
+
   async start(): Promise<void> {
     try {
+      this.reportStatus("joining_meeting");
       await this.launchBrowser();
       await this.validateMeeting();
       await this.attemptJoin();
       await this.waitForAdmission();
 
-      console.log("[Bot] Successfully joined meeting, starting recording");
-
       await this.startRecording();
       await this.monitorAndAutoExit();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.reportStatus("error", { reason: message });
+      throw err;
     } finally {
       await this.cleanup();
     }
@@ -164,7 +183,7 @@ class MeetBot {
 
   private async waitForAdmission(): Promise<void> {
     const page = this.getPage();
-    console.log("[Bot] Waiting for admission...");
+    this.reportStatus("waiting_admission");
 
     const deadline = Date.now() + TIMEOUTS.ADMISSION_TIMEOUT;
 
@@ -173,7 +192,7 @@ class MeetBot {
       for (const selector of MEET_SELECTORS.IN_MEETING_INDICATORS) {
         const el = page.locator(selector).first();
         if (await el.isVisible({ timeout: 500 }).catch(() => false)) {
-          console.log("[Bot] Admitted to meeting");
+          this.reportStatus("admitted");
           return;
         }
       }
@@ -182,11 +201,6 @@ class MeetBot {
       const bodyText = await page.textContent("body");
       if (bodyText?.includes(MEET_SELECTORS.DECLINE_TEXT)) {
         throw new Error("Entry was declined by the host");
-      }
-
-      // Log waiting status
-      if (bodyText?.includes(MEET_SELECTORS.WAITING_TEXT)) {
-        console.log("[Bot] Waiting for host to admit...");
       }
 
       await page.waitForTimeout(TIMEOUTS.ADMISSION_POLL_INTERVAL);
@@ -338,7 +352,7 @@ class MeetBot {
 
       this.isRecording = true;
       this.startTime = Date.now();
-      console.log("[Bot] Recording started");
+      this.reportStatus("recording");
     } catch (err) {
       // Close the write stream if recording setup fails
       this.writeStream.end();
@@ -350,7 +364,6 @@ class MeetBot {
 
   private async monitorAndAutoExit(): Promise<void> {
     const page = this.getPage();
-    console.log("[Bot] Monitoring meeting...");
 
     let aloneStartTime: number | null = null;
     let gracePeriodPassed = false;
@@ -360,20 +373,20 @@ class MeetBot {
       if (botConfig.MAX_DURATION_MINUTES) {
         const elapsed = (Date.now() - this.startTime) / 60_000;
         if (elapsed >= botConfig.MAX_DURATION_MINUTES) {
-          console.log("[Bot] Max duration reached, exiting");
+          this.reportStatus("timeout");
           return;
         }
       }
 
       // Kick detection
       if (await this.isKicked(page)) {
-        console.log("[Bot] Kicked from meeting, exiting");
+        this.reportStatus("kicked");
         return;
       }
 
       // URL-based kick detection
       if (page.url().includes("/bye")) {
-        console.log("[Bot] Redirected to /bye, meeting ended");
+        this.reportStatus("ended");
         return;
       }
 
@@ -387,7 +400,7 @@ class MeetBot {
       if (count !== null && count <= 1) {
         if (!aloneStartTime) {
           aloneStartTime = Date.now();
-          console.log("[Bot] Alone in meeting, starting exit timer");
+          this.reportStatus("alone_detected");
         } else if (!gracePeriodPassed) {
           if (Date.now() - aloneStartTime >= TIMEOUTS.ALONE_GRACE_PERIOD) {
             gracePeriodPassed = true;
@@ -397,13 +410,10 @@ class MeetBot {
           Date.now() - aloneStartTime >=
           TIMEOUTS.ALONE_GRACE_PERIOD + TIMEOUTS.ALONE_EXIT_DELAY
         ) {
-          console.log("[Bot] Alone too long, exiting");
+          this.reportStatus("ended", { reason: "alone_too_long" });
           return;
         }
       } else {
-        if (aloneStartTime) {
-          console.log("[Bot] No longer alone, resetting timer");
-        }
         aloneStartTime = null;
         gracePeriodPassed = false;
       }

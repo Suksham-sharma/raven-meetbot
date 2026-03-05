@@ -1,10 +1,16 @@
 import Docker from "dockerode";
+import { PassThrough } from "stream";
 import systemConfig from "../config";
 
 interface BotContainerOptions {
   url: string;
   botName: string;
   maxDurationMinutes: number | null;
+}
+
+interface SpawnResult {
+  stdout: PassThrough;
+  wait: () => Promise<number>;
 }
 
 class DockerManager {
@@ -24,7 +30,7 @@ class DockerManager {
     return DockerManager.instance;
   }
 
-  async spawnBot(options: BotContainerOptions): Promise<number> {
+  async spawnBot(options: BotContainerOptions): Promise<SpawnResult> {
     const { url, botName, maxDurationMinutes } = options;
 
     const env = [
@@ -52,15 +58,22 @@ class DockerManager {
     this.runningContainers.set(containerId, container);
     console.log(`[DockerManager] Starting container ${containerId.slice(0, 12)} for ${url}`);
 
+    const stdout = new PassThrough();
+    const rawStream = await container.attach({ stream: true, stdout: true, stderr: true });
+    this.docker.modem.demuxStream(rawStream, stdout, stdout);
+
     await container.start();
 
-    const { StatusCode } = await container.wait();
-    console.log(`[DockerManager] Container ${containerId.slice(0, 12)} exited with code ${StatusCode}`);
+    const wait = async (): Promise<number> => {
+      const { StatusCode } = await container.wait();
+      stdout.end();
+      console.log(`[DockerManager] Container ${containerId.slice(0, 12)} exited with code ${StatusCode}`);
+      this.runningContainers.delete(containerId);
+      await container.remove();
+      return StatusCode;
+    };
 
-    this.runningContainers.delete(containerId);
-    await container.remove();
-
-    return StatusCode;
+    return { stdout, wait };
   }
 
   async stopAll(): Promise<void> {
