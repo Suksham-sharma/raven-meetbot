@@ -1,6 +1,4 @@
 import { chromium, Browser, BrowserContext, Page } from "playwright";
-import path from "path";
-import fs from "fs";
 import botConfig from "../config";
 import {
   CHROME_ARGS,
@@ -8,6 +6,8 @@ import {
   TIMEOUTS,
   VIEWPORT,
 } from "../config/constants";
+import R2Uploader from "./r2Uploader";
+import Transcriber from "./transcriber";
 
 type BotState =
   | "joining_meeting"
@@ -18,17 +18,27 @@ type BotState =
   | "ended"
   | "kicked"
   | "error"
-  | "timeout";
+  | "timeout"
+  | "finalizing_upload"
+  | "complete";
 
 class MeetBot {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private isRecording = false;
-  private recordingPath: string | null = null;
-  private writeStream: fs.WriteStream | null = null;
   private startTime: number = 0;
   private shouldStop = false;
+  private meetingId: string;
+  private r2Uploader: R2Uploader | null = null;
+  private transcriber: Transcriber | null = null;
+
+  constructor() {
+    const meetingCode = (botConfig.MEET_URL.split("/").pop() || "recording").split("?")[0];
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}-${String(now.getSeconds()).padStart(2, "0")}`;
+    this.meetingId = `${meetingCode}_${timestamp}`;
+  }
 
   private reportStatus(state: BotState, extra?: Record<string, unknown>): void {
     const payload = { state, timestamp: new Date().toISOString(), ...extra };
@@ -213,35 +223,43 @@ class MeetBot {
   private async startRecording(): Promise<void> {
     const page = this.getPage();
 
-    const meetingId =
-      (botConfig.MEET_URL.split("/").pop() || "recording").split("?")[0];
-    const now = new Date();
-    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}-${String(now.getSeconds()).padStart(2, "0")}`;
-    const filename = `${meetingId}_${timestamp}.webm`;
+    console.log(`[Bot] Starting recording → ${this.meetingId}`);
 
-    const recordingsDir = path.resolve("/app/recordings");
-    if (!fs.existsSync(recordingsDir)) {
-      fs.mkdirSync(recordingsDir, { recursive: true });
+    // Initialize R2 uploader for video recording
+    if (!botConfig.R2_ENDPOINT || !botConfig.R2_ACCESS_KEY_ID || !botConfig.R2_SECRET_ACCESS_KEY) {
+      throw new Error(
+        "R2 storage is not configured (R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY required). " +
+        "Cannot record without storage."
+      );
     }
-    this.recordingPath = path.join(recordingsDir, filename);
-    this.writeStream = fs.createWriteStream(this.recordingPath);
+    this.r2Uploader = new R2Uploader(`${this.meetingId}.webm`);
+    await this.r2Uploader.init();
 
-    console.log(`[Bot] Starting recording → ${filename}`);
+    // Initialize Deepgram transcriber
+    const useTranscription = Boolean(botConfig.DEEPGRAM_API_KEY);
+    if (useTranscription) {
+      this.transcriber = new Transcriber(this.meetingId);
+      await this.transcriber.start();
+    }
 
-    // Expose chunk callback — receives base64 string from browser
-    await page.exposeFunction("__saveChunk", (base64Data: string) => {
+    // Expose chunk callback for video recording — receives base64 string from browser
+    await page.exposeFunction("__saveChunk", async (base64Data: string) => {
       const buffer = Buffer.from(base64Data, "base64");
-      this.writeStream?.write(buffer);
+      if (this.r2Uploader) {
+        await this.r2Uploader.addChunk(buffer);
+      }
+    });
+
+    // Expose audio chunk callback for transcription
+    await page.exposeFunction("__sendAudioChunk", (base64Data: string) => {
+      if (this.transcriber) {
+        const buffer = Buffer.from(base64Data, "base64");
+        this.transcriber.sendAudio(buffer);
+      }
     });
 
     await page.exposeFunction("__finishRecording", () => {
-      return new Promise<void>((resolve) => {
-        if (this.writeStream) {
-          this.writeStream.end(resolve);
-        } else {
-          resolve();
-        }
-      });
+      return Promise.resolve();
     });
 
     // Wait for media elements to load, then trigger user gesture for MediaRecorder
@@ -252,8 +270,10 @@ class MeetBot {
       // Gesture may fail, non-critical
     }
 
+    const hasTranscription = useTranscription;
+
     try {
-      await page.evaluate(async () => {
+      await page.evaluate(async (enableTranscription: boolean) => {
         console.log("Browser: Starting composite stream capture...");
 
         // 1. Tab capture for video only — no audio device in Docker (Xvfb only)
@@ -316,7 +336,7 @@ class MeetBot {
         window._audioScanTimer = audioScanTimer as unknown as number;
         window._audioCtx = audioCtx;
 
-        // 4. MediaRecorder with sequential write queue to prevent out-of-order chunks
+        // 4. Video MediaRecorder — sequential write queue to prevent out-of-order chunks
         const recorder = new MediaRecorder(compositeStream, {
           mimeType: "video/webm",
         });
@@ -338,25 +358,63 @@ class MeetBot {
         };
 
         recorder.onstop = () => {
-          console.log("Browser: MediaRecorder stopped");
+          console.log("Browser: Video MediaRecorder stopped");
           if (window._audioScanTimer) clearInterval(window._audioScanTimer);
           if (window._audioCtx) window._audioCtx.close();
         };
 
         recorder.start(1000);
-        console.log("Browser: MediaRecorder started");
+        console.log("Browser: Video MediaRecorder started");
 
         window._mediaRecorder = recorder;
         window._recordingStream = compositeStream;
-      });
+
+        // 5. Audio-only MediaRecorder for Deepgram transcription
+        if (enableTranscription && destination.stream.getAudioTracks().length > 0) {
+          const audioRecorder = new MediaRecorder(destination.stream, {
+            mimeType: "audio/webm;codecs=opus",
+          });
+
+          let audioWriteChain = Promise.resolve();
+
+          audioRecorder.ondataavailable = (e: BlobEvent) => {
+            if (e.data.size > 0) {
+              audioWriteChain = audioWriteChain.then(async () => {
+                const buffer = await e.data.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                let binary = "";
+                for (let i = 0; i < bytes.length; i++) {
+                  binary += String.fromCharCode(bytes[i]);
+                }
+                window.__sendAudioChunk(btoa(binary));
+              });
+            }
+          };
+
+          audioRecorder.onstop = () => {
+            console.log("Browser: Audio MediaRecorder stopped");
+          };
+
+          audioRecorder.start(250); // 250ms chunks for lower transcription latency
+          console.log("Browser: Audio MediaRecorder started (for transcription)");
+
+          window._audioRecorder = audioRecorder;
+        }
+      }, hasTranscription);
 
       this.isRecording = true;
       this.startTime = Date.now();
       this.reportStatus("recording");
     } catch (err) {
-      // Close the write stream if recording setup fails
-      this.writeStream.end();
-      this.writeStream = null;
+      // Clean up if recording setup fails
+      if (this.r2Uploader) {
+        await this.r2Uploader.abort();
+        this.r2Uploader = null;
+      }
+      if (this.transcriber) {
+        await this.transcriber.stop();
+        this.transcriber = null;
+      }
       throw err;
     }
   }
@@ -473,10 +531,17 @@ class MeetBot {
   private async cleanup(): Promise<void> {
     console.log("[Bot] Cleaning up...");
 
-    // Stop browser-side recording
+    // Stop browser-side recording (both video and audio recorders)
     if (this.isRecording && this.page) {
       try {
         await this.page.evaluate(async (stopWait: number) => {
+          // Stop audio recorder first (transcription)
+          const audioRecorder = window._audioRecorder;
+          if (audioRecorder && audioRecorder.state !== "inactive") {
+            audioRecorder.stop();
+          }
+
+          // Stop video recorder
           const recorder = window._mediaRecorder;
           if (recorder && recorder.state !== "inactive") {
             recorder.stop();
@@ -491,12 +556,32 @@ class MeetBot {
       }
     }
 
-    // Always flush and close the write stream from Node side — even if page.evaluate failed
-    if (this.writeStream) {
-      await new Promise<void>((resolve) => this.writeStream!.end(resolve));
-      this.writeStream = null;
-      console.log(`[Bot] Recording saved → ${this.recordingPath}`);
+    // Finalize uploads and transcription
+    this.reportStatus("finalizing_upload");
+
+    // Stop transcriber — flushes remaining segments to R2
+    if (this.transcriber) {
+      try {
+        const segments = await this.transcriber.stop();
+        console.log(`[Bot] Transcription complete: ${segments.length} segments`);
+      } catch (err) {
+        console.error("[Bot] Error stopping transcriber:", err);
+      }
+      this.transcriber = null;
     }
+
+    // Complete R2 multipart upload for recording
+    if (this.r2Uploader) {
+      try {
+        const key = await this.r2Uploader.complete();
+        console.log(`[Bot] Recording uploaded to R2: ${key}`);
+      } catch (err) {
+        console.error("[Bot] Error completing R2 upload:", err);
+      }
+      this.r2Uploader = null;
+    }
+
+    this.reportStatus("complete");
 
     // Leave the call
     if (this.page) {
