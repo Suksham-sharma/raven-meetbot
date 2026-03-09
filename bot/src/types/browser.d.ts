@@ -1,7 +1,9 @@
 interface MeetBotWindow {
   __saveChunk: (data: string) => void;
+  __sendAudioChunk: (data: string) => void;
   __finishRecording: () => Promise<void>;
   _mediaRecorder?: MediaRecorder;
+  _audioRecorder?: MediaRecorder;
   _recordingStream?: MediaStream;
   _audioScanTimer?: number;
   _audioCtx?: AudioContext;

@@ -10,4 +10,10 @@ export interface StatusEvent {
   [key: string]: unknown;
 }
 
-export const TERMINAL_STATES = new Set(["ended", "kicked", "error", "timeout"]);
+export const TERMINAL_STATES = new Set([
+  "ended",
+  "kicked",
+  "error",
+  "timeout",
+  "complete",
+]);

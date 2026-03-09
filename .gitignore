@@ -6,3 +6,4 @@ dist/
 recordings/
 .DS_Store
 *.log
+CLAUDE.md

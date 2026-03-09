@@ -42,13 +42,26 @@ class DockerManager {
       env.push(`MAX_DURATION_MINUTES=${maxDurationMinutes}`);
     }
 
+    if (systemConfig.R2_ENDPOINT) {
+      env.push(
+        `R2_ENDPOINT=${systemConfig.R2_ENDPOINT}`,
+        `R2_ACCESS_KEY_ID=${systemConfig.R2_ACCESS_KEY_ID}`,
+        `R2_SECRET_ACCESS_KEY=${systemConfig.R2_SECRET_ACCESS_KEY}`,
+        `R2_BUCKET=${systemConfig.R2_BUCKET}`,
+        `R2_REGION=${systemConfig.R2_REGION}`,
+      );
+    }
+
+    if (systemConfig.DEEPGRAM_API_KEY) {
+      env.push(`DEEPGRAM_API_KEY=${systemConfig.DEEPGRAM_API_KEY}`);
+    }
+
     const container = await this.docker.createContainer({
       Image: systemConfig.BOT_IMAGE,
       Env: env,
       HostConfig: {
         ShmSize: 2 * 1024 * 1024 * 1024,
         Binds: [
-          `${systemConfig.RECORDINGS_HOST_PATH}:/app/recordings`,
           `${systemConfig.SCREENSHOTS_HOST_PATH}:/app/screenshots`,
         ],
       },

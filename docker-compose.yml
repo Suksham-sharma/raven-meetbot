@@ -20,9 +20,14 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - BOT_IMAGE=meet-bot:latest
-      - RECORDINGS_HOST_PATH=${PWD}/recordings
       - SCREENSHOTS_HOST_PATH=${PWD}/screenshots
       - MAX_CONCURRENT_BOTS=10
+      - R2_ENDPOINT=${R2_ENDPOINT}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET=${R2_BUCKET:-meeting-recordings}
+      - R2_REGION=${R2_REGION:-auto}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
