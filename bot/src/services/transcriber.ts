@@ -195,6 +195,10 @@ class Transcriber {
   getSegments(): TranscriptSegment[] {
     return this.segments;
   }
+
+  getProcessedSeconds(): number {
+    return Math.round(this.segments.reduce((max, s) => Math.max(max, s.end), 0));
+  }
 }
 
 export default Transcriber;

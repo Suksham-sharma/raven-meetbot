@@ -8,6 +8,13 @@ class QueueManager {
   private constructor() {
     this.meetQueue = new Queue("gmeet-bot", {
       connection: { url: systemConfig.REDIS_URL },
+      defaultJobOptions: {
+        attempts: systemConfig.JOB_ATTEMPTS,
+        backoff: { type: "exponential", delay: systemConfig.JOB_BACKOFF_MS },
+        // Retain failed jobs as a dead-letter queue.
+        removeOnComplete: { age: 86400, count: 1000 },
+        removeOnFail: false,
+      },
     });
   }
 

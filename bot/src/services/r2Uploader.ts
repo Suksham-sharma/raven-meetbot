@@ -21,6 +21,7 @@ class R2Uploader {
   private partNumber = 0;
   private buffer: Buffer[] = [];
   private bufferSize = 0;
+  private totalBytes = 0;
   private completed = false;
   private flushPromise: Promise<void> = Promise.resolve();
 
@@ -99,6 +100,7 @@ class R2Uploader {
         );
 
         this.parts.push({ ETag, PartNumber: partNumber });
+        this.totalBytes += body.length;
         return;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -163,6 +165,10 @@ class R2Uploader {
       `[R2] Upload complete: ${this.key} (${this.parts.length} parts)`
     );
     return this.key;
+  }
+
+  getTotalBytes(): number {
+    return this.totalBytes;
   }
 
   async abort(): Promise<void> {

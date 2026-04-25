@@ -45,6 +45,13 @@ class MeetBot {
     console.log(`[BOT_STATUS] ${JSON.stringify(payload)}`);
   }
 
+  private reportMetrics(metrics: {
+    deepgramSeconds: number;
+    r2BytesStored: number;
+  }): void {
+    console.log(`[BOT_METRICS] ${JSON.stringify(metrics)}`);
+  }
+
   async start(): Promise<void> {
     try {
       this.reportStatus("joining_meeting");
@@ -556,32 +563,44 @@ class MeetBot {
       }
     }
 
-    // Finalize uploads and transcription
-    this.reportStatus("finalizing_upload");
+    // Only finalize if recording started — terminal states on a pre-join failure block retries.
+    if (this.isRecording || this.r2Uploader) {
+      this.reportStatus("finalizing_upload");
 
-    // Stop transcriber — flushes remaining segments to R2
-    if (this.transcriber) {
-      try {
-        const segments = await this.transcriber.stop();
-        console.log(`[Bot] Transcription complete: ${segments.length} segments`);
-      } catch (err) {
-        console.error("[Bot] Error stopping transcriber:", err);
+      let deepgramSeconds = 0;
+      if (this.transcriber) {
+        try {
+          const segments = await this.transcriber.stop();
+          deepgramSeconds = this.transcriber.getProcessedSeconds();
+          console.log(`[Bot] Transcription complete: ${segments.length} segments`);
+        } catch (err) {
+          console.error("[Bot] Error stopping transcriber:", err);
+        }
+        this.transcriber = null;
       }
-      this.transcriber = null;
-    }
 
-    // Complete R2 multipart upload for recording
-    if (this.r2Uploader) {
-      try {
-        const key = await this.r2Uploader.complete();
-        console.log(`[Bot] Recording uploaded to R2: ${key}`);
-      } catch (err) {
-        console.error("[Bot] Error completing R2 upload:", err);
+      let recordingKey: string | null = null;
+      let r2BytesStored = 0;
+      if (this.r2Uploader) {
+        try {
+          recordingKey = await this.r2Uploader.complete();
+          r2BytesStored = this.r2Uploader.getTotalBytes();
+          console.log(
+            `[Bot] Recording uploaded to R2: ${recordingKey} (${r2BytesStored} bytes)`
+          );
+        } catch (err) {
+          console.error("[Bot] Error completing R2 upload:", err);
+        }
+        this.r2Uploader = null;
       }
-      this.r2Uploader = null;
-    }
 
-    this.reportStatus("complete");
+      this.reportMetrics({ deepgramSeconds, r2BytesStored });
+
+      this.reportStatus(
+        "complete",
+        recordingKey ? { recording: recordingKey } : undefined
+      );
+    }
 
     // Leave the call
     if (this.page) {

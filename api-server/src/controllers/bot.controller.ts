@@ -10,13 +10,25 @@ export const getBotStatus = asyncHandler(async (req: Request, res: Response) => 
   if (!job) throw new NotFoundError("Bot not found");
 
   const jobState = await job.getState();
-  const progress = (job.progress as { state?: string; timeline?: Array<{ state: string; timestamp: string }> }) || {};
+  const progress = (job.progress as {
+    state?: string;
+    timeline?: Array<{ state: string; timestamp: string }>;
+    recording?: string | null;
+    metrics?: { deepgramSeconds?: number; r2BytesStored?: number };
+  }) || {};
 
   const currentState = progress.state || mapJobState(jobState);
   const timeline = progress.timeline || [];
 
   const isCompleted = jobState === "completed" || jobState === "failed";
   const createdAt = new Date(job.timestamp).toISOString();
+
+  // computeMs is the last attempt's container lifetime, from BullMQ job timing.
+  const botMetrics = progress.metrics || {};
+  const computeMs =
+    job.finishedOn && job.processedOn
+      ? job.finishedOn - job.processedOn
+      : null;
 
   res.status(200).json({
     jobId: job.id,
@@ -28,7 +40,13 @@ export const getBotStatus = asyncHandler(async (req: Request, res: Response) => 
     duration: isCompleted && job.finishedOn
       ? Math.round((job.finishedOn - job.timestamp) / 1000)
       : null,
-    recording: null,
+    recording: progress.recording || null,
+    cost: {
+      deepgramSeconds: botMetrics.deepgramSeconds ?? null,
+      r2BytesStored: botMetrics.r2BytesStored ?? null,
+      computeMs,
+    },
+    failedReason: jobState === "failed" ? job.failedReason ?? null : null,
   });
 });
 
