@@ -18,6 +18,12 @@ const botConfig = {
 
   // Deepgram
   DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY || "",
+
+  // Who-was-speaking-when capture, on by default
+  SPEAKER_TIMELINE: process.env.SPEAKER_TIMELINE !== "false",
+
+  // Bot's Google session (created by `pnpm auth`); joins anonymously if absent
+  AUTH_STATE_PATH: process.env.AUTH_STATE_PATH || ".auth/state.json",
 };
 
 export default botConfig;

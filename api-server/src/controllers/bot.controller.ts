@@ -14,6 +14,7 @@ export const getBotStatus = asyncHandler(async (req: Request, res: Response) => 
     state?: string;
     timeline?: Array<{ state: string; timestamp: string }>;
     recording?: string | null;
+    speakers?: string | null;
     metrics?: { deepgramSeconds?: number; r2BytesStored?: number };
   }) || {};
 
@@ -41,6 +42,7 @@ export const getBotStatus = asyncHandler(async (req: Request, res: Response) => 
       ? Math.round((job.finishedOn - job.timestamp) / 1000)
       : null,
     recording: progress.recording || null,
+    speakers: progress.speakers || null,
     cost: {
       deepgramSeconds: botMetrics.deepgramSeconds ?? null,
       r2BytesStored: botMetrics.r2BytesStored ?? null,

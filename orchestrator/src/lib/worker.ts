@@ -24,17 +24,19 @@ const processJob = async (job: Job<MeetBotJob>) => {
   const prior =
     (job.progress as {
       recording?: string | null;
+      speakers?: string | null;
       metrics?: BotMetrics | null;
     }) || {};
   const timeline: StatusEvent[] = [];
   let recording: string | null = prior.recording ?? null;
+  let speakers: string | null = prior.speakers ?? null;
   let metrics: BotMetrics | null = prior.metrics ?? null;
 
   const lastState = () =>
     timeline.length ? timeline[timeline.length - 1].state : "dispatched";
 
   const persist = (state: string) =>
-    job.updateProgress({ state, timeline, recording, metrics });
+    job.updateProgress({ state, timeline, recording, speakers, metrics });
 
   const sync = async (event: StatusEvent) => {
     timeline.push(event);
@@ -56,6 +58,7 @@ const processJob = async (job: Job<MeetBotJob>) => {
         try {
           const event: StatusEvent = JSON.parse(line.slice(STATUS_PREFIX.length));
           if (typeof event.recording === "string") recording = event.recording;
+          if (typeof event.speakers === "string") speakers = event.speakers;
           await sync(event);
         } catch {}
       } else if (line.startsWith(METRICS_PREFIX)) {
