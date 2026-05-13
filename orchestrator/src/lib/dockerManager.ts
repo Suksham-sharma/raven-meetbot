@@ -56,14 +56,25 @@ class DockerManager {
       env.push(`DEEPGRAM_API_KEY=${systemConfig.DEEPGRAM_API_KEY}`);
     }
 
+    const binds = [`${systemConfig.SCREENSHOTS_HOST_PATH}:/app/screenshots`];
+
+    // Signed-in Google session, read-only — avoids Meet's anonymous rate limit.
+    if (systemConfig.AUTH_STATE_HOST_PATH) {
+      binds.push(`${systemConfig.AUTH_STATE_HOST_PATH}:/app/.auth:ro`);
+      env.push(`AUTH_STATE_PATH=/app/.auth/state.json`);
+    }
+
+    // Persist recordings past container removal when not using R2.
+    if (systemConfig.RECORDINGS_HOST_PATH) {
+      binds.push(`${systemConfig.RECORDINGS_HOST_PATH}:/app/recordings`);
+    }
+
     const container = await this.docker.createContainer({
       Image: systemConfig.BOT_IMAGE,
       Env: env,
       HostConfig: {
         ShmSize: 2 * 1024 * 1024 * 1024,
-        Binds: [
-          `${systemConfig.SCREENSHOTS_HOST_PATH}:/app/screenshots`,
-        ],
+        Binds: binds,
       },
     });
 

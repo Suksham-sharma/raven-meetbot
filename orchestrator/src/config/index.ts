@@ -7,6 +7,13 @@ const systemConfig = {
   SCREENSHOTS_HOST_PATH: process.env.SCREENSHOTS_HOST_PATH || "./screenshots",
   MAX_CONCURRENT_BOTS: Number(process.env.MAX_CONCURRENT_BOTS) || 10,
 
+  // Host dir with the bot's Google session (.auth/state.json) — mounted so
+  // orchestrated containers join signed-in. Empty = anonymous.
+  AUTH_STATE_HOST_PATH: process.env.AUTH_STATE_HOST_PATH || "",
+  // Host dir for recordings when R2 is unconfigured — otherwise local files
+  // die with the ephemeral container.
+  RECORDINGS_HOST_PATH: process.env.RECORDINGS_HOST_PATH || "",
+
   R2_ENDPOINT: process.env.R2_ENDPOINT || "",
   R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID || "",
   R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY || "",

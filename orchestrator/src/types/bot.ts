@@ -8,6 +8,7 @@ export interface StatusEvent {
   state: string;
   timestamp: string;
   recording?: string;
+  speakers?: string;
   [key: string]: unknown;
 }
 

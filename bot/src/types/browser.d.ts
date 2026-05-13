@@ -7,6 +7,11 @@ interface MeetBotWindow {
   _recordingStream?: MediaStream;
   _audioScanTimer?: number;
   _audioCtx?: AudioContext;
+
+  // Speaker timeline
+  __pcs?: RTCPeerConnection[];
+  __speakerEvent: (line: string) => void;
+  __speakerStop?: () => void;
 }
 
 interface DisplayMediaOptions extends DisplayMediaStreamOptions {

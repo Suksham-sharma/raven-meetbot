@@ -7,3 +7,4 @@ recordings/
 .DS_Store
 *.log
 CLAUDE.md
+bot/.auth/

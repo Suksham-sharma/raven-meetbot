@@ -1,3 +1,4 @@
+import { existsSync } from "fs";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import botConfig from "../config";
 import {
@@ -6,8 +7,10 @@ import {
   TIMEOUTS,
   VIEWPORT,
 } from "../config/constants";
-import R2Uploader from "./r2Uploader";
+import { createStorageSink, StorageSink } from "./storageSink";
 import Transcriber from "./transcriber";
+import SpeakerTimeline from "./speakerTimeline";
+import { installPcTap } from "../browser/pcTap";
 
 type BotState =
   | "joining_meeting"
@@ -30,8 +33,9 @@ class MeetBot {
   private startTime: number = 0;
   private shouldStop = false;
   private meetingId: string;
-  private r2Uploader: R2Uploader | null = null;
+  private recordingSink: StorageSink | null = null;
   private transcriber: Transcriber | null = null;
+  private speakerTimeline: SpeakerTimeline | null = null;
 
   constructor() {
     const meetingCode = (botConfig.MEET_URL.split("/").pop() || "recording").split("?")[0];
@@ -84,10 +88,23 @@ class MeetBot {
       args: CHROME_ARGS,
     });
 
+    // Signed-in session from `pnpm auth` — anonymous knocks get rate-limited.
+    const hasAuthState =
+      botConfig.AUTH_STATE_PATH && existsSync(botConfig.AUTH_STATE_PATH);
+    if (hasAuthState) {
+      console.log(`[Bot] Using Google session from ${botConfig.AUTH_STATE_PATH}`);
+    } else {
+      console.log("[Bot] No auth state found — joining anonymously");
+    }
+
     this.context = await this.browser.newContext({
       permissions: ["camera", "microphone"],
       viewport: VIEWPORT,
+      ...(hasAuthState ? { storageState: botConfig.AUTH_STATE_PATH } : {}),
     });
+
+    // speaker timeline reads RTP contributing sources via this tap
+    await installPcTap(this.context);
 
     this.page = await this.context.newPage();
     console.log("[Bot] Browser launched");
@@ -214,10 +231,12 @@ class MeetBot {
         }
       }
 
-      // Check if entry was declined
+      // Check if entry was declined, expired, or blocked
       const bodyText = await page.textContent("body");
-      if (bodyText?.includes(MEET_SELECTORS.DECLINE_TEXT)) {
-        throw new Error("Entry was declined by the host");
+      for (const text of MEET_SELECTORS.DECLINE_TEXTS) {
+        if (bodyText?.includes(text)) {
+          throw new Error(`Join request rejected: "${text}"`);
+        }
       }
 
       await page.waitForTimeout(TIMEOUTS.ADMISSION_POLL_INTERVAL);
@@ -232,15 +251,9 @@ class MeetBot {
 
     console.log(`[Bot] Starting recording → ${this.meetingId}`);
 
-    // Initialize R2 uploader for video recording
-    if (!botConfig.R2_ENDPOINT || !botConfig.R2_ACCESS_KEY_ID || !botConfig.R2_SECRET_ACCESS_KEY) {
-      throw new Error(
-        "R2 storage is not configured (R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY required). " +
-        "Cannot record without storage."
-      );
-    }
-    this.r2Uploader = new R2Uploader(`${this.meetingId}.webm`);
-    await this.r2Uploader.init();
+    // R2 when configured, local recordings/ directory otherwise
+    this.recordingSink = createStorageSink(`${this.meetingId}.webm`);
+    await this.recordingSink.init();
 
     // Initialize Deepgram transcriber
     const useTranscription = Boolean(botConfig.DEEPGRAM_API_KEY);
@@ -252,8 +265,8 @@ class MeetBot {
     // Expose chunk callback for video recording — receives base64 string from browser
     await page.exposeFunction("__saveChunk", async (base64Data: string) => {
       const buffer = Buffer.from(base64Data, "base64");
-      if (this.r2Uploader) {
-        await this.r2Uploader.addChunk(buffer);
+      if (this.recordingSink) {
+        await this.recordingSink.addChunk(buffer);
       }
     });
 
@@ -411,12 +424,30 @@ class MeetBot {
 
       this.isRecording = true;
       this.startTime = Date.now();
+
+      // timeline failure must never take the recording down
+      if (botConfig.SPEAKER_TIMELINE) {
+        try {
+          this.speakerTimeline = new SpeakerTimeline(this.meetingId);
+          await this.speakerTimeline.start(page, this.startTime);
+        } catch (err) {
+          console.error(
+            "[Speakers] Tracker failed to start (recording continues):",
+            err
+          );
+          if (this.speakerTimeline) {
+            await this.speakerTimeline.abort().catch(() => {});
+            this.speakerTimeline = null;
+          }
+        }
+      }
+
       this.reportStatus("recording");
     } catch (err) {
       // Clean up if recording setup fails
-      if (this.r2Uploader) {
-        await this.r2Uploader.abort();
-        this.r2Uploader = null;
+      if (this.recordingSink) {
+        await this.recordingSink.abort();
+        this.recordingSink = null;
       }
       if (this.transcriber) {
         await this.transcriber.stop();
@@ -564,8 +595,16 @@ class MeetBot {
     }
 
     // Only finalize if recording started — terminal states on a pre-join failure block retries.
-    if (this.isRecording || this.r2Uploader) {
+    if (this.isRecording || this.recordingSink) {
       this.reportStatus("finalizing_upload");
+
+      let speakersKey: string | null = null;
+      if (this.speakerTimeline) {
+        speakersKey = await this.speakerTimeline
+          .stop(this.page)
+          .catch(() => null);
+        this.speakerTimeline = null;
+      }
 
       let deepgramSeconds = 0;
       if (this.transcriber) {
@@ -581,25 +620,25 @@ class MeetBot {
 
       let recordingKey: string | null = null;
       let r2BytesStored = 0;
-      if (this.r2Uploader) {
+      if (this.recordingSink) {
         try {
-          recordingKey = await this.r2Uploader.complete();
-          r2BytesStored = this.r2Uploader.getTotalBytes();
+          recordingKey = await this.recordingSink.complete();
+          r2BytesStored = this.recordingSink.getTotalBytes();
           console.log(
-            `[Bot] Recording uploaded to R2: ${recordingKey} (${r2BytesStored} bytes)`
+            `[Bot] Recording stored: ${recordingKey} (${r2BytesStored} bytes)`
           );
         } catch (err) {
-          console.error("[Bot] Error completing R2 upload:", err);
+          console.error("[Bot] Error completing recording:", err);
         }
-        this.r2Uploader = null;
+        this.recordingSink = null;
       }
 
       this.reportMetrics({ deepgramSeconds, r2BytesStored });
 
-      this.reportStatus(
-        "complete",
-        recordingKey ? { recording: recordingKey } : undefined
-      );
+      this.reportStatus("complete", {
+        ...(recordingKey ? { recording: recordingKey } : {}),
+        ...(speakersKey ? { speakers: speakersKey } : {}),
+      });
     }
 
     // Leave the call

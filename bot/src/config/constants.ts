@@ -40,8 +40,12 @@ export const MEET_SELECTORS = {
     'button[aria-label*="Meeting details" i]',
   ],
 
-  // Decline indicators
-  DECLINE_TEXT: "denied your request to join",
+  // Host denied, request expired, or Meet blocked the knock
+  DECLINE_TEXTS: [
+    "denied your request to join",
+    "You can't join this video call",
+    "No one responded to your request",
+  ],
 
   // Waiting indicator
   WAITING_TEXT: "Please wait until a meeting host brings you into the call",
