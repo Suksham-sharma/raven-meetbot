@@ -1,10 +1,27 @@
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # Not published to the host: api-server/orchestrator reach it over the
+    # compose network as redis://redis:6379. Use `docker compose exec redis
+    # redis-cli` for host inspection.
     volumes:
       - redis-data:/data
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=meetbot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d meetbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api-server:
     build: ./api-server
@@ -12,8 +29,10 @@ services:
       - "3000:3000"
     environment:
       - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/meetbot
     depends_on:
       - redis
+      - postgres
 
   orchestrator:
     build: ./orchestrator
@@ -28,6 +47,11 @@ services:
       - R2_BUCKET=${R2_BUCKET:-meeting-recordings}
       - R2_REGION=${R2_REGION:-auto}
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      # Host paths the orchestrator binds into each spawned bot container.
+      # AUTH_STATE: signed-in Google session (anonymous joins get blocked).
+      # RECORDINGS: persist artifacts past the ephemeral container when R2 is unset.
+      - AUTH_STATE_HOST_PATH=${PWD}/bot/.auth
+      - RECORDINGS_HOST_PATH=${PWD}/recordings
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
@@ -35,3 +59,4 @@ services:
 
 volumes:
   redis-data:
+  pgdata:
