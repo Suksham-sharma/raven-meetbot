@@ -99,3 +99,56 @@ export const chapters = pgTable(
     uniqueIndex("chapters_meeting_id_seq_uq").on(table.meetingId, table.seq),
   ]
 );
+
+// Structured extraction: decisions made in a meeting (the retrieval "spine").
+// evidence_quote + timestamp span are provenance — verified by the quote-guard at
+// ingest, so a hallucinated decision (quote not found in transcript) never lands.
+export const decisions = pgTable(
+  "decisions",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    text: text("text").notNull(),
+    evidenceQuote: text("evidence_quote").notNull(),
+    speaker: text("speaker"),
+    startS: doublePrecision("start_s").notNull(),
+    endS: doublePrecision("end_s").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("decisions_meeting_id_seq_uq").on(table.meetingId, table.seq),
+    index("decisions_meeting_id").on(table.meetingId),
+  ]
+);
+
+// Structured extraction: action items (who owns what, optional due). Same provenance
+// + quote-guard contract as decisions. Feeds v2 "open action items" queries and v3's agent.
+export const actionItems = pgTable(
+  "action_items",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    text: text("text").notNull(),
+    owner: text("owner"),
+    due: text("due"),
+    evidenceQuote: text("evidence_quote").notNull(),
+    speaker: text("speaker"),
+    startS: doublePrecision("start_s").notNull(),
+    endS: doublePrecision("end_s").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("action_items_meeting_id_seq_uq").on(table.meetingId, table.seq),
+    index("action_items_meeting_id").on(table.meetingId),
+  ]
+);
