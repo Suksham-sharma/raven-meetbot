@@ -1,0 +1,68 @@
+{
+  "_comment": "Golden eval set for v2 retrieval + answer quality. relevant_ids are filled in after the seed meetings are ingested (decision/action/chunk ids); until then, relevant_meetings + expected_facts define correctness. Each question maps to a query type from PLAN.md.",
+  "meetings": [
+    "standup-planning_2026-05-20_14-30-00",
+    "eng-sync_2026-06-03_10-00-00"
+  ],
+  "questions": [
+    {
+      "id": "q1-rate-limit",
+      "type": "local_lookup",
+      "question": "What did Sarah raise as a concern about the login endpoint?",
+      "expected_facts": ["rate limiting on login", "credential stuffing"],
+      "relevant_meetings": ["standup-planning_2026-05-20_14-30-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q2-open-actions",
+      "type": "structured_aggregative",
+      "question": "What are all the open action items and who owns each?",
+      "expected_facts": ["Alex: API design doc (Friday)", "Sam: set up CI pipeline (next sprint)", "Jordan: update the auth design doc"],
+      "relevant_meetings": ["standup-planning_2026-05-20_14-30-00", "eng-sync_2026-06-03_10-00-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q3-refresh-token-current",
+      "type": "structured_recency",
+      "question": "What is our current decision on where to store refresh tokens?",
+      "expected_facts": ["httpOnly cookies", "not localStorage"],
+      "must_not_say": ["localStorage is the chosen approach"],
+      "relevant_meetings": ["eng-sync_2026-06-03_10-00-00"],
+      "relevant_ids": [],
+      "notes": "Tests recency/superseded handling: the eng-sync decision supersedes the implicit localStorage assumption."
+    },
+    {
+      "id": "q4-database",
+      "type": "decision_lookup",
+      "question": "What did we decide for the main database, and why?",
+      "expected_facts": ["Postgres", "relational integrity for billing"],
+      "relevant_meetings": ["standup-planning_2026-05-20_14-30-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q5-auth-evolution",
+      "type": "synthesis_cross_meeting",
+      "question": "How did our authentication approach evolve over the two meetings?",
+      "expected_facts": ["started with JWT access tokens", "moved refresh tokens to httpOnly cookies after a security review"],
+      "relevant_meetings": ["standup-planning_2026-05-20_14-30-00", "eng-sync_2026-06-03_10-00-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q6-deepgram-why",
+      "type": "local_lookup",
+      "question": "Who chose Deepgram for transcription and what was the reasoning?",
+      "expected_facts": ["Sam", "sub-second latency", "built-in diarization"],
+      "relevant_meetings": ["eng-sync_2026-06-03_10-00-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q7-not-discussed",
+      "type": "refusal",
+      "question": "What did we decide about the mobile app redesign?",
+      "expected_facts": ["not found / not discussed in any meeting"],
+      "expect_refusal": true,
+      "relevant_meetings": [],
+      "relevant_ids": []
+    }
+  ]
+}

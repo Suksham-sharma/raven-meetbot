@@ -1,0 +1,9 @@
+{"speaker":"Sarah","text":"Quick follow-up on auth. The security review flagged that storing refresh tokens in localStorage is risky.","start":20.0,"end":25.4,"confidence":0.95}
+{"speaker":"Alex","text":"Right. Let's move refresh tokens into httpOnly cookies instead. Keeps them out of JavaScript entirely.","start":25.8,"end":31.0,"confidence":0.96}
+{"speaker":"Sarah","text":"Agreed. So the updated decision, JWT access tokens but refresh tokens in httpOnly cookies. That supersedes what we said two weeks ago.","start":31.3,"end":38.5,"confidence":0.94}
+{"speaker":"Jordan","text":"Got it. I'll update the auth design doc to reflect that.","start":38.8,"end":41.6,"confidence":0.95}
+{"speaker":"Sarah","text":"Next, transcription provider for the meeting bot. Whisper or Deepgram?","start":41.9,"end":46.0,"confidence":0.96}
+{"speaker":"Sam","text":"Deepgram. Sub-second latency and built-in diarization. Whisper needs chunking hacks for streaming and lags.","start":46.4,"end":52.3,"confidence":0.95}
+{"speaker":"Sarah","text":"Deepgram it is. Decision made, Deepgram for real-time transcription.","start":52.6,"end":57.0,"confidence":0.97}
+{"speaker":"Sam","text":"I'll set up the CI pipeline for the bot service by next sprint.","start":57.4,"end":61.2,"confidence":0.95}
+{"speaker":"Sarah","text":"Great. Sam owns CI setup, due next sprint. Thanks everyone.","start":61.5,"end":65.0,"confidence":0.96}

@@ -1,0 +1,9 @@
+{"speaker":"Sarah","text":"Okay, let's lock down auth for the API. I'm leaning toward JWT with short-lived access tokens.","start":30.0,"end":35.2,"confidence":0.96}
+{"speaker":"Alex","text":"JWT works for me. Stateless, easy to scale. Let's go with JWT then.","start":35.5,"end":39.1,"confidence":0.95}
+{"speaker":"Jordan","text":"Agreed on JWT. We can revisit refresh token storage later.","start":39.4,"end":42.8,"confidence":0.94}
+{"speaker":"Sarah","text":"One concern, we need rate limiting on the login endpoint or we'll get hammered with credential stuffing.","start":43.0,"end":48.6,"confidence":0.93}
+{"speaker":"Alex","text":"Good point. I'll add a rate limit of five attempts per minute per IP on login.","start":49.0,"end":53.2,"confidence":0.95}
+{"speaker":"Jordan","text":"What about the main database, Postgres or Mongo?","start":54.0,"end":57.1,"confidence":0.96}
+{"speaker":"Sarah","text":"Postgres. We need relational integrity for the billing tables. Decision made, Postgres for the main database.","start":57.5,"end":63.0,"confidence":0.97}
+{"speaker":"Alex","text":"Works for me. I'll send out the API design doc by Friday so everyone can review before we start building.","start":63.4,"end":68.9,"confidence":0.95}
+{"speaker":"Sarah","text":"Perfect. So Alex owns the API design doc, due Friday. Let's wrap.","start":69.2,"end":73.0,"confidence":0.96}
