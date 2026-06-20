@@ -1,0 +1,172 @@
+{"speaker":"Marco","text":"Hey everyone, thanks for joining today! I’m Marco, and this is Dana, our solutions engineer.","start":2,"end":8.3,"confidence":0.83}
+{"speaker":"Dana","text":"Hi there!","start":8.6,"end":10,"confidence":0.83}
+{"speaker":"Lena","text":"Hi Marco, hi Dana!","start":10.4,"end":12.1,"confidence":0.84}
+{"speaker":"Raj","text":"Hey, thanks for having us.","start":12.3,"end":14.4,"confidence":0.91}
+{"speaker":"Marco","text":"Absolutely! So, just to kick things off, we’re really looking to understand some of the challenges you guys are facing, especially with your meetings.","start":14.9,"end":24.9,"confidence":0.94}
+{"speaker":"Lena","text":"Yeah, we do have a lot of meetings. I mean, our engineering team is about 40 people, and it can get pretty chaotic.","start":25.1,"end":34.7,"confidence":0.87}
+{"speaker":"Raj","text":"Right, and keeping track of everything discussed is a real challenge.","start":35,"end":39.6,"confidence":0.94}
+{"speaker":"Marco","text":"Got it. That sounds like something we can help with. Our product, Raven, is designed to simplify meeting management.","start":39.9,"end":47.8,"confidence":0.85}
+{"speaker":"Dana","text":"Exactly! It records meetings, extracts decisions, action items, and even lets you search through past meetings.","start":48.1,"end":54.8,"confidence":0.9}
+{"speaker":"Lena","text":"That sounds useful. We could definitely use something like that.","start":55,"end":59.2,"confidence":0.87}
+{"speaker":"Marco","text":"Great to hear! So, here’s what I was thinking for today’s call: first, we’ll dig into your pain points a bit more, then I’ll give you a quick demo of Raven.","start":59.6,"end":72.5,"confidence":0.91}
+{"speaker":"Raj","text":"Sounds good to me.","start":72.8,"end":74.5,"confidence":0.84}
+{"speaker":"Marco","text":"Awesome! After the demo, we can chat about next steps and see if there's a fit. How does that sound?","start":74.7,"end":83,"confidence":0.92}
+{"speaker":"Lena","text":"Yeah, that works for me.","start":83.2,"end":85.3,"confidence":0.91}
+{"speaker":"Dana","text":"Perfect! Let’s get started then.","start":85.8,"end":87.9,"confidence":0.91}
+{"speaker":"Marco","text":"Thanks for joining, Lena, Raj. I know your time's valuable. To kick things off, can you tell us a bit about how you’re currently managing meeting notes?","start":88.4,"end":99.7,"confidence":0.89}
+{"speaker":"Lena","text":"Sure! So, we’ve been using Notion and Slack for notes, but it’s kinda chaotic. We keep losing track of decisions.","start":100,"end":108.3,"confidence":0.92}
+{"speaker":"Raj","text":"Yeah, it’s scattered everywhere. It’s hard to find anything later.","start":108.5,"end":112.7,"confidence":0.87}
+{"speaker":"Dana","text":"That sounds frustrating. How do you usually follow up on those decisions?","start":113.1,"end":118.1,"confidence":0.88}
+{"speaker":"Lena","text":"Um, we try to piece it together from the notes, but it’s not efficient. I mean, last week I was looking for a decision we made three weeks ago, and I just couldn’t find it.","start":118.3,"end":132.9,"confidence":0.93}
+{"speaker":"Marco","text":"That’s a common issue. So, you're saying it’s hard to find what you’ve decided on in the past?","start":133.2,"end":140.7,"confidence":0.91}
+{"speaker":"Lena","text":"Exactly! It’s like, what did we even decide?","start":141.1,"end":144.4,"confidence":0.86}
+{"speaker":"Raj","text":"And even when we try to search, it’s just raw info, not the actionable stuff.","start":144.6,"end":150.9,"confidence":0.83}
+{"speaker":"Dana","text":"I see, and you mentioned you’re using Otter for transcription, right?","start":151.2,"end":155.8,"confidence":0.94}
+{"speaker":"Lena","text":"Yeah, we do. But honestly, all it gives us is the raw transcripts.","start":156.1,"end":161.5,"confidence":0.82}
+{"speaker":"Marco","text":"So, no extracted decisions or action items?","start":162,"end":164.9,"confidence":0.92}
+{"speaker":"Raj","text":"Nope, just a bunch of words. It doesn’t really help us.","start":165.2,"end":169.8,"confidence":0.94}
+{"speaker":"Lena","text":"Right, and we end up spending more time trying to figure things out than actually moving forward.","start":170.1,"end":177.2,"confidence":0.84}
+{"speaker":"Dana","text":"That’s tough. What’s your biggest frustration with that process?","start":177.7,"end":181.5,"confidence":0.93}
+{"speaker":"Lena","text":"Um, just not knowing what we’ve committed to. It’s like, everyone’s on a different page.","start":182,"end":188.3,"confidence":0.83}
+{"speaker":"Raj","text":"And it leads to confusion. Like, who’s responsible for what? We need clarity.","start":188.6,"end":194,"confidence":0.82}
+{"speaker":"Marco","text":"That makes total sense. So, you’re looking for a way to streamline this?","start":194.5,"end":199.9,"confidence":0.82}
+{"speaker":"Lena","text":"Definitely. We need something that can track our decisions and action items in one place.","start":200.4,"end":206.7,"confidence":0.83}
+{"speaker":"Dana","text":"Have you tried any other tools that might help?","start":207,"end":210.7,"confidence":0.93}
+{"speaker":"Raj","text":"Not really. We thought about it, but it’s hard to find something that works for us.","start":211.2,"end":217.9,"confidence":0.9}
+{"speaker":"Lena","text":"Yeah, and we don’t want to add more tools that complicate things.","start":218.1,"end":223.1,"confidence":0.88}
+{"speaker":"Marco","text":"Understood. So, it seems like clarity and organization are key for you.","start":223.3,"end":228.3,"confidence":0.88}
+{"speaker":"Dana","text":"Exactly. And being able to ask questions about past meetings would save us so much time.","start":228.5,"end":235.2,"confidence":0.9}
+{"speaker":"Lena","text":"Right! If I could just ask, like, what did we decide about X from three weeks ago, that’d be a game changer.","start":235.4,"end":244.6,"confidence":0.93}
+{"speaker":"Raj","text":"Yeah, and having it all organized would make the follow-ups so much easier.","start":245,"end":250.4,"confidence":0.82}
+{"speaker":"Marco","text":"I think our product could really help with that. It extracts key decisions and action items for you.","start":250.9,"end":258.4,"confidence":0.91}
+{"speaker":"Dana","text":"And you can search across meetings to find exactly what you need.","start":258.8,"end":263.8,"confidence":0.88}
+{"speaker":"Lena","text":"That sounds promising. Like, we wouldn't have to dig through all those notes.","start":264,"end":269.4,"confidence":0.82}
+{"speaker":"Raj","text":"Yeah, I’m interested to see how that works.","start":269.9,"end":273.2,"confidence":0.86}
+{"speaker":"Marco","text":"Great! Let’s dive into the demo next, so you can see how it all comes together.","start":273.4,"end":280.1,"confidence":0.9}
+{"speaker":"Dana","text":"Absolutely, I think you’ll find it really intuitive.","start":280.3,"end":283.6,"confidence":0.86}
+{"speaker":"Lena","text":"Looking forward to it!","start":283.8,"end":285.5,"confidence":0.84}
+{"speaker":"Raj","text":"Same here!","start":285.7,"end":287.1,"confidence":0.83}
+{"speaker":"Marco","text":"Alright, so Dana, why don’t we jump into the demo? I think everyone’s eager to see Raven in action.","start":287.5,"end":295.4,"confidence":0.85}
+{"speaker":"Dana","text":"Absolutely! So, let’s start with the 'ask across your meetings' feature. This is really powerful.","start":295.7,"end":302,"confidence":0.83}
+{"speaker":"Lena","text":"Okay, sounds good. How does that work exactly?","start":302.3,"end":305.6,"confidence":0.86}
+{"speaker":"Dana","text":"Right, so you can ask questions about past meetings, and Raven will pull up relevant clips.","start":305.8,"end":312.5,"confidence":0.9}
+{"speaker":"Raj","text":"Can it handle specific queries, like, uh, decision points or action items?","start":312.7,"end":317.7,"confidence":0.88}
+{"speaker":"Dana","text":"Exactly, Raj! So, let me show you. I’ll ask it a question about the last project update we had.","start":317.9,"end":325.8,"confidence":0.85}
+{"speaker":"Marco","text":"Yeah, go for it.","start":326.1,"end":327.8,"confidence":0.84}
+{"speaker":"Dana","text":"Let’s say I want to know what decisions were made about the project timeline. I’ll just type that in.","start":328,"end":335.9,"confidence":0.85}
+{"speaker":"Lena","text":"That’s pretty straightforward.","start":336.2,"end":337.6,"confidence":0.9}
+{"speaker":"Dana","text":"It is! So, here we go... okay, here’s a clip from the meeting where we discussed it.","start":337.9,"end":345,"confidence":0.84}
+{"speaker":"Raj","text":"Wow, that was quick.","start":345.5,"end":347.2,"confidence":0.84}
+{"speaker":"Dana","text":"Yeah, and the best part is every answer links back to the exact cited moment in the recording. You can actually hear the context.","start":347.4,"end":357.4,"confidence":0.94}
+{"speaker":"Marco","text":"So, it's not just text, it’s the actual audio, right?","start":357.6,"end":361.8,"confidence":0.87}
+{"speaker":"Dana","text":"Exactly, Marco. You can listen to the decision being made in real-time.","start":362.2,"end":367.2,"confidence":0.88}
+{"speaker":"Lena","text":"That’s really helpful. It must save a lot of time.","start":367.4,"end":371.6,"confidence":0.87}
+{"speaker":"Dana","text":"For sure! Instead of sifting through hours of recordings, you get the exact piece you need.","start":372,"end":378.7,"confidence":0.9}
+{"speaker":"Raj","text":"And does it work for all meetings, or just certain ones?","start":378.9,"end":383.5,"confidence":0.94}
+{"speaker":"Dana","text":"It works for all meetings where Raven has recorded the audio. So as long as it’s been captured, you can ask about it.","start":383.8,"end":393.4,"confidence":0.87}
+{"speaker":"Marco","text":"That’s a big advantage.","start":393.7,"end":395.4,"confidence":0.84}
+{"speaker":"Lena","text":"Yeah, I can see how that would keep everyone aligned.","start":395.6,"end":399.8,"confidence":0.87}
+{"speaker":"Dana","text":"Right? And it also helps with accountability since you can directly reference the discussion.","start":400.2,"end":406,"confidence":0.89}
+{"speaker":"Raj","text":"I like that. So, how’s the quality of the audio when you replay it?","start":406.4,"end":412.2,"confidence":0.89}
+{"speaker":"Dana","text":"It’s really clear. We use advanced processing to make sure nothing gets lost in translation.","start":412.6,"end":418.9,"confidence":0.83}
+{"speaker":"Marco","text":"And, you know, with the timestamps, it’s easy to navigate. Just click and listen.","start":419.2,"end":425,"confidence":0.89}
+{"speaker":"Lena","text":"That’s great. Can you show us another example?","start":425.4,"end":428.7,"confidence":0.86}
+{"speaker":"Dana","text":"Sure! Let me ask about action items from our last strategy session.","start":428.9,"end":433.9,"confidence":0.88}
+{"speaker":"Raj","text":"Yeah, that would be useful.","start":434.1,"end":436.2,"confidence":0.91}
+{"speaker":"Dana","text":"Okay, just typing that in... and here’s a clip where we assigned those tasks.","start":436.7,"end":442.5,"confidence":0.89}
+{"speaker":"Marco","text":"Nice! So, you can just jump right back to that moment.","start":442.9,"end":447.5,"confidence":0.94}
+{"speaker":"Lena","text":"That’s super useful for follow-ups.","start":447.8,"end":449.9,"confidence":0.91}
+{"speaker":"Dana","text":"Exactly! It keeps everyone accountable, and you don’t miss anything.","start":450.4,"end":454.6,"confidence":0.87}
+{"speaker":"Raj","text":"Can it also summarize meeting notes, or is it just for pulling clips?","start":455,"end":460.4,"confidence":0.82}
+{"speaker":"Dana","text":"It can summarize notes too, but the strength lies in pulling those precise clips.","start":460.9,"end":466.7,"confidence":0.89}
+{"speaker":"Marco","text":"Right, it’s all about context.","start":467.1,"end":469.2,"confidence":0.91}
+{"speaker":"Lena","text":"I really like this feature. It seems like it could be a game changer for us.","start":469.7,"end":476.4,"confidence":0.9}
+{"speaker":"Raj","text":"Yeah, definitely adds value.","start":476.6,"end":478.3,"confidence":0.84}
+{"speaker":"Dana","text":"Thanks, I’m glad you think so! It’s designed to make everything smoother.","start":478.5,"end":483.5,"confidence":0.88}
+{"speaker":"Marco","text":"Alright, shall we move on to some other features?","start":483.7,"end":487.5,"confidence":0.93}
+{"speaker":"Lena","text":"Sure, let’s do that.","start":488,"end":489.7,"confidence":0.84}
+{"speaker":"Raj","text":"Yeah, let’s see what else Raven can do.","start":489.9,"end":493.2,"confidence":0.86}
+{"speaker":"Marco","text":"So, um, before we dive into the demo, I thought we could talk about any concerns you might have, right?","start":493.4,"end":501.7,"confidence":0.92}
+{"speaker":"Lena","text":"Yeah, I mean, we do have a couple of things we need to clear up first.","start":501.9,"end":508.6,"confidence":0.9}
+{"speaker":"Raj","text":"Definitely. The first one is security. We really need to have SOC 2 Type II certification. It’s a must for us.","start":508.8,"end":517.6,"confidence":0.86}
+{"speaker":"Dana","text":"Oh, absolutely, I can see why that’s important. Just to clarify, we do have SOC 2 Type II certification. It’s part of our compliance.","start":518.1,"end":528.1,"confidence":0.94}
+{"speaker":"Lena","text":"That’s good to hear, but we need to see the certification document, you know?","start":528.3,"end":534.1,"confidence":0.89}
+{"speaker":"Marco","text":"Of course, we can send that over right after the call. It’s important you have that.","start":534.5,"end":541.2,"confidence":0.9}
+{"speaker":"Raj","text":"Great, and um, what about data residency? We’re based in the EU, and all data has to be stored here, specifically in Frankfurt.","start":541.4,"end":551,"confidence":0.87}
+{"speaker":"Dana","text":"Right, so we actually have data centers in the EU, including Frankfurt, so that’s covered as well.","start":551.3,"end":558.4,"confidence":0.84}
+{"speaker":"Lena","text":"That’s a relief. We can’t have our data stored outside the region, so that’s a big plus.","start":558.9,"end":566,"confidence":0.84}
+{"speaker":"Marco","text":"Yeah, totally understand. We really focus on compliance with local regulations.","start":566.5,"end":571.1,"confidence":0.94}
+{"speaker":"Raj","text":"Okay, good. Now, about the pricing—I'm just gonna be honest here. The per-seat pricing seems a bit steep for 40 seats.","start":571.4,"end":580.2,"confidence":0.86}
+{"speaker":"Dana","text":"I get that. Can you share what your budget looks like? Maybe we can find a solution.","start":580.7,"end":587.8,"confidence":0.84}
+{"speaker":"Lena","text":"Um, we were hoping to keep it more reasonable, you know? I mean, it's a significant investment.","start":588.3,"end":595.4,"confidence":0.84}
+{"speaker":"Marco","text":"Yeah, and I appreciate that. It’s important to find the right fit. Have you looked at any alternatives?","start":595.9,"end":603.4,"confidence":0.91}
+{"speaker":"Raj","text":"We have, but we like what we see with Raven so far. It's just the cost, really.","start":603.8,"end":610.9,"confidence":0.84}
+{"speaker":"Dana","text":"Sure, I mean, I can break down what’s included in the pricing—like all the features and support we provide.","start":611.4,"end":619.3,"confidence":0.85}
+{"speaker":"Lena","text":"That would help, yeah. It’s just hard to justify the cost without seeing the full value.","start":619.6,"end":626.3,"confidence":0.9}
+{"speaker":"Marco","text":"Absolutely, and we want you to feel confident in the investment. What features are you most interested in?","start":626.5,"end":634,"confidence":0.91}
+{"speaker":"Raj","text":"Well, the meeting memory aspect is a big one for us.","start":634.4,"end":639,"confidence":0.94}
+{"speaker":"Dana","text":"Right, so with that, you get the recordings, the action items, and the ability to search through past meetings.","start":639.3,"end":647.2,"confidence":0.85}
+{"speaker":"Lena","text":"That’s useful, but still… forty seats adds up.","start":647.5,"end":650.8,"confidence":0.86}
+{"speaker":"Marco","text":"For sure. Have you considered how much time it could save your team? That might offset the cost.","start":651,"end":658.5,"confidence":0.91}
+{"speaker":"Raj","text":"I mean, it could, but we need to see actual numbers on that.","start":658.9,"end":664.3,"confidence":0.82}
+{"speaker":"Dana","text":"Totally fair. We can provide case studies that show the ROI from other clients.","start":664.8,"end":670.6,"confidence":0.89}
+{"speaker":"Lena","text":"That sounds good. I think we need to see some data before moving forward.","start":671,"end":676.8,"confidence":0.89}
+{"speaker":"Marco","text":"Absolutely, we’ll get that to you. Anything else on your mind?","start":677.2,"end":681.8,"confidence":0.94}
+{"speaker":"Raj","text":"Just to reiterate, the SOC 2 Type II and data residency are really non-negotiable.","start":682.1,"end":687.9,"confidence":0.89}
+{"speaker":"Dana","text":"Got it. We’ll make sure you have all the documentation you need.","start":688.3,"end":693.3,"confidence":0.88}
+{"speaker":"Lena","text":"And, um, the pricing—if there’s any room for negotiation, that would be great.","start":693.5,"end":698.9,"confidence":0.82}
+{"speaker":"Marco","text":"We can definitely explore options there. I’ll follow up after we get your feedback on the documents.","start":699.4,"end":706.5,"confidence":0.84}
+{"speaker":"Raj","text":"Thanks, Marco. I think that’s all for now.","start":707,"end":710.3,"confidence":0.86}
+{"speaker":"Lena","text":"Yeah, appreciate your time, guys.","start":710.5,"end":712.6,"confidence":0.91}
+{"speaker":"Dana","text":"Thanks, everyone! Looking forward to following up.","start":713.1,"end":716,"confidence":0.92}
+{"speaker":"Marco","text":"Yeah, thanks all! We’ll talk soon.","start":716.3,"end":718.8,"confidence":0.85}
+{"speaker":"Marco","text":"So, um, to wrap things up, it sounds like you guys are open to a pilot?","start":719.2,"end":725.9,"confidence":0.9}
+{"speaker":"Lena","text":"Yeah, definitely. A two-week pilot sounds good.","start":726.1,"end":729,"confidence":0.92}
+{"speaker":"Raj","text":"Right, and we can start with, what, uh, ten seats?","start":729.3,"end":733.5,"confidence":0.87}
+{"speaker":"Dana","text":"Perfect, that’ll give you a good feel for the product.","start":733.9,"end":738.1,"confidence":0.87}
+{"speaker":"Marco","text":"Awesome! And just to confirm, you’ve got, what, around thirty thousand dollars a year budgeted for this?","start":738.5,"end":745.6,"confidence":0.84}
+{"speaker":"Lena","text":"Yes, that’s correct. It’s, uh, pending procurement approval, though.","start":746.1,"end":749.9,"confidence":0.93}
+{"speaker":"Raj","text":"Yeah, just a heads up, procurement sign-off won’t happen until Q3.","start":750.4,"end":755,"confidence":0.94}
+{"speaker":"Marco","text":"Got it. We can work with that timeline. I’ll make sure to send over a pricing proposal by Tuesday.","start":755.3,"end":763.2,"confidence":0.85}
+{"speaker":"Dana","text":"And I’ll set up the pilot workspace before Monday.","start":763.5,"end":767.3,"confidence":0.93}
+{"speaker":"Lena","text":"Sounds good to me.","start":767.8,"end":769.5,"confidence":0.84}
+{"speaker":"Raj","text":"And I’ll need to get the security questionnaire over to you this week.","start":769.7,"end":775.1,"confidence":0.82}
+{"speaker":"Marco","text":"Great, that’ll help us align on any compliance needs.","start":775.6,"end":779.4,"confidence":0.93}
+{"speaker":"Dana","text":"Yeah, security is key for us too.","start":779.9,"end":782.8,"confidence":0.92}
+{"speaker":"Lena","text":"Exactly. I’ll make sure it’s sent out.","start":783.1,"end":786,"confidence":0.92}
+{"speaker":"Marco","text":"Thanks, Lena. So just to recap, we’re all set for the pilot with ten seats.","start":786.3,"end":792.6,"confidence":0.83}
+{"speaker":"Raj","text":"Right, and the budget’s there, just pending procurement.","start":792.9,"end":796.2,"confidence":0.86}
+{"speaker":"Dana","text":"I’ll get the workspace ready to go before Monday.","start":796.4,"end":800.2,"confidence":0.93}
+{"speaker":"Marco","text":"And I’ll follow up with that pricing proposal by Tuesday.","start":800.7,"end":804.9,"confidence":0.87}
+{"speaker":"Lena","text":"Perfect, I think we’re on the same page.","start":805.3,"end":808.6,"confidence":0.86}
+{"speaker":"Raj","text":"Yeah, and once we get through Q3, we can discuss scaling this up.","start":808.8,"end":814.2,"confidence":0.82}
+{"speaker":"Marco","text":"Absolutely, we’d love to see how it goes.","start":814.7,"end":818,"confidence":0.86}
+{"speaker":"Dana","text":"And we’ll be here for any questions during the pilot.","start":818.2,"end":822.4,"confidence":0.87}
+{"speaker":"Lena","text":"I appreciate that. It’ll help a lot.","start":822.8,"end":825.7,"confidence":0.92}
+{"speaker":"Raj","text":"And I’ll keep you in the loop on the procurement side.","start":826,"end":830.6,"confidence":0.94}
+{"speaker":"Marco","text":"Thanks, Raj. That’ll be super helpful.","start":830.9,"end":833.4,"confidence":0.85}
+{"speaker":"Dana","text":"We want to make sure everything’s smooth for you.","start":833.8,"end":837.6,"confidence":0.93}
+{"speaker":"Lena","text":"Yeah, I’m looking forward to trying it out.","start":838.1,"end":841.4,"confidence":0.86}
+{"speaker":"Raj","text":"Just, um, make sure we have everything lined up by the time Q3 hits.","start":841.6,"end":847.4,"confidence":0.89}
+{"speaker":"Marco","text":"Definitely. We’ll make sure you have what you need.","start":847.8,"end":851.6,"confidence":0.93}
+{"speaker":"Dana","text":"And I’ll reach out if I have any questions while setting up.","start":852.1,"end":857.1,"confidence":0.88}
+{"speaker":"Lena","text":"Sounds good. I’ll also follow up on the security questionnaire.","start":857.3,"end":861.5,"confidence":0.87}
+{"speaker":"Marco","text":"Perfect! We’re excited to get started with you guys.","start":861.9,"end":865.7,"confidence":0.93}
+{"speaker":"Raj","text":"Yeah, let’s see how this goes.","start":866.2,"end":868.7,"confidence":0.85}
+{"speaker":"Dana","text":"It’ll be a great way to showcase what Raven can do.","start":869.1,"end":873.7,"confidence":0.94}
+{"speaker":"Lena","text":"Agreed, I think it’ll be a useful tool for us.","start":874,"end":878.2,"confidence":0.87}
+{"speaker":"Marco","text":"Alright, thanks everyone! Looking forward to it.","start":878.6,"end":881.5,"confidence":0.92}
+{"speaker":"Raj","text":"Thanks, Marco and Dana.","start":881.8,"end":883.5,"confidence":0.84}
+{"speaker":"Dana","text":"Thanks, everyone!","start":883.7,"end":885.1,"confidence":0.83}
+{"speaker":"Lena","text":"Talk soon!","start":885.5,"end":886.9,"confidence":0.83}
+{"speaker":"Marco","text":"Alright, so just to wrap things up, um, we’ll set up a check-in call after the two-week pilot, right?","start":887.3,"end":895.2,"confidence":0.85}
+{"speaker":"Lena","text":"Yeah, that sounds good. I think we’ll have a lot more feedback by then.","start":895.5,"end":901.3,"confidence":0.89}
+{"speaker":"Raj","text":"Definitely. I’m looking forward to seeing how it works in our meetings.","start":901.7,"end":906.7,"confidence":0.88}
+{"speaker":"Dana","text":"Great! And we’ll be here to help if you have any questions during the pilot.","start":906.9,"end":913.2,"confidence":0.83}
+{"speaker":"Marco","text":"Exactly, feel free to reach out anytime. We want to make sure you get the most out of it.","start":913.5,"end":921.4,"confidence":0.85}
+{"speaker":"Lena","text":"Thanks, I appreciate that. It’s always nice to have support.","start":921.7,"end":925.9,"confidence":0.87}
+{"speaker":"Raj","text":"Yeah, and I think we’ll get a good sense of how this fits into our workflow.","start":926.3,"end":933,"confidence":0.9}
+{"speaker":"Marco","text":"For sure! So, how about we aim for, um, the Friday after the pilot ends for that check-in?","start":933.2,"end":940.7,"confidence":0.91}
+{"speaker":"Lena","text":"That works for me.","start":941.1,"end":942.8,"confidence":0.84}
+{"speaker":"Raj","text":"Same here. Looking forward to it!","start":943,"end":945.5,"confidence":0.85}
+{"speaker":"Marco","text":"Awesome, thanks everyone! Really excited to hear your thoughts after the pilot.","start":945.9,"end":950.9,"confidence":0.88}

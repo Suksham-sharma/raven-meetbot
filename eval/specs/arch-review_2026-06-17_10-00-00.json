@@ -1,0 +1,70 @@
+{
+  "id": "arch-review_2026-06-17_10-00-00",
+  "type": "planning",
+  "context": "A ~30 minute engineering architecture review for 'Raven', a product that records meetings, transcribes them, and lets you ask questions across your meeting history. The team is hardening the design before a build sprint.",
+  "participants": [
+    { "name": "Sarah", "role": "engineering lead, runs the meeting" },
+    { "name": "Alex", "role": "backend engineer" },
+    { "name": "Sam", "role": "infrastructure and ML engineer" },
+    { "name": "Jordan", "role": "security engineer" },
+    { "name": "Priya", "role": "product manager" }
+  ],
+  "sections": [
+    {
+      "topic": "Kickoff and agenda",
+      "approxTurns": 14,
+      "mustInclude": [
+        "Sarah says today's review covers four areas: authentication, the database, the transcription pipeline, and deployment.",
+        "Light banter about a previous late deploy before getting down to business."
+      ]
+    },
+    {
+      "topic": "Authentication hardening",
+      "approxTurns": 44,
+      "mustInclude": [
+        "Final decision: refresh tokens are stored in httpOnly cookies, NOT in localStorage. This supersedes the earlier localStorage idea.",
+        "JWT access tokens expire after 15 minutes.",
+        "They will add refresh token rotation: each refresh token is one-time use, and detecting a reused token revokes the whole session.",
+        "Decision: rate-limit the login endpoint to 5 requests per minute per IP, specifically to stop credential stuffing attacks.",
+        "Action item: Jordan will write the authentication threat model document by Friday."
+      ]
+    },
+    {
+      "topic": "Database and storage choices",
+      "approxTurns": 40,
+      "mustInclude": [
+        "Decision: Postgres is the primary database, chosen for relational integrity which matters for billing.",
+        "Decision: use the pgvector extension on Postgres for the meeting-memory embeddings instead of a separate vector database.",
+        "Redis is used for caching and as the BullMQ job queue, not as a primary datastore.",
+        "Action item: Alex will benchmark pgvector HNSW versus IVFFlat indexes next week."
+      ]
+    },
+    {
+      "topic": "Transcription pipeline",
+      "approxTurns": 40,
+      "mustInclude": [
+        "Deepgram stays the transcription provider, picked earlier for sub-second latency and built-in diarization.",
+        "Decision: defer speaker diarization to a v4 batch job, because running it as a batch job is cheaper than doing it live.",
+        "Risk discussed: the Deepgram transcript clock can drift from the recording clock, and if the offset is wrong every citation clip links to the wrong moment.",
+        "Action item: Sam will verify the transcript-to-recording time offset and store it per meeting."
+      ]
+    },
+    {
+      "topic": "Deployment and observability",
+      "approxTurns": 34,
+      "mustInclude": [
+        "Decision: deploy on Fly.io in a single region, us-east, to start.",
+        "Decision: add structured JSON logging now, but defer full distributed tracing with Langfuse until the eval loop actually needs it.",
+        "Action item: Priya will draft the Q3 roadmap by the end of the week."
+      ]
+    },
+    {
+      "topic": "Wrap up and next steps",
+      "approxTurns": 12,
+      "mustInclude": [
+        "Sarah recaps that the big decisions were httpOnly refresh tokens, Postgres with pgvector, deferring diarization, and deploying on Fly.io.",
+        "They agree to sync again next week."
+      ]
+    }
+  ]
+}

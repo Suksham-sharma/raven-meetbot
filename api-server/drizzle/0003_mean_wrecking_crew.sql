@@ -1,0 +1,1 @@
+ALTER TABLE "meetings" ADD COLUMN "recording_offset_s" double precision DEFAULT 0 NOT NULL;

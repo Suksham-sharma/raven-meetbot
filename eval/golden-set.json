@@ -1,8 +1,10 @@
 {
-  "_comment": "Golden eval set for v2 retrieval + answer quality. relevant_ids are filled in after the seed meetings are ingested (decision/action/chunk ids); until then, relevant_meetings + expected_facts define correctness. Each question maps to a query type from PLAN.md.",
+  "_comment": "Golden eval set for v2 retrieval + answer quality. relevant_ids are filled in after the seed meetings are ingested (decision/action/chunk ids); until then, relevant_meetings + expected_facts define correctness. Each question maps to a query type from PLAN.md. q8+ target the long (~15-16 min, ~7-chunk) generated meetings so retrieval is non-trivial — eng (arch-review) vs sales (sales-acme) vocabulary gives real distractors.",
   "meetings": [
     "standup-planning_2026-05-20_14-30-00",
-    "eng-sync_2026-06-03_10-00-00"
+    "eng-sync_2026-06-03_10-00-00",
+    "arch-review_2026-06-17_10-00-00",
+    "sales-acme_2026-06-19_15-00-00"
   ],
   "questions": [
     {
@@ -27,9 +29,9 @@
       "question": "What is our current decision on where to store refresh tokens?",
       "expected_facts": ["httpOnly cookies", "not localStorage"],
       "must_not_say": ["localStorage is the chosen approach"],
-      "relevant_meetings": ["eng-sync_2026-06-03_10-00-00"],
+      "relevant_meetings": ["eng-sync_2026-06-03_10-00-00", "arch-review_2026-06-17_10-00-00"],
       "relevant_ids": [],
-      "notes": "Tests recency/superseded handling: the eng-sync decision supersedes the implicit localStorage assumption."
+      "notes": "Tests recency/superseded handling: the eng-sync decision supersedes the implicit localStorage assumption; arch-review (2026-06-17) restates it as final and is the most recent."
     },
     {
       "id": "q4-database",
@@ -62,6 +64,73 @@
       "expected_facts": ["not found / not discussed in any meeting"],
       "expect_refusal": true,
       "relevant_meetings": [],
+      "relevant_ids": []
+    },
+    {
+      "id": "q8-login-rate-limit",
+      "type": "local_lookup",
+      "question": "What rate limit did the team put on the login endpoint, and why?",
+      "expected_facts": ["5 requests per minute per IP", "to stop credential stuffing"],
+      "relevant_meetings": ["arch-review_2026-06-17_10-00-00"],
+      "relevant_ids": [],
+      "notes": "Fact lives in the transcript, NOT as a structured decision row (D5) — tests that hybrid transcript search surfaces non-pre-structured detail. Sales-call chunks are distractors."
+    },
+    {
+      "id": "q9-diarization-decision",
+      "type": "decision_lookup",
+      "question": "What did the team decide about speaker diarization?",
+      "expected_facts": ["defer it to a v4 batch job", "batch is cheaper than running it live"],
+      "relevant_meetings": ["arch-review_2026-06-17_10-00-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q10-deployment",
+      "type": "decision_lookup",
+      "question": "Where and how will Raven be deployed to start?",
+      "expected_facts": ["Fly.io", "single region (us-east)"],
+      "relevant_meetings": ["arch-review_2026-06-17_10-00-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q11-acme-current-tool",
+      "type": "local_lookup",
+      "question": "What transcription tool does Acme use today, and why are they unhappy with it?",
+      "expected_facts": ["Otter", "only gives raw transcripts with no decisions or action items"],
+      "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
+      "relevant_ids": [],
+      "notes": "Sales meeting; engineering arch-review chunks are distractors."
+    },
+    {
+      "id": "q12-acme-pilot",
+      "type": "decision_lookup",
+      "question": "What pilot did Acme agree to?",
+      "expected_facts": ["a 2-week pilot", "10 seats"],
+      "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q13-acme-objections",
+      "type": "synthesis_cross_meeting",
+      "question": "What are Acme's main concerns or blockers about adopting Raven?",
+      "expected_facts": ["SOC 2 Type II before rollout", "EU data residency (Frankfurt)", "per-seat pricing feels steep"],
+      "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
+      "relevant_ids": [],
+      "notes": "Type-specific (sales objections) answered at query time from the transcript, not from a pre-structured objections table (D5)."
+    },
+    {
+      "id": "q14-acme-action-items",
+      "type": "structured_aggregative",
+      "question": "What are the action items from the Acme sales call and who owns each?",
+      "expected_facts": ["Marco: send a pricing proposal (Tuesday)", "Dana: set up the pilot workspace (Monday)"],
+      "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
+      "relevant_ids": []
+    },
+    {
+      "id": "q15-database-choice",
+      "type": "decision_lookup",
+      "question": "What did the team decide for the primary database and the vector store, and why?",
+      "expected_facts": ["Postgres as the primary database", "relational integrity for billing", "pgvector instead of a separate vector database"],
+      "relevant_meetings": ["arch-review_2026-06-17_10-00-00"],
       "relevant_ids": []
     }
   ]

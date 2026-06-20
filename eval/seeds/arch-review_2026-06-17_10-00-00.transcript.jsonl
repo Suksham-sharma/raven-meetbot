@@ -1,0 +1,167 @@
+{"speaker":"Sarah","text":"Alright, everyone, thanks for joining. So, today’s review, we’re covering four main areas: authentication, the database, the transcription pipeline, and deployment.","start":2,"end":10.8,"confidence":0.86}
+{"speaker":"Alex","text":"Sounds good! I mean, authentication's gonna be key, especially, you know, with all the sensitive info in meetings.","start":11.3,"end":18.8,"confidence":0.91}
+{"speaker":"Sam","text":"Yeah, for sure. We don’t want anyone snooping in on the wrong conversations.","start":19.2,"end":24.6,"confidence":0.82}
+{"speaker":"Jordan","text":"Right, and I hope we’ve learned from that last late deploy. I mean, that was a bit of a mess, wasn’t it?","start":25.1,"end":34.3,"confidence":0.93}
+{"speaker":"Priya","text":"Oh man, that was rough! I still remember the panic when stuff started breaking.","start":34.7,"end":40.5,"confidence":0.89}
+{"speaker":"Sarah","text":"Yeah, I don’t think anyone wants a repeat of that. Let’s make sure we’re on top of things today.","start":40.9,"end":48.8,"confidence":0.85}
+{"speaker":"Alex","text":"Definitely. I mean, it's always fun to deploy right before a long weekend, right?","start":49.1,"end":54.9,"confidence":0.89}
+{"speaker":"Jordan","text":"Yeah, fun for some, not so much for others. We gotta keep that in mind with deployment planning.","start":55.3,"end":62.8,"confidence":0.91}
+{"speaker":"Sam","text":"Right, yeah. So, uh, should we dive in? I’m eager to get into the database stuff.","start":63.2,"end":69.9,"confidence":0.9}
+{"speaker":"Priya","text":"Me too! We need to nail down how we’re storing all those transcriptions.","start":70.1,"end":75.5,"confidence":0.82}
+{"speaker":"Sarah","text":"Alright, so after the authentication, we’ll move to the database, then the transcription pipeline, and wrap up with deployment.","start":76,"end":83.9,"confidence":0.85}
+{"speaker":"Alex","text":"Perfect, looking forward to it. Let’s make sure we stay on track this time.","start":84.2,"end":90,"confidence":0.89}
+{"speaker":"Jordan","text":"For sure. I’ll keep an eye on the time, no last-minute surprises!","start":90.4,"end":95.4,"confidence":0.88}
+{"speaker":"Sam","text":"Alright, let’s get started then!","start":95.6,"end":97.7,"confidence":0.91}
+{"speaker":"Sarah","text":"Great, so let’s jump right into authentication.","start":98.2,"end":101.1,"confidence":0.92}
+{"speaker":"Sarah","text":"Alright, let’s dive into the authentication hardening for Raven.","start":101.4,"end":105.2,"confidence":0.93}
+{"speaker":"Alex","text":"Yeah, um, I think we need to make some final decisions today.","start":105.7,"end":110.7,"confidence":0.88}
+{"speaker":"Sam","text":"Totally, I mean, there’s a lot at stake with security, right?","start":110.9,"end":115.5,"confidence":0.94}
+{"speaker":"Jordan","text":"For sure. So, first off, I think we should talk about where we’re storing the refresh tokens.","start":115.8,"end":122.9,"confidence":0.84}
+{"speaker":"Sarah","text":"Right, so we’ve been discussing that. I believe we decided on using httpOnly cookies?","start":123.4,"end":129.2,"confidence":0.89}
+{"speaker":"Alex","text":"Yes, exactly. Not localStorage, right? That’s a big shift.","start":129.6,"end":133.3,"confidence":0.93}
+{"speaker":"Sam","text":"Yeah, localStorage’s just too vulnerable to XSS attacks.","start":133.8,"end":137.1,"confidence":0.86}
+{"speaker":"Jordan","text":"And with httpOnly cookies, it’s much safer. They can’t be accessed via JavaScript.","start":137.3,"end":142.7,"confidence":0.82}
+{"speaker":"Sarah","text":"So, just to confirm, we’re finalizing that decision: refresh tokens will be stored in httpOnly cookies.","start":143.2,"end":149.9,"confidence":0.9}
+{"speaker":"Priya","text":"Got it, that makes sense. What about the JWT access tokens?","start":150.1,"end":154.7,"confidence":0.94}
+{"speaker":"Alex","text":"Oh, they’re gonna expire after 15 minutes, right?","start":155,"end":158.3,"confidence":0.86}
+{"speaker":"Sam","text":"Yeah, that’s correct. It’s a pretty standard practice.","start":158.5,"end":161.8,"confidence":0.86}
+{"speaker":"Jordan","text":"And it helps limit the window of opportunity for attackers.","start":162,"end":166.2,"confidence":0.87}
+{"speaker":"Sarah","text":"So, just to recap, refresh tokens in httpOnly cookies, and JWTs expire in 15 minutes.","start":166.6,"end":172.8,"confidence":0.83}
+{"speaker":"Priya","text":"Sounds good. Next, what about the refresh token rotation?","start":173.1,"end":176.9,"confidence":0.93}
+{"speaker":"Alex","text":"Right, we’re gonna make each refresh token one-time use only. If it’s reused, we revoke the whole session.","start":177.4,"end":184.9,"confidence":0.91}
+{"speaker":"Sam","text":"That’s a strong measure. It’ll really help minimize the risk.","start":185.3,"end":189.5,"confidence":0.87}
+{"speaker":"Jordan","text":"Exactly. It’s a bit more work to implement, but totally worth it.","start":189.9,"end":194.9,"confidence":0.88}
+{"speaker":"Sarah","text":"So, we’re all in agreement then? One-time use refresh tokens?","start":195.1,"end":199.3,"confidence":0.87}
+{"speaker":"Priya","text":"Yes, definitely. What’s next?","start":199.7,"end":201.4,"confidence":0.84}
+{"speaker":"Alex","text":"We should talk about rate limiting now.","start":201.6,"end":204.5,"confidence":0.92}
+{"speaker":"Sam","text":"Right, we need to limit the login endpoint.","start":204.8,"end":208.1,"confidence":0.86}
+{"speaker":"Jordan","text":"I suggest we go with 5 requests per minute per IP.","start":208.3,"end":212.9,"confidence":0.94}
+{"speaker":"Sarah","text":"That’s to combat credential stuffing attacks, right?","start":213.2,"end":216.1,"confidence":0.92}
+{"speaker":"Sam","text":"Exactly. It’ll slow down attackers significantly.","start":216.4,"end":218.9,"confidence":0.85}
+{"speaker":"Alex","text":"And it shouldn’t affect legitimate users too much.","start":219.3,"end":222.6,"confidence":0.86}
+{"speaker":"Priya","text":"Yeah, that seems reasonable. So we’re set on rate-limiting?","start":222.8,"end":226.6,"confidence":0.93}
+{"speaker":"Sarah","text":"Yes, 5 requests per minute per IP for the login endpoint.","start":227.1,"end":231.7,"confidence":0.94}
+{"speaker":"Jordan","text":"Perfect, I’ll make sure that’s included in the implementation.","start":232,"end":235.7,"confidence":0.93}
+{"speaker":"Sam","text":"Alright, so where does that leave us for action items?","start":236.2,"end":240.4,"confidence":0.87}
+{"speaker":"Sarah","text":"Jordan, can you write up the authentication threat model document?","start":240.8,"end":245,"confidence":0.87}
+{"speaker":"Jordan","text":"Yeah, I can do that. I’ll have it by Friday.","start":245.4,"end":249.6,"confidence":0.87}
+{"speaker":"Alex","text":"Great, that’ll help us all stay on the same page.","start":250,"end":254.2,"confidence":0.87}
+{"speaker":"Priya","text":"For sure! And, um, we’ll need to review it as a team.","start":254.6,"end":259.6,"confidence":0.88}
+{"speaker":"Sarah","text":"Absolutely, we’ll review it next week.","start":259.8,"end":262.3,"confidence":0.85}
+{"speaker":"Sam","text":"Sounds like a solid plan.","start":262.7,"end":264.8,"confidence":0.91}
+{"speaker":"Jordan","text":"Alright, so to summarize: refresh tokens in cookies, JWTs expire in 15 minutes, one-time refresh tokens, rate limit at 5 requests, and I’ll write the threat model.","start":265.3,"end":276.6,"confidence":0.89}
+{"speaker":"Sarah","text":"Exactly! Great job, everyone.","start":276.9,"end":278.6,"confidence":0.84}
+{"speaker":"Alex","text":"Yeah, thanks team. This is really coming together.","start":278.8,"end":282.1,"confidence":0.86}
+{"speaker":"Priya","text":"I feel good about this approach.","start":282.3,"end":284.8,"confidence":0.85}
+{"speaker":"Sam","text":"Same here, let’s keep up the momentum!","start":285.2,"end":288.1,"confidence":0.92}
+{"speaker":"Sarah","text":"Alright, let’s move on to the next topic, then.","start":288.4,"end":292.2,"confidence":0.93}
+{"speaker":"Sarah","text":"Alright team, let’s dive into our database and storage choices for Raven.","start":292.7,"end":297.7,"confidence":0.88}
+{"speaker":"Alex","text":"Yeah, I think we should start with the primary database, right?","start":297.9,"end":302.5,"confidence":0.94}
+{"speaker":"Sarah","text":"Exactly. So, we’ve decided on Postgres as our primary database.","start":302.8,"end":307,"confidence":0.87}
+{"speaker":"Jordan","text":"Right, Postgres. That’s good for relational integrity, especially for billing.","start":307.4,"end":311.6,"confidence":0.87}
+{"speaker":"Priya","text":"Yeah, billing's crucial, so I think that was a smart choice.","start":312,"end":316.6,"confidence":0.94}
+{"speaker":"Sam","text":"Agreed. Plus, it’s pretty reliable.","start":316.9,"end":319,"confidence":0.91}
+{"speaker":"Alex","text":"And for our meeting-memory embeddings, we’re going with the pgvector extension, correct?","start":319.5,"end":324.5,"confidence":0.88}
+{"speaker":"Sarah","text":"Yes! Using pgvector instead of a separate vector database should simplify things.","start":324.7,"end":329.7,"confidence":0.88}
+{"speaker":"Jordan","text":"That’ll help keep our architecture cleaner, for sure.","start":329.9,"end":333.2,"confidence":0.86}
+{"speaker":"Sam","text":"And it’ll reduce the overhead of managing another database.","start":333.4,"end":337.2,"confidence":0.93}
+{"speaker":"Priya","text":"So, no separate vector database, just pgvector on Postgres?","start":337.7,"end":341.5,"confidence":0.93}
+{"speaker":"Sarah","text":"Exactly, that’s the plan.","start":342,"end":343.7,"confidence":0.84}
+{"speaker":"Alex","text":"What about caching? I know we discussed Redis.","start":343.9,"end":347.2,"confidence":0.86}
+{"speaker":"Jordan","text":"Yeah, we're using Redis for caching and BullMQ for job queuing.","start":347.4,"end":352,"confidence":0.94}
+{"speaker":"Sam","text":"But it’s not going to be our primary datastore, right?","start":352.3,"end":356.5,"confidence":0.87}
+{"speaker":"Sarah","text":"Right, Redis is for caching purposes only.","start":356.9,"end":359.8,"confidence":0.92}
+{"speaker":"Priya","text":"So, Postgres handles all the data storage, and Redis just speeds things up?","start":360.1,"end":365.5,"confidence":0.82}
+{"speaker":"Alex","text":"Yep, that’s the idea.","start":366,"end":367.7,"confidence":0.84}
+{"speaker":"Jordan","text":"Sounds good to me. Keeps things organized.","start":367.9,"end":370.8,"confidence":0.92}
+{"speaker":"Sam","text":"What about performance? Are we benchmarking anything?","start":371.1,"end":374,"confidence":0.92}
+{"speaker":"Sarah","text":"Yes! Alex, you’re set to benchmark pgvector HNSW versus IVFFlat indexes next week.","start":374.3,"end":379.7,"confidence":0.82}
+{"speaker":"Alex","text":"Got it. I’ll focus on that.","start":380.2,"end":382.7,"confidence":0.85}
+{"speaker":"Priya","text":"That’ll be interesting to see how they compare.","start":383.1,"end":386.4,"confidence":0.86}
+{"speaker":"Jordan","text":"Yeah, especially with our data volume in mind.","start":386.6,"end":389.9,"confidence":0.86}
+{"speaker":"Sarah","text":"Exactly. We need to ensure we’re making the right choice for performance.","start":390.1,"end":395.1,"confidence":0.88}
+{"speaker":"Alex","text":"I’ll also look into the query speeds while I’m at it.","start":395.3,"end":399.9,"confidence":0.94}
+{"speaker":"Sam","text":"Good thinking. That’ll help us gauge the overall efficiency.","start":400.2,"end":404,"confidence":0.93}
+{"speaker":"Jordan","text":"And it’s important to align that with our billing cycles.","start":404.5,"end":408.7,"confidence":0.87}
+{"speaker":"Priya","text":"Right, we can’t afford any hiccups there.","start":409.1,"end":412,"confidence":0.92}
+{"speaker":"Sarah","text":"So just to recap, Postgres is our primary database, we’re using pgvector, and Redis is for caching.","start":412.3,"end":419.4,"confidence":0.84}
+{"speaker":"Alex","text":"And I’ll benchmark those indexes next week.","start":419.9,"end":422.8,"confidence":0.92}
+{"speaker":"Sam","text":"Good, I think we’re all clear on that.","start":423.1,"end":426.4,"confidence":0.86}
+{"speaker":"Jordan","text":"Yeah, this setup sounds solid.","start":426.6,"end":428.7,"confidence":0.91}
+{"speaker":"Priya","text":"Looking forward to the results from the benchmarks!","start":429.2,"end":432.5,"confidence":0.86}
+{"speaker":"Sarah","text":"Alright, let’s move on to the next topic then.","start":432.7,"end":436.5,"confidence":0.93}
+{"speaker":"Sarah","text":"Alright, let’s jump into the transcription pipeline for Raven. So, um, I think we all agree we're sticking with Deepgram as our transcription provider, right?","start":437,"end":447.4,"confidence":0.88}
+{"speaker":"Alex","text":"Yeah, totally, I mean, the sub-second latency is just, like, essential for what we’re doing.","start":447.9,"end":454.2,"confidence":0.83}
+{"speaker":"Priya","text":"And the built-in diarization is a big plus. That'll help with separating speakers.","start":454.5,"end":459.9,"confidence":0.82}
+{"speaker":"Sam","text":"Right, but I think we need to talk about how we handle the diarization. Are we really going to do that live?","start":460.4,"end":469.6,"confidence":0.93}
+{"speaker":"Jordan","text":"I wouldn’t recommend it. I mean, the cost of running it live versus batch is just... way higher.","start":470,"end":477.5,"confidence":0.91}
+{"speaker":"Sarah","text":"Exactly. So, the decision is to defer the speaker diarization to a v4 batch job, right? It’s cheaper and, um, we can fine-tune it better.","start":477.9,"end":488.3,"confidence":0.88}
+{"speaker":"Alex","text":"Yeah, that makes sense. I mean, we can get the output we need without breaking the bank.","start":488.8,"end":495.9,"confidence":0.84}
+{"speaker":"Priya","text":"Plus, it gives us some time to test it out properly before going live with it.","start":496.4,"end":503.1,"confidence":0.9}
+{"speaker":"Sam","text":"So, just to clarify, we’ll do the speaker diarization in a batch job after the initial transcription?","start":503.3,"end":510.4,"confidence":0.84}
+{"speaker":"Sarah","text":"Yep, that’s the plan. But we should also be aware of the risk with the Deepgram transcript clock.","start":510.9,"end":518.4,"confidence":0.91}
+{"speaker":"Jordan","text":"Right, like, if there's drift between the transcript clock and the recording clock, that could mess up citation clips.","start":518.8,"end":526.7,"confidence":0.85}
+{"speaker":"Alex","text":"Yeah, if the offset is wrong, we could end up linking to the totally wrong parts of the meeting.","start":527,"end":534.9,"confidence":0.85}
+{"speaker":"Priya","text":"That’s definitely a risk we need to mitigate. We can't have inaccurate citations.","start":535.2,"end":540.6,"confidence":0.82}
+{"speaker":"Sam","text":"So what’s the action item here? How do we handle verifying that offset?","start":541.1,"end":546.5,"confidence":0.82}
+{"speaker":"Sarah","text":"Good question. Sam, can you take the lead on verifying the transcript-to-recording time offset?","start":547,"end":552.8,"confidence":0.89}
+{"speaker":"Sam","text":"Sure, I can do that. I’ll check how we can store that per meeting too.","start":553.2,"end":559.5,"confidence":0.83}
+{"speaker":"Jordan","text":"And you’ll need to make sure we have a way to adjust if there’s a significant drift, right?","start":559.8,"end":567.3,"confidence":0.91}
+{"speaker":"Sam","text":"Exactly, I’ll look into how we can track that. It’ll be crucial for the accuracy.","start":567.7,"end":574,"confidence":0.83}
+{"speaker":"Alex","text":"So, just to recap, we’re deferring diarization, verifying the clock offset, and storing it per meeting. Got it.","start":574.3,"end":581.8,"confidence":0.91}
+{"speaker":"Priya","text":"I think that covers it. And we’ll need to keep an eye on it as we start testing.","start":582.2,"end":589.7,"confidence":0.91}
+{"speaker":"Sarah","text":"Yep, once we have the batch job running, we can see how it performs.","start":590.1,"end":595.9,"confidence":0.89}
+{"speaker":"Jordan","text":"I’m also curious about how the drift affects different meeting lengths. I mean, does it vary?","start":596.3,"end":603,"confidence":0.9}
+{"speaker":"Sam","text":"Good point. I’ll make sure to consider that when I’m looking into it.","start":603.2,"end":608.6,"confidence":0.82}
+{"speaker":"Alex","text":"And if we notice a pattern, we might need to adjust our processing.","start":609.1,"end":614.5,"confidence":0.82}
+{"speaker":"Priya","text":"Right, we want to be proactive about it. Can't have surprises when we launch.","start":615,"end":620.8,"confidence":0.89}
+{"speaker":"Sarah","text":"Absolutely. So, Sam, let’s set a timeline for you to verify that offset?","start":621.2,"end":626.6,"confidence":0.82}
+{"speaker":"Sam","text":"Sure, I can have some initial findings by next week.","start":627.1,"end":631.3,"confidence":0.87}
+{"speaker":"Jordan","text":"That sounds reasonable. We can review it in the next meeting.","start":631.7,"end":636.3,"confidence":0.94}
+{"speaker":"Alex","text":"Cool, looking forward to seeing how it turns out.","start":636.6,"end":640.4,"confidence":0.93}
+{"speaker":"Sarah","text":"Alright, I think we’ve covered everything for the transcription pipeline. Any last thoughts?","start":640.9,"end":646.3,"confidence":0.82}
+{"speaker":"Priya","text":"Nope, I think we’re good. Let’s move on to the next section!","start":646.8,"end":651.8,"confidence":0.88}
+{"speaker":"Sarah","text":"Alright, let’s dive into the deployment and observability for Raven. I think we need to finalize where we're deploying this.","start":652,"end":660.3,"confidence":0.92}
+{"speaker":"Alex","text":"Yeah, I've been looking at Fly.io, and I think it could work well for us.","start":660.5,"end":666.8,"confidence":0.83}
+{"speaker":"Sam","text":"Right, I mean, it’s simple and should scale nicely for our needs.","start":667.1,"end":672.1,"confidence":0.88}
+{"speaker":"Jordan","text":"Plus, we don’t need to overcomplicate it at the start. Just one region to keep things manageable, right?","start":672.3,"end":679.8,"confidence":0.91}
+{"speaker":"Sarah","text":"Exactly. So, are we all on the same page about deploying on Fly.io in us-east to start?","start":680.2,"end":687.3,"confidence":0.84}
+{"speaker":"Priya","text":"Yeah, I’m good with that. Us-east makes sense for our target users.","start":687.8,"end":692.8,"confidence":0.88}
+{"speaker":"Alex","text":"Cool. So that’s the plan then. Fly.io in us-east.","start":693,"end":696.8,"confidence":0.93}
+{"speaker":"Sam","text":"Got it. What about logging and observability?","start":697.3,"end":700.2,"confidence":0.92}
+{"speaker":"Sarah","text":"I think we should add structured JSON logging now. It’ll help us track data better.","start":700.5,"end":706.8,"confidence":0.83}
+{"speaker":"Jordan","text":"Yeah, I agree. It’s crucial for debugging and monitoring.","start":707.1,"end":710.9,"confidence":0.93}
+{"speaker":"Priya","text":"And we can always refine it later, right? Like, we don’t need to go full distributed tracing just yet?","start":711.4,"end":719.3,"confidence":0.85}
+{"speaker":"Alex","text":"Exactly. Let’s defer that full distributed tracing with Langfuse until we really need it.","start":719.6,"end":725.4,"confidence":0.89}
+{"speaker":"Sam","text":"Yeah, I mean, we can always implement it later when the eval loop shows that we need more insights.","start":725.8,"end":733.7,"confidence":0.85}
+{"speaker":"Sarah","text":"So we’re set on structured JSON logging for now, and postponing the distributed tracing.","start":734,"end":739.8,"confidence":0.89}
+{"speaker":"Jordan","text":"Sounds good to me. That’ll keep things simpler initially.","start":740.2,"end":744,"confidence":0.93}
+{"speaker":"Priya","text":"Okay, so I’ll jot that down. Fly.io in us-east and structured JSON logging.","start":744.5,"end":749.9,"confidence":0.82}
+{"speaker":"Sarah","text":"Perfect. And just to make sure we’re on track, Priya, can you draft the Q3 roadmap by the end of the week?","start":750.4,"end":759.6,"confidence":0.93}
+{"speaker":"Priya","text":"Yep, I can do that. I’ll get it done.","start":760,"end":763.8,"confidence":0.93}
+{"speaker":"Alex","text":"Awesome, that’ll help keep us aligned.","start":764.3,"end":766.8,"confidence":0.85}
+{"speaker":"Sam","text":"Yeah, I’m looking forward to seeing the roadmap.","start":767.2,"end":770.5,"confidence":0.86}
+{"speaker":"Jordan","text":"It’ll be great to have a clear direction for the next steps.","start":770.7,"end":775.7,"confidence":0.88}
+{"speaker":"Sarah","text":"Alright, so we’ve got our deployment plan and logging strategy nailed down.","start":775.9,"end":780.9,"confidence":0.88}
+{"speaker":"Priya","text":"And I’ll take care of the roadmap.","start":781.1,"end":784,"confidence":0.92}
+{"speaker":"Alex","text":"Is there anything else we need to cover on this front?","start":784.3,"end":788.9,"confidence":0.94}
+{"speaker":"Sam","text":"I think we’re good, unless someone has concerns about Fly.io?","start":789.2,"end":793.4,"confidence":0.87}
+{"speaker":"Jordan","text":"Nope, I think we’re solid on that.","start":793.8,"end":796.7,"confidence":0.92}
+{"speaker":"Sarah","text":"Great! Let’s move on, then.","start":797,"end":799.1,"confidence":0.91}
+{"speaker":"Priya","text":"Sounds good!","start":799.6,"end":801,"confidence":0.83}
+{"speaker":"Alex","text":"Yeah, let’s keep the momentum going.","start":801.4,"end":803.9,"confidence":0.85}
+{"speaker":"Sam","text":"Agreed!","start":804.3,"end":805.7,"confidence":0.89}
+{"speaker":"Jordan","text":"Next topic!","start":806.2,"end":807.6,"confidence":0.83}
+{"speaker":"Sarah","text":"Alright, moving on.","start":808,"end":809.4,"confidence":0.9}
+{"speaker":"Sarah","text":"Alright, so to wrap things up, just to recap the big decisions we made today. We’re going with httpOnly refresh tokens, right?","start":809.7,"end":818.9,"confidence":0.93}
+{"speaker":"Alex","text":"Yeah, that makes sense for security.","start":819.3,"end":821.8,"confidence":0.85}
+{"speaker":"Sarah","text":"Exactly. And then we decided on using Postgres with pgvector for the database, which should work well for our needs.","start":822.2,"end":830.5,"confidence":0.92}
+{"speaker":"Sam","text":"Right, that’ll help with the vector searches we talked about.","start":830.7,"end":834.9,"confidence":0.87}
+{"speaker":"Jordan","text":"And deferring diarization. I think that’s a smart move, it’ll give us more time to refine that part.","start":835.3,"end":842.8,"confidence":0.91}
+{"speaker":"Priya","text":"Totally agree. I’d rather get it right than rush it.","start":843.2,"end":847.4,"confidence":0.87}
+{"speaker":"Sarah","text":"Good. So, to confirm, we’re deploying on Fly.io as well?","start":847.8,"end":852,"confidence":0.87}
+{"speaker":"Alex","text":"Yep, that should handle our scaling needs nicely.","start":852.4,"end":855.7,"confidence":0.86}
+{"speaker":"Sam","text":"And the performance is solid, so I think we’re good there.","start":855.9,"end":860.5,"confidence":0.94}
+{"speaker":"Sarah","text":"Awesome. So next steps—let's sync again next week to check in on progress and any updates.","start":860.8,"end":867.5,"confidence":0.9}
+{"speaker":"Jordan","text":"Sounds good to me. Same time?","start":867.7,"end":870.2,"confidence":0.85}
+{"speaker":"Priya","text":"Yeah, let’s keep it consistent. I’ll send out the invite.","start":870.6,"end":874.8,"confidence":0.87}

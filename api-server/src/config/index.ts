@@ -11,6 +11,8 @@ const systemConfig = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
   OPENAI_EXTRACT_MODEL: process.env.OPENAI_EXTRACT_MODEL || "gpt-4o-mini",
   OPENAI_EMBED_MODEL: process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small",
+  // Cheap model for the offline eval-seed transcript generator (dev tool only).
+  OPENAI_GEN_MODEL: process.env.OPENAI_GEN_MODEL || "gpt-4o-mini",
 
   JOB_ATTEMPTS: Number(process.env.JOB_ATTEMPTS) || 3,
   JOB_BACKOFF_MS: Number(process.env.JOB_BACKOFF_MS) || 5000,

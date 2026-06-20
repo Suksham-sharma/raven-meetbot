@@ -25,7 +25,7 @@ The hard part is not scale (hundreds of meetings ≈ 45–90k chunks is trivial 
 - **D4 — Eval:** **Ragas** (Python, dev/CI only) for generation-side metrics (faithfulness, context precision/recall, answer relevancy); retrieval metrics (recall@k / MRR / nDCG) computed from labeled ids; unit tests for the deterministic pieces.
 - **D5 — Multi-type + minimal spine (2026-06-16):** the product serves many meeting types (sales, intro/networking, standups, interviews, ...), not just engineering. **Extraction stays a minimal universal spine** — `meeting_type` (soft label), `decisions`, `action_items`, `chapters`, `summary` — and **type-specific intelligence (sales budget/objections, intro asks) is answered at query time by the agent + retrieval, never baked into per-type tables/enums.** Rejected a `key_points`/`kind`-enum approach as brittle complexity that grows per meeting type.
 
-## Build status (2026-06-16)
+## Build status (2026-06-20)
 
 | Step | State |
 |---|---|
@@ -33,13 +33,28 @@ The hard part is not scale (hundreds of meetings ≈ 45–90k chunks is trivial 
 | `decisions` / `action_items` tables | ✅ committed |
 | Eval harness foundation — seeds + golden set + retrieval metrics (tested) + runner skeleton | ✅ committed |
 | Ingest primitives — speaker-turn chunker + quote-guard (vitest) | ✅ committed |
-| Grounded extraction — OpenAI Structured Outputs, minimal universal spine, multi-type | ✅ verified on messy sales/intro/eng seeds (this batch) |
-| **Migrations applied to a live DB** | ⛔ blocked — OrbStack down |
-| Chunk → embed → **store** + the BullMQ ingest worker | ⛔ next (needs OrbStack) |
-| Hybrid search + agentic `/ask` + live eval | ⛔ after storage |
+| Grounded extraction — OpenAI Structured Outputs, minimal universal spine, multi-type | ✅ verified on messy sales/intro/eng seeds |
+| **Migrations applied to a live DB** (0000–0003; `recording_offset_s` = 0003) | ✅ applied — pgvector 0.8.2, 5 tables |
+| Chunk → embed → **store** + the BullMQ ingest worker | ✅ built + run on all 7 seeds → real rows (19 chunks / 14 decisions / 13 actions / 30 chapters); worker drains the `memory` queue (D1), idempotent re-ingest verified |
+| Longer seed corpus (2 generated ~15-min meetings) + golden set grown to 15 Q | ✅ corpus now 19 chunks / 7 meetings; arch-review (eng) + sales-acme (sales) give real distractors |
+| **Hybrid search** (pgvector cosine + tsvector RRF, one SQL query, filters) | ✅ built + retrieval baseline: **recall@8 = 0.929, MRR = 0.798, hit-rate = 1.000** (14 Q) |
+| Agentic `/ask` (4 tools, cite-or-refuse) + Ragas answer eval | ⛔ next |
 | Dashboard | deferred slice |
 
-**OpenAI key** lives in `api-server/.env` (gitignored). **Next action:** start OrbStack → `docker compose up -d postgres` → `cd api-server && pnpm db:migrate` → build chunk/embed/store + the worker, run on the seeds, then hybrid search + `/ask`.
+**OpenAI key** lives in `api-server/.env` (gitignored). **Next action:** the agentic `/ask` loop (4 tools, cite-or-refuse) → wire `eval/run_eval.py` `call_ask()` → answer-quality baseline (Ragas).
+
+**Storage slice notes (2026-06-20):**
+- DB client `src/db/client.ts` (shared pg pool + Drizzle), reused by worker + api-server (D1).
+- Ingest core `src/ingest/ingestMeeting.ts` — extract → chunk → embed → one idempotent txn (meeting upsert + delete-then-insert children). Called by both the worker (`src/worker/memory.worker.ts`, `memory` queue) and the direct seed CLI (`src/ingest/runIngest.ts`), so there is one ingest path.
+- `meetingId` = seed filename stem (matches golden-set `relevant_meetings`); transcript source is the seed loader in dev, **R2 fetch is the documented swap point** in the worker.
+- **Citation clock skew (CRITICAL gap):** storage half done — `recording_offset_s` column on `meetings` (0 for synthetic seeds). The **verify-origin half is still TODO** at real-bot ingest (compare Deepgram transcript t=0 vs recording t=0 from R2, set the offset). Citation builder in `/ask` must read it.
+
+**Hybrid search slice notes (2026-06-20):**
+- Seed generator `src/ingest/genTranscript.ts` (gpt-4o-mini, `pnpm gen:seed <spec>`): I plant the ground-truth facts per agenda section (`eval/specs/*.json`), the model adds realistic messy volume, timestamps assigned deterministically from word counts. 2 new ~15-min meetings (arch-review eng, sales-acme sales), all planted facts verified present.
+- `src/search/hybridSearch.ts` — vector (HNSW cosine) + FTS (GIN tsvector) legs fused via **RRF (k=60) in ONE SQL query**; metadata filters (meetingId/type/participant/date) pushed into both legs; every hit carries timestamps + meeting date + `recording_offset_s` (D3). **FTS gotcha fixed:** `websearch_to_tsquery` ANDs all lexemes → never matches an NL question against a short chunk; OR the lexemes (`replace('&','|')`) so any term matches and `ts_rank_cd` ranks by overlap.
+- `pnpm search "<q>"` (probe) + `pnpm eval:retrieval` (golden-set retrieval baseline, meeting-level recall@k/MRR until chunk-level `relevant_ids` are labeled).
+- **Findings that motivate the next step:** the 2 retrieval misses are both multi-meeting aggregative/synthesis Q (q2, q5) — the case the agentic loop must cover. Refusal probe q7 scored 0.0320, *indistinguishable from real Q by score* → cite-or-refuse must be an LLM relevance judgment at answer time, NOT a retrieval-score threshold.
+- ⚠️ Open polish: chunk-level `relevant_ids` still unlabeled (recall is meeting-level); q1/q6 labels could add arch-review (newer meeting now covers the same topic, dips their MRR). Generated meetings are ~15 min, not a full 30.
 
 ---
 

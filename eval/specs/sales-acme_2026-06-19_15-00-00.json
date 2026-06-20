@@ -1,0 +1,67 @@
+{
+  "id": "sales-acme_2026-06-19_15-00-00",
+  "type": "sales",
+  "context": "A ~30 minute sales discovery and demo call. Marco and Dana sell 'Raven', a meeting-memory product (records meetings, extracts decisions and action items, and lets you ask questions across meetings with cited clips). Lena and Raj are the prospect from Acme, an EU-based company.",
+  "participants": [
+    { "name": "Marco", "role": "account executive at Raven, runs the call" },
+    { "name": "Dana", "role": "solutions engineer at Raven, gives the demo" },
+    { "name": "Lena", "role": "VP of Engineering at Acme, the prospect" },
+    { "name": "Raj", "role": "procurement at Acme" }
+  ],
+  "sections": [
+    {
+      "topic": "Intro and rapport",
+      "approxTurns": 14,
+      "mustInclude": [
+        "Acme's engineering org is about 40 people and runs a lot of meetings.",
+        "Marco sets the agenda: understand Acme's pain, show a quick demo, talk next steps."
+      ]
+    },
+    {
+      "topic": "Discovery and pain",
+      "approxTurns": 40,
+      "mustInclude": [
+        "Acme keeps losing decisions because meeting notes are manual and scattered across Notion and Slack.",
+        "Acme currently uses Otter for transcription, but it only gives raw transcripts with no decisions or action items.",
+        "Lena's biggest frustration: nobody can answer 'what did we decide about this three weeks ago.'"
+      ]
+    },
+    {
+      "topic": "Product demo",
+      "approxTurns": 34,
+      "mustInclude": [
+        "Dana demos Raven's 'ask across your meetings' feature answering a question.",
+        "Key differentiator Dana stresses: every answer links back to the exact cited moment in the recording."
+      ]
+    },
+    {
+      "topic": "Objections and concerns",
+      "approxTurns": 38,
+      "mustInclude": [
+        "Security objection: Acme needs SOC 2 Type II certification before any rollout.",
+        "Data residency objection: Acme is EU-based and needs data stored in the EU, specifically Frankfurt.",
+        "Pricing concern: Lena thinks the per-seat pricing feels steep across 40 seats."
+      ]
+    },
+    {
+      "topic": "Pilot and next steps",
+      "approxTurns": 38,
+      "mustInclude": [
+        "Decision: Acme agrees to run a 2-week pilot with 10 seats.",
+        "Budget: Lena has roughly 30 thousand dollars a year earmarked for this, pending procurement.",
+        "Action item: Marco will send a pricing proposal by Tuesday.",
+        "Action item: Dana will set up the pilot workspace before Monday.",
+        "Action item: Lena will send over Acme's security questionnaire this week.",
+        "Raj notes that procurement sign-off can't happen until Q3."
+      ]
+    },
+    {
+      "topic": "Wrap up",
+      "approxTurns": 10,
+      "mustInclude": [
+        "They agree to schedule a check-in call after the two-week pilot ends.",
+        "Friendly close."
+      ]
+    }
+  ]
+}

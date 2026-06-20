@@ -8,6 +8,14 @@
     "start": "node dist/index.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "worker": "tsx src/worker/memory.worker.ts",
+    "worker:dev": "tsx watch src/worker/memory.worker.ts",
+    "ingest:seed": "tsx src/ingest/runIngest.ts",
+    "enqueue:seed": "tsx src/ingest/enqueueSeeds.ts",
+    "gen:seed": "tsx src/ingest/genTranscript.ts",
+    "search": "tsx src/search/runSearch.ts",
+    "eval:retrieval": "tsx src/search/retrievalEval.ts",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

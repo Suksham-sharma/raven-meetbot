@@ -33,6 +33,12 @@ export const meetings = pgTable(
     participants: jsonb("participants").notNull().default([]),
     summary: text("summary"),
     recordingUrl: text("recording_url"),
+    // Recording t=0 minus transcript t=0, in seconds. Citations land at
+    // chunk.start_s + recording_offset_s, so a Deepgram/recording clock skew
+    // (the CRITICAL gap in PLAN.md) is corrected per-meeting instead of silently
+    // pointing every clip at the wrong moment. Verified + set at ingest; 0 when
+    // the transcript and recording share an origin (always true for synthetic seeds).
+    recordingOffsetS: doublePrecision("recording_offset_s").notNull().default(0),
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

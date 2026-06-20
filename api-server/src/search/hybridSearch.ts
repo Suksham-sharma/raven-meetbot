@@ -1,0 +1,149 @@
+import { sql, type SQL } from "drizzle-orm";
+import { db } from "../db/client";
+import { openaiProvider } from "../llm/openai";
+import type { EmbeddingProvider } from "../llm/provider";
+
+// Hybrid retrieval over `chunks` (PLAN §3, the safety net). Two legs fused in
+// ONE SQL query via Reciprocal Rank Fusion:
+//   - vector leg:  pgvector cosine distance over the HNSW index (semantic)
+//   - keyword leg: tsvector full-text over the GIN index (exact terms / names)
+// RRF (score = Σ 1/(k + rank_i)) needs no score normalization across the two
+// legs — it fuses on RANK, so a strong cosine hit and a strong BM25-ish hit
+// combine sanely without tuning weights. Metadata filters are pushed into SQL
+// (one round trip). Every hit carries timestamps + meeting date so the agent can
+// reason about recency / superseded decisions (D3).
+
+export interface SearchFilters {
+  meetingId?: string;
+  meetingType?: string;
+  participant?: string;
+  from?: Date; // meeting started_at >= from
+  to?: Date; //   meeting started_at <= to
+}
+
+export interface SearchHit {
+  chunkId: number;
+  meetingId: string;
+  meetingTitle: string | null;
+  meetingType: string | null;
+  meetingDate: Date | null;
+  seq: number;
+  speaker: string | null;
+  text: string;
+  startS: number;
+  endS: number;
+  recordingOffsetS: number;
+  vecRank: number | null;
+  ftsRank: number | null;
+  score: number;
+}
+
+export interface HybridSearchOptions {
+  k?: number;
+  filters?: SearchFilters;
+  rrfK?: number; // RRF constant; 60 is the canonical default (Cormack et al.)
+  embedder?: EmbeddingProvider;
+}
+
+function buildFilterConds(filters?: SearchFilters): SQL[] {
+  const conds: SQL[] = [];
+  if (!filters) return conds;
+  if (filters.meetingId) conds.push(sql`c.meeting_id = ${filters.meetingId}`);
+  if (filters.meetingType) conds.push(sql`m.type = ${filters.meetingType}`);
+  if (filters.from) conds.push(sql`m.started_at >= ${filters.from.toISOString()}`);
+  if (filters.to) conds.push(sql`m.started_at <= ${filters.to.toISOString()}`);
+  if (filters.participant) {
+    conds.push(sql`m.participants @> ${JSON.stringify([filters.participant])}::jsonb`);
+  }
+  return conds;
+}
+
+export async function hybridSearch(
+  query: string,
+  options: HybridSearchOptions = {}
+): Promise<SearchHit[]> {
+  const k = options.k ?? 8;
+  const rrfK = options.rrfK ?? 60;
+  const embedder = options.embedder ?? openaiProvider;
+  // Pull more per leg than k so fusion has material to work with.
+  const inner = Math.max(k * 5, 50);
+
+  const [embedding] = await embedder.embed([query]);
+  const vecLiteral = `[${embedding.join(",")}]`;
+
+  const base = buildFilterConds(options.filters);
+  const andBase = base.length ? sql` AND ${sql.join(base, sql` AND `)}` : sql``;
+
+  const result = await db.execute(sql`
+    WITH q AS (
+      SELECT ${vecLiteral}::vector(1536) AS qe,
+             -- websearch_to_tsquery ANDs every lexeme, which never matches a
+             -- natural-language question against a short chunk. OR the lexemes
+             -- (it still stems + drops stopwords); ts_rank_cd then ranks a chunk
+             -- higher the more query terms it contains.
+             replace(
+               websearch_to_tsquery('english', ${query})::text, '&', '|'
+             )::tsquery AS qq
+    ),
+    vec AS (
+      SELECT c.id,
+             row_number() OVER (ORDER BY c.embedding <=> (SELECT qe FROM q)) AS rnk
+      FROM chunks c
+      JOIN meetings m ON m.id = c.meeting_id
+      WHERE c.embedding IS NOT NULL${andBase}
+      ORDER BY c.embedding <=> (SELECT qe FROM q)
+      LIMIT ${inner}
+    ),
+    fts AS (
+      SELECT c.id,
+             row_number() OVER (
+               ORDER BY ts_rank_cd(c.tsv, (SELECT qq FROM q)) DESC
+             ) AS rnk
+      FROM chunks c
+      JOIN meetings m ON m.id = c.meeting_id
+      WHERE c.tsv @@ (SELECT qq FROM q)${andBase}
+      ORDER BY ts_rank_cd(c.tsv, (SELECT qq FROM q)) DESC
+      LIMIT ${inner}
+    )
+    SELECT c.id                  AS "chunkId",
+           c.meeting_id          AS "meetingId",
+           m.title               AS "meetingTitle",
+           m.type                AS "meetingType",
+           m.started_at          AS "meetingDate",
+           c.seq                 AS "seq",
+           c.speaker             AS "speaker",
+           c.text                AS "text",
+           c.start_s             AS "startS",
+           c.end_s               AS "endS",
+           m.recording_offset_s  AS "recordingOffsetS",
+           vec.rnk               AS "vecRank",
+           fts.rnk               AS "ftsRank",
+           coalesce(1.0 / (${rrfK} + vec.rnk), 0)
+             + coalesce(1.0 / (${rrfK} + fts.rnk), 0) AS "score"
+    FROM chunks c
+    JOIN meetings m ON m.id = c.meeting_id
+    LEFT JOIN vec ON vec.id = c.id
+    LEFT JOIN fts ON fts.id = c.id
+    WHERE vec.id IS NOT NULL OR fts.id IS NOT NULL
+    ORDER BY "score" DESC
+    LIMIT ${k}
+  `);
+
+  const rows = (result as unknown as { rows: Record<string, unknown>[] }).rows;
+  return rows.map((r) => ({
+    chunkId: Number(r.chunkId),
+    meetingId: String(r.meetingId),
+    meetingTitle: r.meetingTitle as string | null,
+    meetingType: r.meetingType as string | null,
+    meetingDate: r.meetingDate ? new Date(r.meetingDate as string) : null,
+    seq: Number(r.seq),
+    speaker: r.speaker as string | null,
+    text: String(r.text),
+    startS: Number(r.startS),
+    endS: Number(r.endS),
+    recordingOffsetS: Number(r.recordingOffsetS),
+    vecRank: r.vecRank == null ? null : Number(r.vecRank),
+    ftsRank: r.ftsRank == null ? null : Number(r.ftsRank),
+    score: Number(r.score),
+  }));
+}
