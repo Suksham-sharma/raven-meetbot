@@ -11,6 +11,9 @@ const systemConfig = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
   OPENAI_EXTRACT_MODEL: process.env.OPENAI_EXTRACT_MODEL || "gpt-4o-mini",
   OPENAI_EMBED_MODEL: process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small",
+  // Agentic /ask loop model. gpt-4o-mini is a cheap default; bump to gpt-4o for
+  // stronger multi-step reasoning (swappable so the eval can compare).
+  OPENAI_ASK_MODEL: process.env.OPENAI_ASK_MODEL || "gpt-4o-mini",
   // Cheap model for the offline eval-seed transcript generator (dev tool only).
   OPENAI_GEN_MODEL: process.env.OPENAI_GEN_MODEL || "gpt-4o-mini",
 

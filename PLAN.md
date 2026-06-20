@@ -38,10 +38,11 @@ The hard part is not scale (hundreds of meetings ≈ 45–90k chunks is trivial 
 | Chunk → embed → **store** + the BullMQ ingest worker | ✅ built + run on all 7 seeds → real rows (19 chunks / 14 decisions / 13 actions / 30 chapters); worker drains the `memory` queue (D1), idempotent re-ingest verified |
 | Longer seed corpus (2 generated ~15-min meetings) + golden set grown to 15 Q | ✅ corpus now 19 chunks / 7 meetings; arch-review (eng) + sales-acme (sales) give real distractors |
 | **Hybrid search** (pgvector cosine + tsvector RRF, one SQL query, filters) | ✅ built + retrieval baseline: **recall@8 = 0.929, MRR = 0.798, hit-rate = 1.000** (14 Q) |
-| Agentic `/ask` (4 tools, cite-or-refuse) + Ragas answer eval | ⛔ next |
+| **Agentic `/ask`** (4 tools, cite-or-refuse) + `run_eval.py` wired to live endpoint | ✅ built — **agent recall@8 = 1.000, MRR = 0.869, cite-or-refuse = grounded = refusal = 1.000** |
+| Ragas semantic answer metrics (faithfulness / answer-relevancy) | optional — `run_eval.py` ready, skips gracefully until `pip install ragas` |
 | Dashboard | deferred slice |
 
-**OpenAI key** lives in `api-server/.env` (gitignored). **Next action:** the agentic `/ask` loop (4 tools, cite-or-refuse) → wire `eval/run_eval.py` `call_ask()` → answer-quality baseline (Ragas).
+**OpenAI key** lives in `api-server/.env` (gitignored). **Next action (candidates):** dashboard (demo) ‖ eval-gated improvements (contextual prefix, reranker) ‖ label chunk-level `relevant_ids` + install Ragas for semantic answer scores ‖ real-bot ingest path (R2 transcript fetch + clock-skew verify).
 
 **Storage slice notes (2026-06-20):**
 - DB client `src/db/client.ts` (shared pg pool + Drizzle), reused by worker + api-server (D1).
@@ -55,6 +56,12 @@ The hard part is not scale (hundreds of meetings ≈ 45–90k chunks is trivial 
 - `pnpm search "<q>"` (probe) + `pnpm eval:retrieval` (golden-set retrieval baseline, meeting-level recall@k/MRR until chunk-level `relevant_ids` are labeled).
 - **Findings that motivate the next step:** the 2 retrieval misses are both multi-meeting aggregative/synthesis Q (q2, q5) — the case the agentic loop must cover. Refusal probe q7 scored 0.0320, *indistinguishable from real Q by score* → cite-or-refuse must be an LLM relevance judgment at answer time, NOT a retrieval-score threshold.
 - ⚠️ Open polish: chunk-level `relevant_ids` still unlabeled (recall is meeting-level); q1/q6 labels could add arch-review (newer meeting now covers the same topic, dips their MRR). Generated meetings are ~15 min, not a full 30.
+
+**Agentic `/ask` slice notes (2026-06-20):**
+- `POST /api/v1/ask { q }` → `src/agent/ask.ts`: OpenAI function-calling loop (model `OPENAI_ASK_MODEL`, default gpt-4o-mini, swappable), bounded to 8 iterations. Tools in `src/agent/tools.ts` (D3): `search_transcript` (hybrid), `search_structured` (decisions/action_items, good for aggregation), `fetch_meeting` (light=summary+chapters / full=+transcript), `list_meetings` (browse). Chat tool-calling is behind the swappable `ChatProvider` interface (`src/llm/provider.ts` + openai.ts) so the loop never imports the OpenAI SDK.
+- **Cite-or-refuse:** the model cites `[[meeting_id@start_s]]` markers; the loop resolves them against a registry harvested from tool results (accepts a bare `[[meeting_id]]` fallback → top-relevance clip), builds citations with `start_s + recording_offset_s` → `#t=` deep links, and flags `grounded=false` if an answer has neither a citation nor the explicit refusal. REFUSAL = "I couldn't find that in your meetings."
+- **Two agent bugs found + fixed via eval:** (1) the loop spun calling `list_meetings` 6× and starved itself → added a progress guard that short-circuits duplicate tool calls + a prompt rule (one list is enough, then read content); fixed q5 cross-meeting synthesis. (2) refusal was unreliable (answered a not-in-corpus Q from a weak match) → prompt now requires verifying the match actually addresses the specific question. Run-to-run variance exists (temp-0 tool-calling still varies); refusal/grounding now stable across runs.
+- Eval: TS `pnpm eval:answer` (fast behavioral proxy, no Python) + Python `eval/run_eval.py` (wired to the live endpoint via stdlib urllib; meeting-level recall/MRR + behavioral; optional Ragas block, skips if not installed). **The agent lifts recall@8 from 0.929 (pure retrieval) → 1.000 by gathering across meetings on q2/q5 — the concrete justification for the agentic design.** Probes: `pnpm ask "<q>"`, `pnpm search "<q>"`.
 
 ---
 

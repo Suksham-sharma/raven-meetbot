@@ -15,6 +15,8 @@
     "gen:seed": "tsx src/ingest/genTranscript.ts",
     "search": "tsx src/search/runSearch.ts",
     "eval:retrieval": "tsx src/search/retrievalEval.ts",
+    "ask": "tsx src/agent/runAsk.ts",
+    "eval:answer": "tsx src/agent/answerEval.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
