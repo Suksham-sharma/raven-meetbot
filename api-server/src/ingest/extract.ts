@@ -1,23 +1,22 @@
-import type { LLMProvider, JsonSchema } from "../llm/provider";
+import type { JsonSchema, LLMProvider } from "../llm/provider";
 import type { TranscriptSegment } from "./chunker";
 import { verifyQuote } from "./quoteGuard";
 
-export interface ExtractedDecision {
-  text: string;
+interface Provenance {
   evidenceQuote: string;
   speaker: string | null;
   startS: number;
   endS: number;
 }
 
-export interface ExtractedActionItem {
+export interface ExtractedDecision extends Provenance {
+  text: string;
+}
+
+export interface ExtractedActionItem extends Provenance {
   text: string;
   owner: string | null;
   due: string | null;
-  evidenceQuote: string;
-  speaker: string | null;
-  startS: number;
-  endS: number;
 }
 
 export interface ExtractedChapter {
@@ -27,63 +26,68 @@ export interface ExtractedChapter {
   endS: number;
 }
 
+// Minimal universal spine. Anything type-specific (sales objections, intro asks,
+// budgets, ...) is answered at query time by the agent searching the transcript —
+// NOT pre-structured here. Keeps ingest simple and general across meeting types.
 export interface Extraction {
+  meetingType: string; // soft label: sales | intro | standup | planning | ... (not constrained)
   decisions: ExtractedDecision[];
   actionItems: ExtractedActionItem[];
   chapters: ExtractedChapter[];
   summary: string;
-  droppedDecisions: number;
-  droppedActionItems: number;
+  dropped: { decisions: number; actionItems: number };
 }
 
-// Raw (snake_case) shape returned by the model, matching EXTRACTION_SCHEMA.
+interface RawProvenance {
+  evidence_quote: string;
+  speaker: string | null;
+  start_s: number;
+  end_s: number;
+}
 interface RawExtraction {
-  decisions: Array<{
-    text: string;
-    evidence_quote: string;
-    speaker: string | null;
-    start_s: number;
-    end_s: number;
-  }>;
-  action_items: Array<{
-    text: string;
-    owner: string | null;
-    due: string | null;
-    evidence_quote: string;
-    speaker: string | null;
-    start_s: number;
-    end_s: number;
-  }>;
+  meeting_type: string;
+  decisions: Array<RawProvenance & { text: string }>;
+  action_items: Array<RawProvenance & { text: string; owner: string | null; due: string | null }>;
   chapters: Array<{ title: string; gist: string; start_s: number; end_s: number }>;
   summary: string;
 }
 
-const provenanceItem = (extra: Record<string, JsonSchema>) => ({
-  type: "object",
-  additionalProperties: false,
-  required: ["text", ...Object.keys(extra), "evidence_quote", "speaker", "start_s", "end_s"],
-  properties: {
-    text: { type: "string" },
-    ...extra,
-    evidence_quote: { type: "string" },
-    speaker: { type: ["string", "null"] },
-    start_s: { type: "number" },
-    end_s: { type: "number" },
-  },
-});
+const PROVENANCE_PROPS: Record<string, JsonSchema> = {
+  evidence_quote: { type: "string" },
+  speaker: { type: ["string", "null"] },
+  start_s: { type: "number" },
+  end_s: { type: "number" },
+};
+const PROVENANCE_KEYS = Object.keys(PROVENANCE_PROPS);
 
 const EXTRACTION_SCHEMA: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["decisions", "action_items", "chapters", "summary"],
+  required: ["meeting_type", "decisions", "action_items", "chapters", "summary"],
   properties: {
-    decisions: { type: "array", items: provenanceItem({}) },
+    meeting_type: { type: "string" },
+    decisions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["text", ...PROVENANCE_KEYS],
+        properties: { text: { type: "string" }, ...PROVENANCE_PROPS },
+      },
+    },
     action_items: {
       type: "array",
-      items: provenanceItem({
-        owner: { type: ["string", "null"] },
-        due: { type: ["string", "null"] },
-      }),
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["text", "owner", "due", ...PROVENANCE_KEYS],
+        properties: {
+          text: { type: "string" },
+          owner: { type: ["string", "null"] },
+          due: { type: ["string", "null"] },
+          ...PROVENANCE_PROPS,
+        },
+      },
     },
     chapters: {
       type: "array",
@@ -103,23 +107,30 @@ const EXTRACTION_SCHEMA: JsonSchema = {
   },
 };
 
-const SYSTEM = `You extract structured records from a meeting transcript.
+const SYSTEM = `You extract a small, universal set of structured records from a meeting transcript. Meetings vary in type (sales calls, intro/networking calls, standups, planning, interviews, 1:1s, ...) — adapt, but only extract the records below.
 
-The transcript is lines of "[start-end] Speaker: spoken text", where start/end are seconds.
+The transcript is lines of "[start-end] Speaker: spoken text" (seconds). It is often messy: filler words, false starts, repetition, crosstalk, and tangents.
 
-Extract:
-- decisions: concrete decisions the group actually made (not topics merely raised). Give a short "text" describing the decision, the "speaker" who articulated it (or null), the "start_s"/"end_s" of the utterance it came from, and "evidence_quote".
-- action_items: commitments to do something, with "owner" (responsible person, or null), "due" (stated timeframe, or null), plus text/speaker/start_s/end_s/evidence_quote.
-- chapters: 1-5 topic segments spanning the meeting, each with a short "title", one-line "gist", and start_s/end_s.
-- summary: a 2-4 sentence executive summary.
+- meeting_type: a short lowercase label for the kind of meeting (e.g. sales, intro, standup, planning, interview, one_on_one, other).
+- decisions: a choice the group MADE — selecting, adopting, or rejecting something (e.g. "use Postgres", "no Friday deploys", "go with Redis"). A commitment to perform a future task is an action_item, NOT a decision; never list the same thing as both. Capture every distinct decision even if stated briefly or buried in repetition; if one is restated or revised, emit it ONCE as the final version.
+- action_items: commitments to do a specific task, with owner (responsible person, or null) and due (stated timeframe, or null).
+- chapters: 1-6 topic segments spanning the meeting (title, one-line gist, start_s/end_s).
+- summary: a 3-5 sentence summary that captures the substance of the meeting (for a sales call, include pains/budget/next steps; for an intro, who/what/asks). This is where type-specific detail lives.
+
+Each decision and action_item needs provenance: evidence_quote (spoken words copied verbatim from one line, WITHOUT the "[time] Speaker:" prefix), speaker, and start_s/end_s.
 
 Rules:
-- Extract ONLY what is explicitly supported by the transcript. Never infer or invent.
-- "evidence_quote" MUST be the spoken words copied verbatim from one transcript line (do NOT include the "[time] Speaker:" prefix). If you cannot quote it word-for-word, omit the item.
-- When a decision is revised later in the meeting, extract the most recent version.`;
+- Extract ONLY what the transcript explicitly supports. Never infer or invent.
+- One record per distinct item: MERGE restatements of the same decision/action — do not emit duplicates.
+- Ignore off-topic tangents and small talk.
+- If you cannot quote a decision/action verbatim, omit it.`;
 
-// Runs structured extraction, then drops any decision/action whose evidence_quote
-// is not actually in the transcript (hallucination guard).
+function toProvenance(r: RawProvenance) {
+  return { evidenceQuote: r.evidence_quote, speaker: r.speaker, startS: r.start_s, endS: r.end_s };
+}
+
+// Structured extraction, then drop any decision/action whose evidence_quote is not
+// actually in the transcript (hallucination guard).
 export async function extractMeeting(
   segments: TranscriptSegment[],
   provider: LLMProvider
@@ -128,6 +139,7 @@ export async function extractMeeting(
     .map((s) => `[${s.start}-${s.end}] ${s.speaker}: ${s.text}`)
     .join("\n");
   const spokenText = segments.map((s) => s.text).join(" ");
+  const grounded = (r: RawProvenance) => verifyQuote(r.evidence_quote, spokenText);
 
   const raw = await provider.extract<RawExtraction>({
     system: SYSTEM,
@@ -136,25 +148,17 @@ export async function extractMeeting(
     schemaName: "meeting_extraction",
   });
 
-  const keptDecisions = raw.decisions.filter((d) => verifyQuote(d.evidence_quote, spokenText));
-  const keptActions = raw.action_items.filter((a) => verifyQuote(a.evidence_quote, spokenText));
+  const decisions = raw.decisions.filter(grounded);
+  const actionItems = raw.action_items.filter(grounded);
 
   return {
-    decisions: keptDecisions.map((d) => ({
-      text: d.text,
-      evidenceQuote: d.evidence_quote,
-      speaker: d.speaker,
-      startS: d.start_s,
-      endS: d.end_s,
-    })),
-    actionItems: keptActions.map((a) => ({
+    meetingType: raw.meeting_type,
+    decisions: decisions.map((d) => ({ text: d.text, ...toProvenance(d) })),
+    actionItems: actionItems.map((a) => ({
       text: a.text,
       owner: a.owner,
       due: a.due,
-      evidenceQuote: a.evidence_quote,
-      speaker: a.speaker,
-      startS: a.start_s,
-      endS: a.end_s,
+      ...toProvenance(a),
     })),
     chapters: raw.chapters.map((c) => ({
       title: c.title,
@@ -163,7 +167,9 @@ export async function extractMeeting(
       endS: c.end_s,
     })),
     summary: raw.summary,
-    droppedDecisions: raw.decisions.length - keptDecisions.length,
-    droppedActionItems: raw.action_items.length - keptActions.length,
+    dropped: {
+      decisions: raw.decisions.length - decisions.length,
+      actionItems: raw.action_items.length - actionItems.length,
+    },
   };
 }

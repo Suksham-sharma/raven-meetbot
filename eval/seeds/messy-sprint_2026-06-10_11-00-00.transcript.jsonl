@@ -1,0 +1,25 @@
+{"speaker":"Marco","text":"Okay, um, so, can everyone hear me? Dana you're a bit cut out.","start":5.0,"end":9.0,"confidence":0.82}
+{"speaker":"Dana","text":"Yeah yeah I'm here, sorry, the the connection's been weird all morning.","start":9.2,"end":13.0,"confidence":0.74}
+{"speaker":"Marco","text":"No worries. So, alright, let's talk deploys. I was thinking we, uh, we just deploy on Fridays, like end of week, ship it and go into the weekend.","start":13.5,"end":21.0,"confidence":0.9}
+{"speaker":"Tom","text":"Mmm.","start":21.1,"end":21.6,"confidence":0.55}
+{"speaker":"Priya","text":"I mean, Friday deploys, that's, like, that's how you end up debugging in production on a Saturday though, right?","start":21.8,"end":27.5,"confidence":0.88}
+{"speaker":"Dana","text":"Yeah no Friday deploys are, that's a classic mistake honestly.","start":27.6,"end":31.0,"confidence":0.85}
+{"speaker":"Marco","text":"Okay, okay, fair, fair. Yeah you're right. Let's, uh, let's not do Fridays. Scratch that.","start":31.2,"end":36.0,"confidence":0.87}
+{"speaker":"Marco","text":"Let's do, what, Tuesdays and Wednesdays? Mid-week so we have time to catch stuff.","start":36.2,"end":41.0,"confidence":0.9}
+{"speaker":"Priya","text":"Tuesday Wednesday works for me.","start":41.1,"end":43.0,"confidence":0.92}
+{"speaker":"Dana","text":"Works.","start":43.1,"end":43.6,"confidence":0.68}
+{"speaker":"Marco","text":"Cool so deploys Tuesday and Wednesday, no Friday deploys. Done.","start":43.8,"end":48.0,"confidence":0.91}
+{"speaker":"Tom","text":"Oh also did anyone fix the coffee machine on the third floor, it's been broken for like a week.","start":48.2,"end":53.0,"confidence":0.84}
+{"speaker":"Dana","text":"Ha, no, facilities keeps saying tomorrow.","start":53.1,"end":56.0,"confidence":0.8}
+{"speaker":"Marco","text":"Lol. Okay, focus, um, caching. We need a caching layer for the API. I'm leaning Redis.","start":56.2,"end":62.0,"confidence":0.89}
+{"speaker":"Priya","text":"Redis, yeah. Or, I mean, Memcached is simpler but Redis gives us, you know, persistence and pub-sub and all that.","start":62.2,"end":69.0,"confidence":0.87}
+{"speaker":"Tom","text":"Redis. Definitely Redis. We already use it for the queue anyway so.","start":69.1,"end":73.0,"confidence":0.9}
+{"speaker":"Marco","text":"Right, right, we already run Redis. Okay so Redis for caching, that's, yeah, let's lock that in.","start":73.2,"end":79.0,"confidence":0.9}
+{"speaker":"Dana","text":"Sounds good. Redis it is.","start":79.1,"end":81.0,"confidence":0.88}
+{"speaker":"Marco","text":"Okay. Staging environment, somebody needs to, uh, actually stand up a proper staging env, we've been testing on prod basically which is, yeah, not great.","start":81.2,"end":89.0,"confidence":0.86}
+{"speaker":"Priya","text":"I can take the staging setup. I'll get it up by end of week.","start":89.2,"end":93.0,"confidence":0.91}
+{"speaker":"Marco","text":"Amazing, thank you Priya. End of week, staging.","start":93.1,"end":96.0,"confidence":0.9}
+{"speaker":"Dana","text":"Oh and we should, someone should update the runbook, it's super out of date.","start":96.2,"end":100.0,"confidence":0.83}
+{"speaker":"Marco","text":"Yeah the runbook, ugh, yeah we'll, let's circle back on who owns that.","start":100.1,"end":104.0,"confidence":0.85}
+{"speaker":"Tom","text":"Yeah.","start":104.1,"end":104.5,"confidence":0.6}
+{"speaker":"Marco","text":"Okay I think that's, uh, that's it? Tuesday Wednesday deploys, Redis caching, Priya on staging. Cool, thanks everyone.","start":104.7,"end":111.0,"confidence":0.9}

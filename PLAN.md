@@ -23,6 +23,23 @@ The hard part is not scale (hundreds of meetings ≈ 45–90k chunks is trivial 
 - **D2 — LLM provider:** **OpenAI** for both jobs (extraction + agentic loop), behind a **swappable `LLMProvider` interface** (Claude kept as the eval comparison). For consistency this also makes **embeddings = OpenAI `text-embedding-3-small`** (single AI provider: OpenAI for generation+embeddings, Deepgram for transcription). bge-m3 dropped as default (would re-introduce a second AI stack); embedding stays behind a swappable interface so the eval can still compare.
 - **D3 — Agent tools:** **four** — `search_structured`, `search_transcript`, `fetch_meeting` (light/full mode), and **`list_meetings`** (date/participant/title browse). Every search result carries **timestamps + meeting date** so the agent can reason about recency / superseded decisions. No `decompose` tool — the loop handles multi-step itself.
 - **D4 — Eval:** **Ragas** (Python, dev/CI only) for generation-side metrics (faithfulness, context precision/recall, answer relevancy); retrieval metrics (recall@k / MRR / nDCG) computed from labeled ids; unit tests for the deterministic pieces.
+- **D5 — Multi-type + minimal spine (2026-06-16):** the product serves many meeting types (sales, intro/networking, standups, interviews, ...), not just engineering. **Extraction stays a minimal universal spine** — `meeting_type` (soft label), `decisions`, `action_items`, `chapters`, `summary` — and **type-specific intelligence (sales budget/objections, intro asks) is answered at query time by the agent + retrieval, never baked into per-type tables/enums.** Rejected a `key_points`/`kind`-enum approach as brittle complexity that grows per meeting type.
+
+## Build status (2026-06-16)
+
+| Step | State |
+|---|---|
+| pgvector + Drizzle foundation; `meetings`/`chunks`/`chapters` + migrations 0000–0002 (`meetings.type` = 0002) | ✅ committed |
+| `decisions` / `action_items` tables | ✅ committed |
+| Eval harness foundation — seeds + golden set + retrieval metrics (tested) + runner skeleton | ✅ committed |
+| Ingest primitives — speaker-turn chunker + quote-guard (vitest) | ✅ committed |
+| Grounded extraction — OpenAI Structured Outputs, minimal universal spine, multi-type | ✅ verified on messy sales/intro/eng seeds (this batch) |
+| **Migrations applied to a live DB** | ⛔ blocked — OrbStack down |
+| Chunk → embed → **store** + the BullMQ ingest worker | ⛔ next (needs OrbStack) |
+| Hybrid search + agentic `/ask` + live eval | ⛔ after storage |
+| Dashboard | deferred slice |
+
+**OpenAI key** lives in `api-server/.env` (gitignored). **Next action:** start OrbStack → `docker compose up -d postgres` → `cd api-server && pnpm db:migrate` → build chunk/embed/store + the worker, run on the seeds, then hybrid search + `/ask`.
 
 ---
 
@@ -33,7 +50,7 @@ bot finishes → enqueue { meetingId } to `memory` queue (BullMQ)
    → ingest worker (NEW process, reuses api-server code — NOT a new service):
         one job = full ingest of one meeting:
         1. fetch transcript.jsonl (+ speakers.jsonl) from R2
-        2. EXTRACT (OpenAI Structured Outputs) → decisions / action_items / chapters / summary  (+ provenance)
+        2. EXTRACT (OpenAI Structured Outputs) → meeting_type + decisions / action_items / chapters / summary  (+ provenance)
         3. CHUNK (speaker-turn-aware) → contextual prefix → EMBED (OpenAI) → chunks
         4. UPSERT all of the above (idempotent on meeting_id)
    → api-server:
@@ -50,16 +67,18 @@ One worker, one job per meeting, no state machine. If a job fails, BullMQ retrie
 
 Existing `meetings` / `chunks` / `chapters` stay. Add:
 
+- **`meetings.type`** — soft meeting-type label from extraction (sales | intro | standup | ...). _(migration 0002)_
 - **`decisions`** — `id, meeting_id (fk), seq, text, evidence_quote, speaker, start_s, end_s, created_at`, `UNIQUE(meeting_id, seq)`
 - **`action_items`** — `id, meeting_id (fk), seq, text, owner, due (nullable text), evidence_quote, speaker, start_s, end_s, created_at`, `UNIQUE(meeting_id, seq)`
 
-Every extracted row carries **provenance** (`evidence_quote` + `start_s`/`end_s` + `speaker`). No separate entities/topics table (chapters cover the ToC).
+Every extracted row carries **provenance** (`evidence_quote` + `start_s`/`end_s` + `speaker`). **No per-type extraction tables** (D5) — type-specific detail lives in the `summary` + transcript, surfaced by the agent at query time.
 
-## 2. Grounded extraction (the spine)
+## 2. Grounded extraction (the spine) — ✅ built + verified
 
-- **OpenAI Structured Outputs** (strict JSON schema) — guaranteed-valid output, no free-text parsing.
-- One LLM pass over the full transcript emits `decisions[]`, `action_items[]`, `chapters[]`, `summary`. Each decision/action includes a **verbatim `evidence_quote`** and its timestamp span.
-- **Hallucination guard:** verify each `evidence_quote` is a (normalized) substring of the transcript; drop/flag failures. This is the data-quality floor.
+- **OpenAI Structured Outputs** (strict JSON schema, `gpt-4o-mini`) — guaranteed-valid output, no free-text parsing. Behind the swappable `LLMProvider` interface (`src/llm/`).
+- One LLM pass over the full transcript emits a **minimal universal spine** that works for any meeting type: `meeting_type` (soft label), `decisions[]`, `action_items[]` (owner/due), `chapters[]`, `summary`. Each decision/action carries a **verbatim `evidence_quote`** + timestamp span. Type-specific detail (sales budget/objections, intro asks) lives in the `summary` + searchable transcript, not pre-structured (D5).
+- Prompt rules: a decision (a choice made) and an action_item (a future task) are **mutually exclusive**; capture every distinct decision incl. restated ones; merge duplicates; messy-ASR-aware (filler / false starts / crosstalk).
+- **Hallucination guard (`quoteGuard`):** drop any decision/action whose `evidence_quote` is not a normalized substring of the transcript. Verified on messy sales / intro / eng seeds (0 hallucinated). Known fuzzy edge: a single decision occasionally splits into 2 complementary records — tune via eval, not manual prompting.
 
 ## 3. Chunk + embed (the safety net)
 
@@ -134,6 +153,7 @@ Mostly sequential — steps 2–4 share the Drizzle schema + DB client. Step 1 (
 - **Per-row version tracking + selective backfill** — replaced by an idempotent `reindex` from R2.
 - **Full tracing infra (Langfuse/OTel)** — lightweight logging of retrieved chunks + answer during the eval loop.
 - **GraphRAG / knowledge graph** — only wins on global-theme questions; revisit LazyGraphRAG only if that becomes core.
+- **Per-type extraction tables / `kind` enums** (D5) — brittle complexity that grows per meeting type; type-specific intelligence is a query-time agent concern, not an ingest schema.
 - **Multi-tenant auth/billing, owner-scoping column** — single-tenant; YAGNI now.
 - **Dedicated vector DB, sharding, streaming ingest, local Whisper** — pgvector + Deepgram are correct here.
 

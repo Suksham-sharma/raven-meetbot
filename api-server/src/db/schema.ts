@@ -26,6 +26,7 @@ export const meetings = pgTable(
   {
     id: text("id").primaryKey(),
     title: text("title"),
+    type: text("type"), // meeting_type from extraction: sales | intro | standup | ...
     startedAt: timestamp("started_at", { withTimezone: true }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     durationS: integer("duration_s"),

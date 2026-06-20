@@ -1,0 +1,16 @@
+{"speaker":"Marco","text":"Hey Priya, thanks for hopping on, um, can you hear me okay?","start":3.0,"end":6.5,"confidence":0.88}
+{"speaker":"Priya","text":"Yeah, perfect, hi.","start":6.7,"end":8.0,"confidence":0.9}
+{"speaker":"Marco","text":"Awesome. So, uh, I know you're busy so let's, let's dive in. You mentioned your team's drowning in, what was it, manual reporting?","start":8.3,"end":15.0,"confidence":0.86}
+{"speaker":"Priya","text":"Yeah so, honestly, the the biggest thing is, every week my analysts spend like, I don't know, two full days just exporting CSVs and stitching dashboards by hand. It's brutal.","start":15.2,"end":24.0,"confidence":0.83}
+{"speaker":"Marco","text":"Right, yeah, that's, that's exactly the kind of thing we kill.","start":24.1,"end":27.0,"confidence":0.9}
+{"speaker":"Priya","text":"And it's error prone too, like last quarter we shipped a board deck with wrong numbers because someone fat-fingered an export. Not great.","start":27.2,"end":34.0,"confidence":0.85}
+{"speaker":"Marco","text":"Oof. Yeah. Okay so, um, on budget, like, do you have a sense of what you're working with for this?","start":34.2,"end":39.5,"confidence":0.87}
+{"speaker":"Priya","text":"We've got, I'd say, maybe twenty, twenty-five k allocated for tooling this half. Ballpark.","start":39.7,"end":45.0,"confidence":0.82}
+{"speaker":"Marco","text":"Got it, that works. Um, one thing, I think you mentioned you're also looking at, was it Acme?","start":45.2,"end":50.0,"confidence":0.86}
+{"speaker":"Priya","text":"Yeah we demoed Acme last week. They're, eh, they're fine but the migration story scared us a little, we've got like three years of data in the old system.","start":50.2,"end":58.0,"confidence":0.84}
+{"speaker":"Marco","text":"Totally, and that's actually, migration is where we're strong, we've got a guided importer. I'll walk your team through it.","start":58.2,"end":64.0,"confidence":0.88}
+{"speaker":"Priya","text":"That would, yeah, that'd help. My main worry is just, is this gonna be another six month rollout.","start":64.2,"end":69.0,"confidence":0.85}
+{"speaker":"Marco","text":"Understood. So, next steps, why don't I, I'll send over a pricing proposal by Wednesday, and let's get a technical demo on the calendar with your data team.","start":69.2,"end":77.0,"confidence":0.87}
+{"speaker":"Priya","text":"Works. And I'll loop in our CTO, he'll want to be on the technical one.","start":77.2,"end":81.0,"confidence":0.9}
+{"speaker":"Marco","text":"Perfect. So Wednesday proposal, technical demo next week, you loop in your CTO. I think there's a real fit here.","start":81.2,"end":87.0,"confidence":0.89}
+{"speaker":"Priya","text":"Agreed, let's, let's keep it moving.","start":87.1,"end":89.0,"confidence":0.9}
