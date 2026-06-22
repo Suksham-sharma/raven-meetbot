@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { pool } from "../db/client";
 import { ask } from "./ask";
@@ -36,8 +36,22 @@ function factCovered(answer: string, fact: string): boolean {
   return hit / words.length >= 0.6;
 }
 
+// One captured run per question — written out with --dump so an external judge
+// (Ragas) can score the SAME answers/contexts my judge did (apples-to-apples).
+interface DumpRow {
+  id: string;
+  question: string;
+  answer: string;
+  contexts: string[];
+  expect_refusal: boolean;
+  my_faithfulness: number | null;
+  my_relevancy: number | null;
+}
+
 async function main(): Promise<void> {
   const useJudge = !process.argv.includes("--fast");
+  const doDump = process.argv.includes("--dump");
+  const dumpRows: DumpRow[] = [];
   const golden = JSON.parse(readFileSync(GOLDEN, "utf8")) as { questions: GoldenQ[] };
 
   let factSum = 0, factN = 0;
@@ -62,6 +76,7 @@ async function main(): Promise<void> {
       if (r.refused) refusalCorrect++;
       else notes.push("DID NOT REFUSE");
       console.log(`${q.id.padEnd(24)} ${"—".padStart(5)}  ${"—".padStart(5)}  ${"—".padStart(4)}  ${r.refused ? "✓" : "✗"}    ${r.grounded ? "✓" : "✗"}     ${notes.join("; ")}`);
+      dumpRows.push({ id: q.id, question: q.question, answer: r.answer, contexts: r.contexts, expect_refusal: true, my_faithfulness: null, my_relevancy: null });
       continue;
     }
 
@@ -75,11 +90,14 @@ async function main(): Promise<void> {
     }
 
     let faithStr = "  — ", relStr = " — ";
+    let myFaith: number | null = null, myRel: number | null = null;
     if (useJudge) {
       const [faith, rel] = await Promise.all([
         judgeFaithfulness(r.answer, r.contexts),
         judgeRelevancy(q.question, r.answer),
       ]);
+      myFaith = faith.score;
+      myRel = rel;
       faithSum += faith.score;
       relSum += rel;
       judgeN++;
@@ -87,6 +105,8 @@ async function main(): Promise<void> {
       relStr = rel.toFixed(2);
       if (faith.unsupported.length) notes.push(`${faith.unsupported.length} unsupported claim(s)`);
     }
+
+    dumpRows.push({ id: q.id, question: q.question, answer: r.answer, contexts: r.contexts, expect_refusal: false, my_faithfulness: myFaith, my_relevancy: myRel });
 
     console.log(
       `${q.id.padEnd(24)} ${frac.toFixed(2)}   ${faithStr}   ${relStr}  ${r.citations.length > 0 ? "✓" : "✗"}    ${r.grounded ? "✓" : "✗"}     ${notes.join("; ")}`
@@ -101,6 +121,12 @@ async function main(): Promise<void> {
     `cite-or-refuse=${(citeOrRefuseOk / n).toFixed(3)}  grounded=${(groundedOk / n).toFixed(3)}  ` +
     `refusal=${refusalN ? (refusalCorrect / refusalN).toFixed(3) : "n/a"}`;
   console.log(line + "\n");
+
+  if (doDump) {
+    const out = path.resolve(process.cwd(), "../eval/_ask_runs.json");
+    writeFileSync(out, JSON.stringify(dumpRows, null, 2));
+    console.log(`dumped ${dumpRows.length} runs → ${out}\n`);
+  }
 
   await pool.end();
 }
