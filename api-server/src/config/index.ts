@@ -14,6 +14,10 @@ const systemConfig = {
   // Agentic /ask loop model. gpt-4o-mini is a cheap default; bump to gpt-4o for
   // stronger multi-step reasoning (swappable so the eval can compare).
   OPENAI_ASK_MODEL: process.env.OPENAI_ASK_MODEL || "gpt-4o-mini",
+  // LLM-as-judge model for the answer-quality eval (faithfulness / relevancy).
+  // Ideally a DIFFERENT/stronger model than the one under test (less self-bias) —
+  // default gpt-4o-mini for cost; set to gpt-4o for a more credible judge.
+  OPENAI_JUDGE_MODEL: process.env.OPENAI_JUDGE_MODEL || "gpt-4o-mini",
   // Cheap model for the offline eval-seed transcript generator (dev tool only).
   OPENAI_GEN_MODEL: process.env.OPENAI_GEN_MODEL || "gpt-4o-mini",
 

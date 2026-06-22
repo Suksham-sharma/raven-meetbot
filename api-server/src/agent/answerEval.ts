@@ -2,17 +2,17 @@ import { readFileSync } from "fs";
 import path from "path";
 import { pool } from "../db/client";
 import { ask } from "./ask";
+import { judgeFaithfulness, judgeRelevancy } from "./judge";
 
 // End-to-end answer baseline over the golden set — runs each question through the
-// real agentic /ask loop and scores behavior we can check deterministically:
-//   - fact coverage  : do the expected_facts show up in the answer (keyword proxy)
-//   - cite-or-refuse : non-refusals carry ≥1 citation; refusals refuse
-//   - grounding      : the loop's own grounded flag
-//   - meeting recall : were the relevant meetings retrieved in-context
-// This is the fast proxy; Ragas (run_eval.py) is the semantic judge for
-// faithfulness / answer-relevancy. No Python needed to run this.
+// real agentic /ask loop and scores:
+//   - behavior  : cite-or-refuse, grounding, refusal correctness   (deterministic)
+//   - fact      : do expected_facts show up (keyword proxy — conservative floor)
+//   - semantic  : faithfulness (no hallucination vs retrieved context) + relevancy
+//                 via an LLM-as-judge (judge.ts). This is the de-saturating signal.
 //
-//   tsx src/agent/answerEval.ts
+//   tsx src/agent/answerEval.ts            # full (with judge)
+//   tsx src/agent/answerEval.ts --fast     # skip the LLM judge (behavior + fact only)
 
 interface GoldenQ {
   id: string;
@@ -26,8 +26,6 @@ interface GoldenQ {
 
 const GOLDEN = path.resolve(process.cwd(), "../eval/golden-set.json");
 
-// A fact is "covered" if ≥60% of its content words (len>3 or numeric) appear in
-// the answer. Crude keyword proxy — undercounts paraphrase; Ragas does semantic.
 function factCovered(answer: string, fact: string): boolean {
   const a = answer.toLowerCase();
   const words = (fact.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter(
@@ -39,26 +37,22 @@ function factCovered(answer: string, fact: string): boolean {
 }
 
 async function main(): Promise<void> {
+  const useJudge = !process.argv.includes("--fast");
   const golden = JSON.parse(readFileSync(GOLDEN, "utf8")) as { questions: GoldenQ[] };
 
-  let factSum = 0;
-  let factN = 0;
-  let citeOrRefuseOk = 0;
-  let groundedOk = 0;
-  let meetingRecallSum = 0;
-  let meetingRecallN = 0;
-  let refusalCorrect = 0;
-  let refusalN = 0;
+  let factSum = 0, factN = 0;
+  let faithSum = 0, relSum = 0, judgeN = 0;
+  let citeOrRefuseOk = 0, groundedOk = 0;
+  let refusalCorrect = 0, refusalN = 0;
 
-  console.log(`\nAnswer baseline over ${golden.questions.length} golden questions\n`);
-  console.log("id                       facts  cite  ground  notes");
-  console.log("─".repeat(80));
+  console.log(`\nAnswer baseline over ${golden.questions.length} questions${useJudge ? " (with LLM judge)" : " (--fast)"}\n`);
+  console.log("id                       facts  faith  rel   cite ground  notes");
+  console.log("─".repeat(86));
 
   for (const q of golden.questions) {
     const r = await ask(q.question);
     const notes: string[] = [];
 
-    // cite-or-refuse compliance: refusal refuses, else ≥1 citation.
     const compliant = q.expect_refusal ? r.refused : r.citations.length > 0;
     if (compliant) citeOrRefuseOk++;
     if (r.grounded) groundedOk++;
@@ -67,9 +61,7 @@ async function main(): Promise<void> {
       refusalN++;
       if (r.refused) refusalCorrect++;
       else notes.push("DID NOT REFUSE");
-      console.log(
-        `${q.id.padEnd(24)} ${"—".padStart(5)}  ${r.refused ? "✓" : "✗"}     ${r.grounded ? "✓" : "✗"}     ${notes.join("; ")}`
-      );
+      console.log(`${q.id.padEnd(24)} ${"—".padStart(5)}  ${"—".padStart(5)}  ${"—".padStart(4)}  ${r.refused ? "✓" : "✗"}    ${r.grounded ? "✓" : "✗"}     ${notes.join("; ")}`);
       continue;
     }
 
@@ -78,32 +70,37 @@ async function main(): Promise<void> {
     factSum += frac;
     factN++;
 
-    // Exact substring (not the fuzzy keyword proxy) — a correct answer that says
-    // "NOT localStorage" must not trip on the forbidden phrase's keywords.
     if (q.must_not_say?.some((s) => r.answer.toLowerCase().includes(s.toLowerCase()))) {
       notes.push("SAID FORBIDDEN");
     }
 
-    if (q.relevant_meetings.length) {
-      const found = q.relevant_meetings.filter((m) => r.retrievedMeetings.includes(m)).length;
-      meetingRecallSum += found / q.relevant_meetings.length;
-      meetingRecallN++;
+    let faithStr = "  — ", relStr = " — ";
+    if (useJudge) {
+      const [faith, rel] = await Promise.all([
+        judgeFaithfulness(r.answer, r.contexts),
+        judgeRelevancy(q.question, r.answer),
+      ]);
+      faithSum += faith.score;
+      relSum += rel;
+      judgeN++;
+      faithStr = faith.score.toFixed(2);
+      relStr = rel.toFixed(2);
+      if (faith.unsupported.length) notes.push(`${faith.unsupported.length} unsupported claim(s)`);
     }
 
     console.log(
-      `${q.id.padEnd(24)} ${frac.toFixed(2)}   ${r.citations.length > 0 ? "✓" : "✗"}     ${r.grounded ? "✓" : "✗"}     ${notes.join("; ")}`
+      `${q.id.padEnd(24)} ${frac.toFixed(2)}   ${faithStr}   ${relStr}  ${r.citations.length > 0 ? "✓" : "✗"}    ${r.grounded ? "✓" : "✗"}     ${notes.join("; ")}`
     );
   }
 
   const n = golden.questions.length;
-  console.log("─".repeat(80));
-  console.log(
-    `MEAN  fact-coverage=${(factSum / factN).toFixed(3)}  ` +
-      `cite-or-refuse=${(citeOrRefuseOk / n).toFixed(3)}  ` +
-      `grounded=${(groundedOk / n).toFixed(3)}  ` +
-      `meeting-recall=${(meetingRecallSum / meetingRecallN).toFixed(3)}  ` +
-      `refusal=${refusalN ? (refusalCorrect / refusalN).toFixed(3) : "n/a"}\n`
-  );
+  console.log("─".repeat(86));
+  let line =
+    `MEAN  fact=${(factSum / factN).toFixed(3)}  ` +
+    (useJudge ? `faithfulness=${(faithSum / judgeN).toFixed(3)}  relevancy=${(relSum / judgeN).toFixed(3)}  ` : "") +
+    `cite-or-refuse=${(citeOrRefuseOk / n).toFixed(3)}  grounded=${(groundedOk / n).toFixed(3)}  ` +
+    `refusal=${refusalN ? (refusalCorrect / refusalN).toFixed(3) : "n/a"}`;
+  console.log(line + "\n");
 
   await pool.end();
 }

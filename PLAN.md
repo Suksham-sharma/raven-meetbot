@@ -38,11 +38,11 @@ The hard part is not scale (hundreds of meetings ≈ 45–90k chunks is trivial 
 | Chunk → embed → **store** + the BullMQ ingest worker | ✅ built + run on all 7 seeds → real rows (19 chunks / 14 decisions / 13 actions / 30 chapters); worker drains the `memory` queue (D1), idempotent re-ingest verified |
 | Longer seed corpus (2 generated ~15-min meetings) + golden set grown to 15 Q | ✅ corpus now 19 chunks / 7 meetings; arch-review (eng) + sales-acme (sales) give real distractors |
 | **Hybrid search** (pgvector cosine + tsvector RRF, one SQL query, filters) | ✅ built + retrieval baseline: **recall@8 = 0.929, MRR = 0.798, hit-rate = 1.000** (14 Q) |
-| **Agentic `/ask`** (4 tools, cite-or-refuse) + `run_eval.py` wired to live endpoint | ✅ built — **agent recall@8 = 1.000, MRR = 0.869, cite-or-refuse = grounded = refusal = 1.000** |
-| Ragas semantic answer metrics (faithfulness / answer-relevancy) | optional — `run_eval.py` ready, skips gracefully until `pip install ragas` |
+| **Agentic `/ask`** (4 tools, cite-or-refuse) + `run_eval.py` wired to live endpoint | ✅ built — meeting-level: recall@8 = 1.000, cite-or-refuse = grounded = 1.000 |
+| **Eval hardened (de-saturated)** — chunk-level `relevant_ids` + LLM-judge (faithfulness/relevancy) + 4 adversarial Q | ✅ **chunk recall@8 = 0.853, MRR = 0.630, nDCG = 0.662; faithfulness = 0.824, relevancy = 0.912** — real headroom + diagnostic |
 | Dashboard | deferred slice |
 
-**OpenAI key** lives in `api-server/.env` (gitignored). **Next action (candidates):** dashboard (demo) ‖ eval-gated improvements (contextual prefix, reranker) ‖ label chunk-level `relevant_ids` + install Ragas for semantic answer scores ‖ real-bot ingest path (R2 transcript fetch + clock-skew verify).
+**OpenAI key** lives in `api-server/.env` (gitignored). **Next action (candidates):** eval-gated improvements — now buildable (reranker / contextual prefix / better tool-routing) against the de-saturated metric ‖ dashboard (demo) ‖ v3 agentic action-taking ‖ real-bot ingest path (R2 + clock-skew verify).
 
 **Storage slice notes (2026-06-20):**
 - DB client `src/db/client.ts` (shared pg pool + Drizzle), reused by worker + api-server (D1).
@@ -62,6 +62,12 @@ The hard part is not scale (hundreds of meetings ≈ 45–90k chunks is trivial 
 - **Cite-or-refuse:** the model cites `[[meeting_id@start_s]]` markers; the loop resolves them against a registry harvested from tool results (accepts a bare `[[meeting_id]]` fallback → top-relevance clip), builds citations with `start_s + recording_offset_s` → `#t=` deep links, and flags `grounded=false` if an answer has neither a citation nor the explicit refusal. REFUSAL = "I couldn't find that in your meetings."
 - **Two agent bugs found + fixed via eval:** (1) the loop spun calling `list_meetings` 6× and starved itself → added a progress guard that short-circuits duplicate tool calls + a prompt rule (one list is enough, then read content); fixed q5 cross-meeting synthesis. (2) refusal was unreliable (answered a not-in-corpus Q from a weak match) → prompt now requires verifying the match actually addresses the specific question. Run-to-run variance exists (temp-0 tool-calling still varies); refusal/grounding now stable across runs.
 - Eval: TS `pnpm eval:answer` (fast behavioral proxy, no Python) + Python `eval/run_eval.py` (wired to the live endpoint via stdlib urllib; meeting-level recall/MRR + behavioral; optional Ragas block, skips if not installed). **The agent lifts recall@8 from 0.929 (pure retrieval) → 1.000 by gathering across meetings on q2/q5 — the concrete justification for the agentic design.** Probes: `pnpm ask "<q>"`, `pnpm search "<q>"`.
+
+**Eval-hardening slice notes (2026-06-20):**
+- **Chunk-level `relevant_ids`** — golden set now labels the exact answer chunks, keyed `meetingId#seq` (stable across re-ingest, unlike bigserial ids). `retrievalEval.ts` scores chunk-level recall@k/MRR/**nDCG**; this de-saturated the metric (meeting-level was ~1.0 → chunk-level **0.853 / 0.630 / 0.662 @k=8**), so a reranker now has headroom to prove itself. Diagnostic: q14 (Acme action items) chunk recall **0.00** — evidence sits in low-salience wrap chunks transcript search ranks low (the structured table or a reranker should fix it); q2/q5/q13 at 0.50.
+- **LLM-as-judge** (`src/agent/judge.ts`, `OPENAI_JUDGE_MODEL`) instead of Ragas — **deliberate call:** Ragas on Python 3.13 is a heavy/fragile install for a dev-only metric and clashes with the repo's anti-dependency-bloat ethos; a self-built judge (claim-decomposition faithfulness + full/partial/none relevancy — Ragas's own technique) is no-dep, integrated into `pnpm eval:answer`, and demonstrates understanding vs importing a black box. `run_eval.py`'s Ragas hook kept as the optional "standard tool" path. Baseline: **faithfulness 0.824, relevancy 0.912**; surfaced real issues (q2 answer had 9 unsupported claims = padding beyond context).
+- **4 adversarial Q (q16–q19):** entity confusion (Northwind vs Acme budget), revised decision (Friday deploys scratched → Tue/Wed), cross-meeting no-conflation (both prospects' budgets), tempting refusal (free tier never discussed). Golden set now 19 Q / 6 types.
+- ⚠️ Known robustness gaps the harder eval exposed (next-slice fuel, NOT yet fixed): refusal flakes run-to-run (q7 sometimes answers from a weak match); q14-type answers occasionally refuse when the wrap-chunk evidence isn't retrieved; agent sometimes pads aggregation answers with unsupported claims. Temp-0 tool-calling still has variance.
 
 ---
 

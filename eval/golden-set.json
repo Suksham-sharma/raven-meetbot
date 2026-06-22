@@ -1,10 +1,12 @@
 {
-  "_comment": "Golden eval set for v2 retrieval + answer quality. relevant_ids are filled in after the seed meetings are ingested (decision/action/chunk ids); until then, relevant_meetings + expected_facts define correctness. Each question maps to a query type from PLAN.md. q8+ target the long (~15-16 min, ~7-chunk) generated meetings so retrieval is non-trivial — eng (arch-review) vs sales (sales-acme) vocabulary gives real distractors.",
+  "_comment": "Golden eval set for v2 retrieval + answer quality. relevant_ids are CHUNK-level, keyed meetingId#seq (stable across re-ingest, unlike bigserial ids) — the chunks that actually contain the answer; retrievalEval.ts scores chunk-level recall@k/MRR/nDCG against them. relevant_meetings stays for meeting-level / agent scoring. Each question maps to a query type from PLAN.md. q8+ target the long generated meetings; q16-q19 are adversarial (entity confusion, revised decision, cross-meeting no-conflation, tempting refusal).",
   "meetings": [
     "standup-planning_2026-05-20_14-30-00",
     "eng-sync_2026-06-03_10-00-00",
     "arch-review_2026-06-17_10-00-00",
-    "sales-acme_2026-06-19_15-00-00"
+    "sales-acme_2026-06-19_15-00-00",
+    "sales-northwind_2026-06-12_15-00-00",
+    "messy-sprint_2026-06-10_11-00-00"
   ],
   "questions": [
     {
@@ -13,7 +15,7 @@
       "question": "What did Sarah raise as a concern about the login endpoint?",
       "expected_facts": ["rate limiting on login", "credential stuffing"],
       "relevant_meetings": ["standup-planning_2026-05-20_14-30-00"],
-      "relevant_ids": []
+      "relevant_ids": ["standup-planning_2026-05-20_14-30-00#0"]
     },
     {
       "id": "q2-open-actions",
@@ -21,7 +23,7 @@
       "question": "What are all the open action items and who owns each?",
       "expected_facts": ["Alex: API design doc (Friday)", "Sam: set up CI pipeline (next sprint)", "Jordan: update the auth design doc"],
       "relevant_meetings": ["standup-planning_2026-05-20_14-30-00", "eng-sync_2026-06-03_10-00-00"],
-      "relevant_ids": []
+      "relevant_ids": ["standup-planning_2026-05-20_14-30-00#0", "eng-sync_2026-06-03_10-00-00#0"]
     },
     {
       "id": "q3-refresh-token-current",
@@ -30,7 +32,7 @@
       "expected_facts": ["httpOnly cookies", "not localStorage"],
       "must_not_say": ["localStorage is the chosen approach"],
       "relevant_meetings": ["eng-sync_2026-06-03_10-00-00", "arch-review_2026-06-17_10-00-00"],
-      "relevant_ids": [],
+      "relevant_ids": ["eng-sync_2026-06-03_10-00-00#0", "arch-review_2026-06-17_10-00-00#1"],
       "notes": "Tests recency/superseded handling: the eng-sync decision supersedes the implicit localStorage assumption; arch-review (2026-06-17) restates it as final and is the most recent."
     },
     {
@@ -39,7 +41,7 @@
       "question": "What did we decide for the main database, and why?",
       "expected_facts": ["Postgres", "relational integrity for billing"],
       "relevant_meetings": ["standup-planning_2026-05-20_14-30-00"],
-      "relevant_ids": []
+      "relevant_ids": ["standup-planning_2026-05-20_14-30-00#0"]
     },
     {
       "id": "q5-auth-evolution",
@@ -47,7 +49,7 @@
       "question": "How did our authentication approach evolve over the two meetings?",
       "expected_facts": ["started with JWT access tokens", "moved refresh tokens to httpOnly cookies after a security review"],
       "relevant_meetings": ["standup-planning_2026-05-20_14-30-00", "eng-sync_2026-06-03_10-00-00"],
-      "relevant_ids": []
+      "relevant_ids": ["standup-planning_2026-05-20_14-30-00#0", "eng-sync_2026-06-03_10-00-00#0"]
     },
     {
       "id": "q6-deepgram-why",
@@ -55,7 +57,7 @@
       "question": "Who chose Deepgram for transcription and what was the reasoning?",
       "expected_facts": ["Sam", "sub-second latency", "built-in diarization"],
       "relevant_meetings": ["eng-sync_2026-06-03_10-00-00"],
-      "relevant_ids": []
+      "relevant_ids": ["eng-sync_2026-06-03_10-00-00#0"]
     },
     {
       "id": "q7-not-discussed",
@@ -72,7 +74,7 @@
       "question": "What rate limit did the team put on the login endpoint, and why?",
       "expected_facts": ["5 requests per minute per IP", "to stop credential stuffing"],
       "relevant_meetings": ["arch-review_2026-06-17_10-00-00"],
-      "relevant_ids": [],
+      "relevant_ids": ["arch-review_2026-06-17_10-00-00#1"],
       "notes": "Fact lives in the transcript, NOT as a structured decision row (D5) — tests that hybrid transcript search surfaces non-pre-structured detail. Sales-call chunks are distractors."
     },
     {
@@ -81,7 +83,7 @@
       "question": "What did the team decide about speaker diarization?",
       "expected_facts": ["defer it to a v4 batch job", "batch is cheaper than running it live"],
       "relevant_meetings": ["arch-review_2026-06-17_10-00-00"],
-      "relevant_ids": []
+      "relevant_ids": ["arch-review_2026-06-17_10-00-00#4"]
     },
     {
       "id": "q10-deployment",
@@ -89,7 +91,7 @@
       "question": "Where and how will Raven be deployed to start?",
       "expected_facts": ["Fly.io", "single region (us-east)"],
       "relevant_meetings": ["arch-review_2026-06-17_10-00-00"],
-      "relevant_ids": []
+      "relevant_ids": ["arch-review_2026-06-17_10-00-00#5"]
     },
     {
       "id": "q11-acme-current-tool",
@@ -97,7 +99,7 @@
       "question": "What transcription tool does Acme use today, and why are they unhappy with it?",
       "expected_facts": ["Otter", "only gives raw transcripts with no decisions or action items"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
-      "relevant_ids": [],
+      "relevant_ids": ["sales-acme_2026-06-19_15-00-00#1"],
       "notes": "Sales meeting; engineering arch-review chunks are distractors."
     },
     {
@@ -106,7 +108,7 @@
       "question": "What pilot did Acme agree to?",
       "expected_facts": ["a 2-week pilot", "10 seats"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
-      "relevant_ids": []
+      "relevant_ids": ["sales-acme_2026-06-19_15-00-00#5", "sales-acme_2026-06-19_15-00-00#6"]
     },
     {
       "id": "q13-acme-objections",
@@ -114,7 +116,7 @@
       "question": "What are Acme's main concerns or blockers about adopting Raven?",
       "expected_facts": ["SOC 2 Type II before rollout", "EU data residency (Frankfurt)", "per-seat pricing feels steep"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
-      "relevant_ids": [],
+      "relevant_ids": ["sales-acme_2026-06-19_15-00-00#4", "sales-acme_2026-06-19_15-00-00#5"],
       "notes": "Type-specific (sales objections) answered at query time from the transcript, not from a pre-structured objections table (D5)."
     },
     {
@@ -123,7 +125,7 @@
       "question": "What are the action items from the Acme sales call and who owns each?",
       "expected_facts": ["Marco: send a pricing proposal (Tuesday)", "Dana: set up the pilot workspace (Monday)"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
-      "relevant_ids": []
+      "relevant_ids": ["sales-acme_2026-06-19_15-00-00#5", "sales-acme_2026-06-19_15-00-00#6"]
     },
     {
       "id": "q15-database-choice",
@@ -131,7 +133,46 @@
       "question": "What did the team decide for the primary database and the vector store, and why?",
       "expected_facts": ["Postgres as the primary database", "relational integrity for billing", "pgvector instead of a separate vector database"],
       "relevant_meetings": ["arch-review_2026-06-17_10-00-00"],
-      "relevant_ids": []
+      "relevant_ids": ["arch-review_2026-06-17_10-00-00#2", "arch-review_2026-06-17_10-00-00#3"]
+    },
+    {
+      "id": "q16-northwind-budget",
+      "type": "local_lookup",
+      "question": "What budget did Priya from Northwind say they had for tooling?",
+      "expected_facts": ["twenty to twenty-five thousand", "for this half"],
+      "must_not_say": ["thirty thousand"],
+      "relevant_meetings": ["sales-northwind_2026-06-12_15-00-00"],
+      "relevant_ids": ["sales-northwind_2026-06-12_15-00-00#0"],
+      "notes": "Adversarial — entity confusion. Acme (sales-acme) has a ~$30k budget; the agent must scope to Northwind and not return Acme's number."
+    },
+    {
+      "id": "q17-deploy-days",
+      "type": "decision_lookup",
+      "question": "What days did the team settle on for deploys?",
+      "expected_facts": ["Tuesday and Wednesday", "no Friday deploys"],
+      "must_not_say": ["decided to deploy on Fridays"],
+      "relevant_meetings": ["messy-sprint_2026-06-10_11-00-00"],
+      "relevant_ids": ["messy-sprint_2026-06-10_11-00-00#0"],
+      "notes": "Adversarial — revised decision. Friday deploys were proposed then explicitly scratched ('Scratch that'); the agent must report the FINAL decision, not the rejected one."
+    },
+    {
+      "id": "q18-budgets-both",
+      "type": "structured_aggregative",
+      "question": "Across the sales calls, what budget did each prospect mention?",
+      "expected_facts": ["Northwind: about twenty to twenty-five thousand", "Acme: about thirty thousand a year"],
+      "relevant_meetings": ["sales-northwind_2026-06-12_15-00-00", "sales-acme_2026-06-19_15-00-00"],
+      "relevant_ids": ["sales-northwind_2026-06-12_15-00-00#0", "sales-acme_2026-06-19_15-00-00#5"],
+      "notes": "Adversarial — cross-meeting aggregation over two SIMILAR meetings; the agent must keep each budget attributed to the right prospect (no conflation)."
+    },
+    {
+      "id": "q19-free-tier",
+      "type": "refusal",
+      "question": "What did the team decide about offering a free tier?",
+      "expected_facts": ["not found / not discussed in any meeting"],
+      "expect_refusal": true,
+      "relevant_meetings": [],
+      "relevant_ids": [],
+      "notes": "Adversarial — tempting refusal. Pricing IS discussed (per-seat, budgets), but a free tier is never mentioned; the agent must refuse rather than confabulate from adjacent pricing talk."
     }
   ]
 }
