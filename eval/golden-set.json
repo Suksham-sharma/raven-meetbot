@@ -5,7 +5,9 @@
     "eng-sync_2026-06-03_10-00-00",
     "arch-review_2026-06-17_10-00-00",
     "sales-acme_2026-06-19_15-00-00",
+    "sales-acme_2026-07-10_15-00-00",
     "sales-northwind_2026-06-12_15-00-00",
+    "sales-globex_2026-06-25_11-00-00",
     "messy-sprint_2026-06-10_11-00-00"
   ],
   "questions": [
@@ -105,7 +107,7 @@
     {
       "id": "q12-acme-pilot",
       "type": "decision_lookup",
-      "question": "What pilot did Acme agree to?",
+      "question": "In Acme's original June discovery call, what pilot did they agree to?",
       "expected_facts": ["a 2-week pilot", "10 seats"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
       "relevant_ids": ["sales-acme_2026-06-19_15-00-00#5", "sales-acme_2026-06-19_15-00-00#6"]
@@ -113,7 +115,7 @@
     {
       "id": "q13-acme-objections",
       "type": "synthesis_cross_meeting",
-      "question": "What are Acme's main concerns or blockers about adopting Raven?",
+      "question": "In the initial June Acme call, what main concerns or blockers did they raise about adopting Raven?",
       "expected_facts": ["SOC 2 Type II before rollout", "EU data residency (Frankfurt)", "per-seat pricing feels steep"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
       "relevant_ids": ["sales-acme_2026-06-19_15-00-00#4", "sales-acme_2026-06-19_15-00-00#5"],
@@ -122,7 +124,7 @@
     {
       "id": "q14-acme-action-items",
       "type": "structured_aggregative",
-      "question": "What are the action items from the Acme sales call and who owns each?",
+      "question": "What are the action items from Acme's June discovery call and who owns each?",
       "expected_facts": ["Marco: send a pricing proposal (Tuesday)", "Dana: set up the pilot workspace (Monday)"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
       "relevant_ids": ["sales-acme_2026-06-19_15-00-00#5", "sales-acme_2026-06-19_15-00-00#6"]
@@ -173,6 +175,82 @@
       "relevant_meetings": [],
       "relevant_ids": [],
       "notes": "Adversarial — tempting refusal. Pricing IS discussed (per-seat, budgets), but a free tier is never mentioned; the agent must refuse rather than confabulate from adjacent pricing talk."
+    },
+    {
+      "id": "q20-acme-july-rollout",
+      "type": "decision_lookup",
+      "question": "In the follow-up Acme call in July, what did Acme decide about the rollout size and the contract?",
+      "expected_facts": ["expand to 25 seats", "12-month annual contract"],
+      "relevant_meetings": ["sales-acme_2026-07-10_15-00-00"],
+      "relevant_ids": ["sales-acme_2026-07-10_15-00-00#1", "sales-acme_2026-07-10_15-00-00#2"],
+      "notes": "Instance-scoped: there are TWO 'sales acme' meetings (June discovery, July follow-up). Must answer from the JULY one (25 seats, annual contract), not the June discovery (10-seat pilot)."
+    },
+    {
+      "id": "q21-acme-current-status",
+      "type": "structured_recency",
+      "question": "What are the latest agreed terms on the Acme deal right now?",
+      "expected_facts": ["25 seats", "annual contract", "forty-five thousand"],
+      "relevant_meetings": ["sales-acme_2026-07-10_15-00-00"],
+      "relevant_ids": ["sales-acme_2026-07-10_15-00-00#1", "sales-acme_2026-07-10_15-00-00#2"],
+      "notes": "Recency across two same-title meetings: the July call SUPERSEDES June (10 seats / 30k). Must report the most recent terms, comparing dates."
+    },
+    {
+      "id": "q22-acme-budgets-both",
+      "type": "structured_aggregative",
+      "question": "What annual budget figures has Acme mentioned across our calls with them?",
+      "expected_facts": ["about thirty thousand", "forty-five thousand"],
+      "must_not_say": ["twenty to twenty-five thousand", "fifteen thousand"],
+      "relevant_meetings": ["sales-acme_2026-06-19_15-00-00", "sales-acme_2026-07-10_15-00-00"],
+      "relevant_ids": ["sales-acme_2026-06-19_15-00-00#5", "sales-acme_2026-07-10_15-00-00#1"],
+      "notes": "Cross-meeting aggregation over BOTH Acme calls; must not pull Northwind's (~20-25k) or Globex's (~15k) budget into an Acme answer (forbidden-fact contamination)."
+    },
+    {
+      "id": "q23-globex-tool",
+      "type": "local_lookup",
+      "question": "What transcription tool does Globex currently use?",
+      "expected_facts": ["Fireflies"],
+      "must_not_say": ["Otter"],
+      "relevant_meetings": ["sales-globex_2026-06-25_11-00-00"],
+      "relevant_ids": ["sales-globex_2026-06-25_11-00-00#0"],
+      "notes": "Entity confusion: Acme uses Otter, Globex uses Fireflies. Otter appearing in the gathered evidence is contamination."
+    },
+    {
+      "id": "q24-globex-trial",
+      "type": "decision_lookup",
+      "question": "What trial did Globex agree to?",
+      "expected_facts": ["1-week trial", "5 seats"],
+      "relevant_meetings": ["sales-globex_2026-06-25_11-00-00"],
+      "relevant_ids": ["sales-globex_2026-06-25_11-00-00#3"],
+      "notes": "Scoped decision; distractors are the Acme pilots (10/25 seats) and Northwind."
+    },
+    {
+      "id": "q25-vague-sales-tiers",
+      "type": "refusal",
+      "question": "What did we agree on about pricing tiers in the sales call?",
+      "expected_facts": ["not found / pricing tiers never discussed"],
+      "expect_refusal": true,
+      "relevant_meetings": [],
+      "relevant_ids": [],
+      "notes": "Adversarial — vague reference ('the sales call', of which there are four) AND absent info (budgets/per-seat are discussed, but pricing TIERS never are). Must refuse, not confabulate a tier structure from adjacent pricing talk across calls."
+    },
+    {
+      "id": "q26-acme-sso-blocker",
+      "type": "local_lookup",
+      "question": "What new technical blocker did Acme raise before the full rollout?",
+      "expected_facts": ["SSO", "SAML"],
+      "relevant_meetings": ["sales-acme_2026-07-10_15-00-00"],
+      "relevant_ids": ["sales-acme_2026-07-10_15-00-00#2"],
+      "notes": "Only surfaced in the July Acme call; the June call never mentions SSO/SAML."
+    },
+    {
+      "id": "q27-acme-june-pilot",
+      "type": "decision_lookup",
+      "question": "In the original June Acme discovery call, how big was the pilot they agreed to?",
+      "expected_facts": ["2-week pilot", "10 seats"],
+      "must_not_say": ["25 seats"],
+      "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
+      "relevant_ids": ["sales-acme_2026-06-19_15-00-00#5", "sales-acme_2026-06-19_15-00-00#6"],
+      "notes": "Paired with q20 to test date-disambiguation between the two Acme calls: must report the JUNE pilot (10 seats), not the July rollout (25). 25 seats in the evidence = wrong-instance contamination."
     }
   ]
 }

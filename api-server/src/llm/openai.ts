@@ -20,7 +20,14 @@ class OpenAIProvider implements LLMProvider, EmbeddingProvider, ChatProvider {
   private client: OpenAI;
 
   constructor() {
-    this.client = new OpenAI({ apiKey: systemConfig.OPENAI_API_KEY });
+    // The SDK retries connection errors / 429 / 5xx with exponential backoff;
+    // bump from the default 2 so a brief DNS or network blip during a long
+    // multi-call agent loop (or eval run) doesn't abort the whole request.
+    this.client = new OpenAI({
+      apiKey: systemConfig.OPENAI_API_KEY,
+      maxRetries: 5,
+      timeout: 60_000,
+    });
   }
 
   async extract<T>(args: {

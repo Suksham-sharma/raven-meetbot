@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { actionItems, chapters, chunks, decisions, meetings } from "../db/schema";
 import type { JsonSchema, ToolSpec } from "../llm/provider";
@@ -10,6 +10,100 @@ import { hybridSearch } from "../search/hybridSearch";
 // shape the model reads and quotes back in citations.
 
 const isoDate = (d: Date | null) => (d ? d.toISOString() : null);
+
+// Generic words that carry no meeting identity — ignored when matching a fuzzy
+// reference so they can't pull in the wrong meeting.
+const REF_STOP = new Set(["call", "meeting", "the", "with", "for", "and", "about", "our"]);
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const MONTHS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+// Pull a month (0-11) and/or 4-digit year out of a natural reference so a date
+// word can disambiguate same-title meetings — "July Acme" must beat "June Acme",
+// even though ids/titles store the date numerically ("2026-07-10"), where "july"
+// never substring-matches. Returns nulls when no date cue is present.
+function refDate(ref: string): { month: number | null; year: number | null } {
+  const lower = ref.toLowerCase();
+  const month = MONTHS.findIndex((m) => lower.includes(m));
+  const year = lower.match(/\b(20\d{2})\b/);
+  return { month: month >= 0 ? month : null, year: year ? Number(year[1]) : null };
+}
+
+export interface MeetingMatch {
+  id: string;
+  title: string | null;
+  score: number; // token-overlap count; Infinity for an exact id/title match
+  exact: boolean;
+}
+
+// Resolve a possibly-fuzzy meeting reference to RANKED candidates — never collapse
+// silently to one. The model (like a user) names a meeting naturally ("Acme sales
+// call", "the July Acme call") but ids/titles are normalized ("sales-acme_2026-06-19...",
+// "sales acme"). Precedence: exact id → exact normalized title → token overlap, with
+// a month/year cue in the reference filtering to meetings on that date (so two
+// same-title calls disambiguate by date). The caller (list_meetings) surfaces
+// remaining ambiguity rather than arbitrarily picking — two same-named meetings must
+// NOT be silently merged (the entity-confusion failure mode at corpus scale).
+async function resolveMeetingMatches(ref: string): Promise<MeetingMatch[]> {
+  const all = await db
+    .select({ id: meetings.id, title: meetings.title, date: meetings.startedAt })
+    .from(meetings);
+
+  const exactId = all.find((m) => m.id === ref);
+  if (exactId) return [{ id: exactId.id, title: exactId.title, score: Infinity, exact: true }];
+
+  const nRef = norm(ref);
+  const exactTitles = all.filter((m) => m.title && norm(m.title) === nRef);
+
+  const tokens = (nRef.match(/[a-z0-9]+/g) ?? []).filter(
+    (t) => t.length > 2 && !REF_STOP.has(t) && !MONTHS.includes(t)
+  );
+  const { month, year } = refDate(ref);
+  const dateOf = (m: { date: Date | null }) => m.date;
+
+  // A date cue narrows candidates to meetings on that month/year before scoring.
+  const dateFiltered =
+    month !== null || year !== null
+      ? all.filter((m) => {
+          const d = dateOf(m);
+          if (!d) return false;
+          if (month !== null && d.getUTCMonth() !== month) return false;
+          if (year !== null && d.getUTCFullYear() !== year) return false;
+          return true;
+        })
+      : all;
+
+  // Exact title within the date-filtered set is the strongest signal.
+  const exactTitleInDate = exactTitles.filter((m) => dateFiltered.some((d) => d.id === m.id));
+  if (exactTitleInDate.length) {
+    return exactTitleInDate.map((m) => ({ id: m.id, title: m.title, score: Infinity, exact: true }));
+  }
+  // A date cue with exactly one title-or-token match collapses to that meeting.
+  if (!tokens.length && (month !== null || year !== null) && dateFiltered.length === 1) {
+    const m = dateFiltered[0];
+    return [{ id: m.id, title: m.title, score: Infinity, exact: true }];
+  }
+  if (!tokens.length) {
+    return exactTitles.map((m) => ({ id: m.id, title: m.title, score: Infinity, exact: true }));
+  }
+
+  return dateFiltered
+    .map((m) => {
+      const hay = `${m.id} ${m.title ?? ""}`.toLowerCase();
+      return {
+        id: m.id,
+        title: m.title,
+        score: tokens.filter((t) => hay.includes(t)).length,
+        exact: false,
+      };
+    })
+    .filter((m) => m.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
 
 // ── search_transcript ──────────────────────────────────────────────────────
 const searchTranscriptSchema: JsonSchema = {
@@ -63,8 +157,19 @@ const searchStructuredSchema: JsonSchema = {
     meeting_id: { type: "string" },
     meeting_type: { type: "string" },
     owner: { type: "string", description: "action_items only: filter by owner" },
+    limit: { type: "integer", description: "max records to return (default 50, max 100)" },
   },
 };
+
+// Bounded so "everything across all meetings" can't blow the context window at
+// scale (hundreds of meetings → thousands of rows). Records are returned NEWEST
+// first, capped, and the result reports total_matched + truncated + a hint to
+// narrow — an HONEST cap (no silent drop): the agent is told there's more and how
+// to scope (owner / meeting_type / date / query) rather than getting a lie about
+// coverage. Aggregation that needs the full set must filter, which is also the
+// right product behavior (nobody wants a 2,000-item list).
+const STRUCTURED_MAX = 100;
+const STRUCTURED_DEFAULT = 50;
 
 async function searchStructured(a: {
   kind: "decisions" | "action_items" | "both";
@@ -72,8 +177,11 @@ async function searchStructured(a: {
   meeting_id?: string;
   meeting_type?: string;
   owner?: string;
+  limit?: number;
 }) {
+  const limit = Math.min(Math.max(a.limit ?? STRUCTURED_DEFAULT, 1), STRUCTURED_MAX);
   const out: Record<string, unknown>[] = [];
+  let totalMatched = 0;
 
   if (a.kind === "decisions" || a.kind === "both") {
     const conds = [];
@@ -84,6 +192,13 @@ async function searchStructured(a: {
         or(ilike(decisions.text, `%${a.query}%`), ilike(decisions.evidenceQuote, `%${a.query}%`))
       );
     }
+    const where = conds.length ? and(...conds) : undefined;
+    const [{ c }] = await db
+      .select({ c: count() })
+      .from(decisions)
+      .innerJoin(meetings, eq(meetings.id, decisions.meetingId))
+      .where(where);
+    totalMatched += Number(c);
     const rows = await db
       .select({
         meetingId: decisions.meetingId,
@@ -97,8 +212,9 @@ async function searchStructured(a: {
       })
       .from(decisions)
       .innerJoin(meetings, eq(meetings.id, decisions.meetingId))
-      .where(conds.length ? and(...conds) : undefined)
-      .orderBy(desc(meetings.startedAt));
+      .where(where)
+      .orderBy(desc(meetings.startedAt))
+      .limit(limit);
     for (const r of rows) {
       out.push({
         kind: "decision",
@@ -124,6 +240,13 @@ async function searchStructured(a: {
         or(ilike(actionItems.text, `%${a.query}%`), ilike(actionItems.evidenceQuote, `%${a.query}%`))
       );
     }
+    const where = conds.length ? and(...conds) : undefined;
+    const [{ c }] = await db
+      .select({ c: count() })
+      .from(actionItems)
+      .innerJoin(meetings, eq(meetings.id, actionItems.meetingId))
+      .where(where);
+    totalMatched += Number(c);
     const rows = await db
       .select({
         meetingId: actionItems.meetingId,
@@ -139,8 +262,9 @@ async function searchStructured(a: {
       })
       .from(actionItems)
       .innerJoin(meetings, eq(meetings.id, actionItems.meetingId))
-      .where(conds.length ? and(...conds) : undefined)
-      .orderBy(desc(meetings.startedAt));
+      .where(where)
+      .orderBy(desc(meetings.startedAt))
+      .limit(limit);
     for (const r of rows) {
       out.push({
         kind: "action_item",
@@ -158,7 +282,21 @@ async function searchStructured(a: {
     }
   }
 
-  return out;
+  // Newest first, then cap the combined set (each leg was capped individually too).
+  out.sort((x, y) => String(y.meeting_date ?? "").localeCompare(String(x.meeting_date ?? "")));
+  const rows = out.slice(0, limit);
+  const truncated = totalMatched > rows.length;
+  return {
+    total_matched: totalMatched,
+    returned: rows.length,
+    truncated,
+    ...(truncated
+      ? {
+          hint: `Showing the ${rows.length} most recent of ${totalMatched} matching records. Narrow with owner, meeting_type, a date range (via list_meetings then meeting_id), or a query keyword to reach the rest.`,
+        }
+      : {}),
+    rows,
+  };
 }
 
 // ── fetch_meeting ──────────────────────────────────────────────────────────
@@ -223,7 +361,7 @@ const listMeetingsSchema: JsonSchema = {
     from: { type: "string", description: "ISO date lower bound on meeting date" },
     to: { type: "string", description: "ISO date upper bound on meeting date" },
     participant: { type: "string", description: "only meetings with this participant" },
-    title: { type: "string", description: "substring match on the title" },
+    title: { type: "string", description: "loose title/name reference, e.g. 'Acme sales call'" },
     meeting_type: { type: "string" },
   },
 };
@@ -238,7 +376,24 @@ async function listMeetings(a: {
   const conds = [];
   if (a.from) conds.push(gte(meetings.startedAt, new Date(a.from)));
   if (a.to) conds.push(lte(meetings.startedAt, new Date(a.to)));
-  if (a.title) conds.push(ilike(meetings.title, `%${a.title}%`));
+
+  // Discovery tool ("ls"): a title is a loose reference resolved to RANKED
+  // candidates. When several tie at the top (e.g. two "sales acme" calls), surface
+  // ALL of them and set ambiguous=true so the agent disambiguates by date/participant
+  // instead of silently scoping to the wrong one. Fall back to substring if nothing
+  // overlaps. Returns the REAL id the agent then passes verbatim to the scoped tools.
+  let ambiguous = false;
+  if (a.title) {
+    const matches = await resolveMeetingMatches(a.title);
+    if (matches.length) {
+      const topScore = matches[0].score;
+      const topTier = matches.filter((m) => m.score === topScore);
+      ambiguous = !matches[0].exact && topTier.length > 1;
+      conds.push(inArray(meetings.id, topTier.map((m) => m.id)));
+    } else {
+      conds.push(ilike(meetings.title, `%${a.title}%`));
+    }
+  }
   if (a.meeting_type) conds.push(eq(meetings.type, a.meeting_type));
   if (a.participant) {
     conds.push(sql`${meetings.participants} @> ${JSON.stringify([a.participant])}::jsonb`);
@@ -255,7 +410,7 @@ async function listMeetings(a: {
     .from(meetings)
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(meetings.startedAt));
-  return rows.map((r) => ({
+  const list = rows.map((r) => ({
     meeting_id: r.id,
     title: r.title,
     type: r.type,
@@ -263,6 +418,9 @@ async function listMeetings(a: {
     participants: r.participants,
     duration_s: r.durationS,
   }));
+  // ambiguous=true tells the agent these candidates tied on the title reference —
+  // pick by date/participant (or ask) rather than assuming the first is right.
+  return { ambiguous, count: list.length, meetings: list };
 }
 
 // ── registry + dispatch ──────────────────────────────────────────────────────
@@ -276,7 +434,7 @@ export const TOOL_SPECS: ToolSpec[] = [
   {
     name: "search_structured",
     description:
-      "Search the typed decisions and action_items extracted from meetings. Use for 'what did we decide', 'open action items', 'who owns X'. Returns every matching record across meetings (good for aggregation).",
+      "The authoritative, deduplicated list of decisions and action_items (owner, due, verbatim evidence) extracted from meetings. ALWAYS use this FIRST for any action-item or decision question — 'what are the action items', 'who owns X', 'what's due', 'what did we decide' — for one meeting (scope with meeting_id/meeting_type) or across all. Action items are often said as casual end-of-meeting asides that transcript search ranks low, so this is the reliable source, not search_transcript. Returns { total_matched, returned, truncated, rows } NEWEST first; if truncated=true there are more than were returned — narrow by owner / meeting_type / date / query rather than assuming you have them all.",
     parameters: searchStructuredSchema,
   },
   {
@@ -288,7 +446,7 @@ export const TOOL_SPECS: ToolSpec[] = [
   {
     name: "list_meetings",
     description:
-      "Browse meetings by date range, participant, title, or type. Use to find which meetings exist / are relevant before searching inside them.",
+      "Resolve / browse meetings by title, date range, participant, or type, to get the EXACT meeting_id before scoping a search. A title is matched loosely (real ids/titles are normalized). Returns { ambiguous, count, meetings: [{ meeting_id, title, date, participants, ... }] }. If ambiguous=true or count>1, several meetings matched the title — disambiguate by date/participant before searching, don't assume the first.",
     parameters: listMeetingsSchema,
   },
 ];

@@ -1,0 +1,45 @@
+{
+  "id": "sales-globex_2026-06-25_11-00-00",
+  "type": "sales",
+  "context": "A ~20 minute sales discovery call with Globex, a US logistics company. Marco and Dana sell 'Raven', a meeting-memory product. Tara is the prospect. This is a DIFFERENT prospect from Acme and Northwind, but Marco runs it too — so questions about 'Marco's commitments' or 'the sales call' must not conflate this with the Acme or Northwind calls.",
+  "participants": [
+    { "name": "Marco", "role": "account executive at Raven, runs the call" },
+    { "name": "Dana", "role": "solutions engineer at Raven" },
+    { "name": "Tara", "role": "head of operations at Globex, the prospect" }
+  ],
+  "sections": [
+    {
+      "topic": "Intro and current setup",
+      "approxTurns": 16,
+      "mustInclude": [
+        "Globex currently uses Fireflies for transcription, and Tara finds it noisy and hard to search.",
+        "Globex runs a lot of cross-team logistics standups that nobody can later reconstruct."
+      ]
+    },
+    {
+      "topic": "Needs and demo",
+      "approxTurns": 30,
+      "mustInclude": [
+        "Globex's main ask is a Slack integration that pushes action items into their ops channel.",
+        "Dana shows how Raven extracts action items with owners and due dates."
+      ]
+    },
+    {
+      "topic": "Concerns",
+      "approxTurns": 26,
+      "mustInclude": [
+        "Tara's budget for tooling this year is about fifteen thousand dollars.",
+        "Compliance concern: Globex requires a self-hosted / on-prem deployment, they cannot use a multi-tenant cloud."
+      ]
+    },
+    {
+      "topic": "Next steps",
+      "approxTurns": 22,
+      "mustInclude": [
+        "Decision: Globex agrees to a 1-week trial with 5 seats.",
+        "Action item: Marco will send the trial invite by Friday.",
+        "Action item: Dana will check whether a self-hosted deployment is possible and report back."
+      ]
+    }
+  ]
+}

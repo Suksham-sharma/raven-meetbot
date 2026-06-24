@@ -1,0 +1,109 @@
+{"speaker":"Marco","text":"Hey Tara, thanks for joining us today. How's it going?","start":2,"end":6.2,"confidence":0.87}
+{"speaker":"Tara","text":"Hi Marco, I'm good, thanks! Just busy with the usual logistics stuff, you know?","start":6.6,"end":12.4,"confidence":0.89}
+{"speaker":"Dana","text":"Totally get that. Logistics can be a bit chaotic.","start":12.8,"end":16.5,"confidence":0.93}
+{"speaker":"Marco","text":"Right? So, uh, I wanted to start by asking about your current setup. I know you guys are using Fireflies for transcription, is that correct?","start":17,"end":27.4,"confidence":0.88}
+{"speaker":"Tara","text":"Yeah, that's right. We've been using it for a while now.","start":27.9,"end":32.5,"confidence":0.94}
+{"speaker":"Dana","text":"And how's that been working out for you?","start":32.8,"end":36.1,"confidence":0.86}
+{"speaker":"Tara","text":"Um, honestly, it's pretty noisy. Like, I find it hard to sift through the transcriptions sometimes.","start":36.3,"end":43,"confidence":0.9}
+{"speaker":"Marco","text":"Noisy? In what way?","start":43.2,"end":44.9,"confidence":0.84}
+{"speaker":"Tara","text":"Well, there’s a lot of background chatter, and sometimes it misses key points. It’s just... hard to search through everything.","start":45.1,"end":53.4,"confidence":0.92}
+{"speaker":"Dana","text":"That sounds frustrating. Searching should be easy, right?","start":53.6,"end":56.9,"confidence":0.86}
+{"speaker":"Tara","text":"Exactly! And we run a ton of cross-team logistics standups. But, like, nobody can really reconstruct what was discussed later.","start":57.1,"end":65.4,"confidence":0.92}
+{"speaker":"Marco","text":"So those standups are kind of lost after they're done?","start":65.6,"end":69.8,"confidence":0.87}
+{"speaker":"Tara","text":"Pretty much, yeah. It’s like we’re having these important discussions, but then it’s all just... gone.","start":70.2,"end":76.9,"confidence":0.9}
+{"speaker":"Dana","text":"That’s rough. So, it sounds like you’re looking for something that can help with clarity and searching?","start":77.1,"end":84.2,"confidence":0.84}
+{"speaker":"Tara","text":"Yeah, for sure. We need something that really captures everything well.","start":84.7,"end":89.3,"confidence":0.94}
+{"speaker":"Marco","text":"Got it. I think we can help with that. What other tools are you using right now?","start":89.6,"end":96.7,"confidence":0.84}
+{"speaker":"Tara","text":"We mostly just rely on Fireflies and some shared documents, but it’s not always effective.","start":97.2,"end":103.5,"confidence":0.83}
+{"speaker":"Dana","text":"Sounds like there’s definitely room for improvement.","start":103.8,"end":106.7,"confidence":0.92}
+{"speaker":"Tara","text":"Definitely! I’m really looking forward to hearing what Raven can do.","start":107,"end":111.6,"confidence":0.94}
+{"speaker":"Marco","text":"Thanks for joining us today, Tara. I really appreciate you taking the time.","start":111.9,"end":117.3,"confidence":0.82}
+{"speaker":"Tara","text":"No problem, Marco. Happy to be here.","start":117.8,"end":120.7,"confidence":0.92}
+{"speaker":"Dana","text":"Yeah, thanks, Tara. We’re excited to show you what Raven can do.","start":121,"end":126,"confidence":0.88}
+{"speaker":"Marco","text":"So, I understand that your main ask is for a Slack integration, right? You want action items to be pushed into your ops channel?","start":126.2,"end":136.2,"confidence":0.94}
+{"speaker":"Tara","text":"Exactly! We need a way to keep everything organized in Slack, you know? It’s where our team communicates the most.","start":136.4,"end":144.7,"confidence":0.92}
+{"speaker":"Marco","text":"Got it. That makes total sense. Dana, can you show how Raven integrates with Slack?","start":144.9,"end":151.1,"confidence":0.83}
+{"speaker":"Dana","text":"Sure! So, let me pull up a quick demo. With Raven, once a meeting wraps up, it automatically extracts action items, assigns owners, and sets due dates.","start":151.4,"end":162.6,"confidence":0.89}
+{"speaker":"Tara","text":"That sounds useful. So it pulls the key points and then just... pushes them to Slack?","start":162.9,"end":169.6,"confidence":0.9}
+{"speaker":"Dana","text":"Exactly! You’ll see here, once the meeting’s over, Raven takes the notes and identifies action items.","start":169.8,"end":176.5,"confidence":0.9}
+{"speaker":"Marco","text":"And it can handle multiple owners too, right? Like if a task needs collaboration?","start":176.7,"end":182.5,"confidence":0.89}
+{"speaker":"Dana","text":"Yes, definitely. You can tag multiple team members on action items. Let me show you.","start":182.9,"end":189.1,"confidence":0.83}
+{"speaker":"Tara","text":"That's great. So, how does it decide who to assign tasks to?","start":189.4,"end":194.4,"confidence":0.88}
+{"speaker":"Dana","text":"Good question! Raven analyzes the conversation and suggests action item owners based on their participation.","start":194.6,"end":200.9,"confidence":0.83}
+{"speaker":"Marco","text":"So it’s kinda smart about it, huh?","start":201.2,"end":204.1,"confidence":0.92}
+{"speaker":"Dana","text":"Right! It helps make sure the right people are accountable, based on who’s involved in the discussion.","start":204.4,"end":211.5,"confidence":0.84}
+{"speaker":"Tara","text":"I like that. It takes a lot of the guesswork out.","start":212,"end":216.6,"confidence":0.94}
+{"speaker":"Marco","text":"And once it pushes those action items to Slack, can you customize the messages?","start":216.9,"end":222.7,"confidence":0.89}
+{"speaker":"Dana","text":"Yes! You can customize the format and even add reminders if you want.","start":223.1,"end":228.5,"confidence":0.82}
+{"speaker":"Tara","text":"That’s super helpful. Our team often forgets tasks if there’s no reminder.","start":229,"end":234,"confidence":0.88}
+{"speaker":"Marco","text":"Totally understand. So, about the due dates—can those be edited after they’re set?","start":234.2,"end":239.6,"confidence":0.82}
+{"speaker":"Dana","text":"Absolutely. You can modify any action item, including due dates, right in Slack.","start":240.1,"end":245.5,"confidence":0.82}
+{"speaker":"Tara","text":"Perfect, that’s exactly what we need.","start":246,"end":248.5,"confidence":0.85}
+{"speaker":"Marco","text":"Great! I think this really aligns with your operational needs.","start":248.9,"end":253.1,"confidence":0.87}
+{"speaker":"Dana","text":"And it helps streamline communication too, since everything’s in one place.","start":253.5,"end":258.1,"confidence":0.94}
+{"speaker":"Tara","text":"Yeah, I can see how this could improve our workflow.","start":258.4,"end":262.6,"confidence":0.87}
+{"speaker":"Marco","text":"And it’ll cut down on follow-up emails, which is always a win.","start":263,"end":268,"confidence":0.88}
+{"speaker":"Dana","text":"For sure! Less back and forth means more productivity.","start":268.2,"end":272,"confidence":0.93}
+{"speaker":"Tara","text":"Exactly! So, how soon can we get this set up if we decide to move forward?","start":272.5,"end":279.2,"confidence":0.9}
+{"speaker":"Marco","text":"Once we finalize everything, we can typically get you onboarded within a couple of weeks.","start":279.4,"end":285.7,"confidence":0.83}
+{"speaker":"Dana","text":"And we'll provide training too, to make sure your team knows how to use it effectively.","start":286,"end":292.7,"confidence":0.9}
+{"speaker":"Tara","text":"Awesome! I’m looking forward to seeing how this works for us.","start":292.9,"end":297.5,"confidence":0.94}
+{"speaker":"Marco","text":"Great! Let’s keep the conversation going.","start":297.8,"end":300.3,"confidence":0.85}
+{"speaker":"Marco","text":"So, Tara, I’d love to dive into any concerns you might have about Raven.","start":300.7,"end":306.5,"confidence":0.89}
+{"speaker":"Tara","text":"Yeah, I mean, we’ve got a pretty tight budget for tooling this year.","start":306.9,"end":312.3,"confidence":0.82}
+{"speaker":"Marco","text":"Okay, what are you looking at?","start":312.8,"end":315.3,"confidence":0.85}
+{"speaker":"Tara","text":"We're around fifteen thousand dollars, that's kind of the max.","start":315.7,"end":319.9,"confidence":0.87}
+{"speaker":"Dana","text":"Got it, that’s a good number to have in mind.","start":320.3,"end":324.5,"confidence":0.87}
+{"speaker":"Marco","text":"Right, and we can definitely work within that range.","start":324.9,"end":328.7,"confidence":0.93}
+{"speaker":"Tara","text":"That’s good to hear, but we’ve also got some compliance issues.","start":329.2,"end":333.8,"confidence":0.94}
+{"speaker":"Marco","text":"Oh? Like what?","start":334.1,"end":335.5,"confidence":0.9}
+{"speaker":"Tara","text":"Well, we require a self-hosted or on-prem deployment.","start":335.8,"end":339.1,"confidence":0.86}
+{"speaker":"Dana","text":"Ah, I see. So, no multi-tenant cloud options for you?","start":339.3,"end":343.5,"confidence":0.87}
+{"speaker":"Tara","text":"Exactly. That’s a hard requirement for us.","start":343.9,"end":346.8,"confidence":0.92}
+{"speaker":"Marco","text":"Yeah, I totally understand that.","start":347.1,"end":349.2,"confidence":0.91}
+{"speaker":"Dana","text":"And Raven can absolutely support that self-hosted setup.","start":349.7,"end":353,"confidence":0.86}
+{"speaker":"Tara","text":"That’s good, but I need to know how that works.","start":353.2,"end":357.4,"confidence":0.87}
+{"speaker":"Marco","text":"Sure, we can walk you through the deployment process.","start":357.8,"end":361.5,"confidence":0.93}
+{"speaker":"Dana","text":"Basically, you’d have full control over your data, which is a plus.","start":362,"end":367,"confidence":0.88}
+{"speaker":"Tara","text":"Right, that’s really important for us.","start":367.2,"end":369.7,"confidence":0.85}
+{"speaker":"Marco","text":"Just to clarify, you’re looking to keep everything in-house?","start":370.1,"end":373.8,"confidence":0.93}
+{"speaker":"Tara","text":"Yes, we don’t allow any data to be in the cloud.","start":374.3,"end":378.9,"confidence":0.94}
+{"speaker":"Dana","text":"Understood. We can provide all the necessary compliance documentation too.","start":379.2,"end":383.4,"confidence":0.87}
+{"speaker":"Tara","text":"That’d be helpful. I just wanna make sure we meet our internal policies.","start":383.8,"end":389.2,"confidence":0.82}
+{"speaker":"Marco","text":"Absolutely, we can help with that.","start":389.7,"end":392.2,"confidence":0.85}
+{"speaker":"Tara","text":"And, um, I guess with the budget, I need to know what’s included.","start":392.6,"end":398,"confidence":0.82}
+{"speaker":"Dana","text":"We can break that down for you, like licensing fees and support.","start":398.5,"end":403.5,"confidence":0.88}
+{"speaker":"Marco","text":"Yeah, we’ll send over a detailed proposal.","start":403.7,"end":406.6,"confidence":0.92}
+{"speaker":"Tara","text":"I appreciate that. It’s just, we need to keep everything aligned with our standards.","start":406.9,"end":412.7,"confidence":0.89}
+{"speaker":"Marco","text":"Totally get it, Tara. We’re here to make that happen.","start":413.1,"end":417.3,"confidence":0.87}
+{"speaker":"Dana","text":"And if you have other compliance questions, we’re all ears.","start":417.7,"end":421.9,"confidence":0.87}
+{"speaker":"Tara","text":"Thanks, I will definitely bring those up.","start":422.3,"end":425.2,"confidence":0.92}
+{"speaker":"Marco","text":"Great! Just wanna make sure we’re on the same page.","start":425.5,"end":429.7,"confidence":0.87}
+{"speaker":"Tara","text":"Yeah, thanks for understanding our constraints.","start":430.1,"end":432.6,"confidence":0.85}
+{"speaker":"Dana","text":"Of course! It’s important for us to align with your needs.","start":433,"end":437.6,"confidence":0.94}
+{"speaker":"Marco","text":"Absolutely, let’s keep the conversation going.","start":437.9,"end":440.4,"confidence":0.85}
+{"speaker":"Marco","text":"Okay, Tara, so I think we’re at a good point to talk about next steps.","start":440.8,"end":447.1,"confidence":0.83}
+{"speaker":"Tara","text":"Yeah, I agree. What do you have in mind?","start":447.4,"end":451.2,"confidence":0.93}
+{"speaker":"Marco","text":"So, we’d like to get you set up with a one-week trial.","start":451.7,"end":456.7,"confidence":0.88}
+{"speaker":"Tara","text":"Right, a trial sounds good. How many seats are we looking at?","start":456.9,"end":461.9,"confidence":0.88}
+{"speaker":"Dana","text":"We can do five seats for the trial, right?","start":462.1,"end":465.9,"confidence":0.93}
+{"speaker":"Marco","text":"Exactly, five seats. Does that work for you?","start":466.4,"end":469.7,"confidence":0.86}
+{"speaker":"Tara","text":"Yeah, that should be fine.","start":469.9,"end":472,"confidence":0.91}
+{"speaker":"Marco","text":"Great! I’ll send out the trial invite by Friday.","start":472.5,"end":476.3,"confidence":0.93}
+{"speaker":"Tara","text":"Okay, perfect.","start":476.8,"end":478.2,"confidence":0.83}
+{"speaker":"Dana","text":"And just to clarify, um, I’ll check on whether we can do a self-hosted deployment for you.","start":478.6,"end":485.7,"confidence":0.84}
+{"speaker":"Tara","text":"Oh, that’d be really helpful. I’d like to know about that.","start":486.2,"end":490.8,"confidence":0.94}
+{"speaker":"Marco","text":"Yeah, I mean, we want to make sure it fits your needs.","start":491.1,"end":496.1,"confidence":0.88}
+{"speaker":"Dana","text":"I’ll follow up on that and get back to you, Tara.","start":496.3,"end":500.9,"confidence":0.94}
+{"speaker":"Tara","text":"Thanks, Dana. I appreciate it.","start":501.2,"end":503.3,"confidence":0.91}
+{"speaker":"Marco","text":"So just to confirm, we’ve got the trial for one week, five seats, and I’ll send that invite out.","start":503.8,"end":511.7,"confidence":0.85}
+{"speaker":"Tara","text":"Right, and Dana’s checking on the self-hosting.","start":512,"end":514.9,"confidence":0.92}
+{"speaker":"Dana","text":"Exactly! I’ll aim to have an update before the trial starts.","start":515.2,"end":519.8,"confidence":0.94}
+{"speaker":"Marco","text":"And if you have any questions in the meantime, just reach out.","start":520.1,"end":525.1,"confidence":0.88}
+{"speaker":"Tara","text":"Will do. I’m looking forward to testing it out.","start":525.3,"end":529.1,"confidence":0.93}
+{"speaker":"Marco","text":"Awesome! We’re excited to see how it works for you.","start":529.6,"end":533.8,"confidence":0.87}
+{"speaker":"Dana","text":"Yeah, and we’ll make sure you have a smooth startup.","start":534.2,"end":538.4,"confidence":0.87}
+{"speaker":"Tara","text":"Thanks, everyone. Sounds like a plan!","start":538.8,"end":541.3,"confidence":0.85}
+{"speaker":"Marco","text":"Alright, I’ll touch base soon then. Take care!","start":541.7,"end":545,"confidence":0.86}
+{"speaker":"Tara","text":"You too, bye!","start":545.2,"end":546.6,"confidence":0.9}
+{"speaker":"Dana","text":"Bye!","start":546.9,"end":548.3,"confidence":0.89}

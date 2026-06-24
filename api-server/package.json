@@ -17,6 +17,7 @@
     "eval:retrieval": "tsx src/search/retrievalEval.ts",
     "ask": "tsx src/agent/runAsk.ts",
     "eval:answer": "tsx src/agent/answerEval.ts",
+    "eval:evidence": "tsx src/agent/evidenceEval.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

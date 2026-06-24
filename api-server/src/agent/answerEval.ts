@@ -46,6 +46,9 @@ interface DumpRow {
   expect_refusal: boolean;
   my_faithfulness: number | null;
   my_relevancy: number | null;
+  // The exact claims the faithfulness judge marked unsupported — so a faithfulness
+  // delta can be read as "real hallucination removed" vs "metadata false-positive".
+  unsupported_claims: string[];
 }
 
 async function main(): Promise<void> {
@@ -76,7 +79,7 @@ async function main(): Promise<void> {
       if (r.refused) refusalCorrect++;
       else notes.push("DID NOT REFUSE");
       console.log(`${q.id.padEnd(24)} ${"—".padStart(5)}  ${"—".padStart(5)}  ${"—".padStart(4)}  ${r.refused ? "✓" : "✗"}    ${r.grounded ? "✓" : "✗"}     ${notes.join("; ")}`);
-      dumpRows.push({ id: q.id, question: q.question, answer: r.answer, contexts: r.contexts, expect_refusal: true, my_faithfulness: null, my_relevancy: null });
+      dumpRows.push({ id: q.id, question: q.question, answer: r.answer, contexts: r.contexts, expect_refusal: true, my_faithfulness: null, my_relevancy: null, unsupported_claims: [] });
       continue;
     }
 
@@ -91,6 +94,7 @@ async function main(): Promise<void> {
 
     let faithStr = "  — ", relStr = " — ";
     let myFaith: number | null = null, myRel: number | null = null;
+    let unsupported: string[] = [];
     if (useJudge) {
       const [faith, rel] = await Promise.all([
         judgeFaithfulness(r.answer, r.contexts),
@@ -98,6 +102,7 @@ async function main(): Promise<void> {
       ]);
       myFaith = faith.score;
       myRel = rel;
+      unsupported = faith.unsupported;
       faithSum += faith.score;
       relSum += rel;
       judgeN++;
@@ -106,7 +111,7 @@ async function main(): Promise<void> {
       if (faith.unsupported.length) notes.push(`${faith.unsupported.length} unsupported claim(s)`);
     }
 
-    dumpRows.push({ id: q.id, question: q.question, answer: r.answer, contexts: r.contexts, expect_refusal: false, my_faithfulness: myFaith, my_relevancy: myRel });
+    dumpRows.push({ id: q.id, question: q.question, answer: r.answer, contexts: r.contexts, expect_refusal: false, my_faithfulness: myFaith, my_relevancy: myRel, unsupported_claims: unsupported });
 
     console.log(
       `${q.id.padEnd(24)} ${frac.toFixed(2)}   ${faithStr}   ${relStr}  ${r.citations.length > 0 ? "✓" : "✗"}    ${r.grounded ? "✓" : "✗"}     ${notes.join("; ")}`

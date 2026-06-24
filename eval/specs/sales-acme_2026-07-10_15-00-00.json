@@ -1,0 +1,56 @@
+{
+  "id": "sales-acme_2026-07-10_15-00-00",
+  "type": "sales",
+  "context": "A ~25 minute follow-up sales call with Acme, three weeks after their 2-week pilot of 'Raven' (a meeting-memory product). Marco and Dana from Raven; Lena and Raj from Acme. This call reviews the pilot and negotiates the full rollout. Decisions here SUPERSEDE the earlier discovery call: terms have changed.",
+  "participants": [
+    { "name": "Marco", "role": "account executive at Raven, runs the call" },
+    { "name": "Dana", "role": "solutions engineer at Raven" },
+    { "name": "Lena", "role": "VP of Engineering at Acme, the prospect" },
+    { "name": "Raj", "role": "procurement at Acme" }
+  ],
+  "sections": [
+    {
+      "topic": "Pilot recap",
+      "approxTurns": 16,
+      "mustInclude": [
+        "The 2-week pilot went well and Acme's engineers adopted Raven quickly.",
+        "Lena says the 'ask across meetings' feature already saved her team time tracking decisions."
+      ]
+    },
+    {
+      "topic": "Rollout size and budget",
+      "approxTurns": 36,
+      "mustInclude": [
+        "Decision: Acme will expand from the 10-seat pilot to 25 seats for the full rollout.",
+        "Budget update: Lena confirms the budget is now about forty-five thousand dollars a year for the larger rollout, up from the earlier figure.",
+        "Raj confirms procurement has now approved the spend for this fiscal year."
+      ]
+    },
+    {
+      "topic": "Contract and security",
+      "approxTurns": 34,
+      "mustInclude": [
+        "Decision: Acme agrees to sign a 12-month annual contract starting in August.",
+        "The SOC 2 Type II report was delivered and Acme's security team reviewed and accepted it.",
+        "New blocker: before full rollout Acme needs SSO via SAML integrated with their Okta, otherwise IT won't approve company-wide access."
+      ]
+    },
+    {
+      "topic": "Next steps",
+      "approxTurns": 26,
+      "mustInclude": [
+        "Action item: Marco will send the annual contract for signature by Thursday.",
+        "Action item: Dana will schedule the SSO/SAML integration kickoff for next week.",
+        "Action item: Lena will introduce Marco to Acme's IT lead for the Okta setup."
+      ]
+    },
+    {
+      "topic": "Wrap up",
+      "approxTurns": 10,
+      "mustInclude": [
+        "Everyone agrees the goal is to have the 25-seat rollout live by the end of August.",
+        "Friendly close, thanks all around."
+      ]
+    }
+  ]
+}

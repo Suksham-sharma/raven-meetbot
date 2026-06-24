@@ -1,0 +1,129 @@
+{"speaker":"Marco","text":"Hey everyone, thanks for hopping on the call today. I hope you’re all doing well.","start":2,"end":8.3,"confidence":0.83}
+{"speaker":"Lena","text":"Hi Marco, we’re good, thanks! Excited to chat about the pilot.","start":8.6,"end":13.2,"confidence":0.94}
+{"speaker":"Dana","text":"Absolutely! So, to kick things off, how did the two-week pilot go from your side?","start":13.5,"end":19.8,"confidence":0.83}
+{"speaker":"Lena","text":"Honestly, it went really well. Our engineers adopted Raven super quickly, which was great.","start":20.1,"end":25.9,"confidence":0.89}
+{"speaker":"Raj","text":"Yeah, I was surprised at how fast everyone adjusted. It felt seamless.","start":26.3,"end":31.3,"confidence":0.88}
+{"speaker":"Marco","text":"That’s awesome to hear! Was there any feature that stood out to you?","start":31.5,"end":36.9,"confidence":0.82}
+{"speaker":"Lena","text":"Definitely! The 'ask across meetings' feature was a game changer for us. It saved my team a ton of time tracking decisions.","start":37.4,"end":46.6,"confidence":0.93}
+{"speaker":"Dana","text":"That's really great feedback. I’m glad it’s making an impact already.","start":47,"end":51.6,"confidence":0.94}
+{"speaker":"Raj","text":"Right? It’s nice not having to sift through notes to find what was discussed.","start":51.9,"end":57.7,"confidence":0.89}
+{"speaker":"Marco","text":"Exactly. So, I take it your team found it user-friendly overall?","start":58.1,"end":62.7,"confidence":0.94}
+{"speaker":"Lena","text":"For sure! The interface was intuitive, and we had very few questions.","start":63,"end":68,"confidence":0.88}
+{"speaker":"Dana","text":"That’s what we aim for! Any specific areas where you think we could improve?","start":68.2,"end":74,"confidence":0.89}
+{"speaker":"Lena","text":"Um, maybe just some more integration options? But really, it's been solid.","start":74.4,"end":79.4,"confidence":0.88}
+{"speaker":"Raj","text":"Yeah, I think the integration could help us get even more value.","start":79.6,"end":84.6,"confidence":0.88}
+{"speaker":"Marco","text":"Good to know! We’re always working on updates, so that feedback is super useful.","start":84.8,"end":90.6,"confidence":0.89}
+{"speaker":"Dana","text":"And it's great to see that the adoption is there. Makes the next steps a lot easier.","start":91,"end":98.1,"confidence":0.84}
+{"speaker":"Lena","text":"Definitely. We’re looking forward to discussing the full rollout.","start":98.6,"end":102.4,"confidence":0.93}
+{"speaker":"Raj","text":"Yeah, let’s dive into that.","start":102.9,"end":105,"confidence":0.91}
+{"speaker":"Marco","text":"Alright, thanks for joining us again, everyone. I'm excited to hear your thoughts on the pilot.","start":105.5,"end":112.2,"confidence":0.9}
+{"speaker":"Lena","text":"Yeah, we were really impressed with how Raven worked during the trial.","start":112.4,"end":117.4,"confidence":0.88}
+{"speaker":"Raj","text":"Definitely. It was useful for keeping track of our meetings.","start":117.6,"end":121.8,"confidence":0.87}
+{"speaker":"Dana","text":"That's great to hear! So, did you have a chance to discuss the rollout?","start":122.2,"end":128,"confidence":0.89}
+{"speaker":"Lena","text":"We did. We’re thinking about expanding from the 10 seats to 25 for the full rollout.","start":128.4,"end":135.1,"confidence":0.9}
+{"speaker":"Marco","text":"Wow, that’s a solid expansion! Glad to hear you’re seeing the value.","start":135.3,"end":140.3,"confidence":0.88}
+{"speaker":"Raj","text":"Yeah, we think it’ll help us a lot with our team.","start":140.5,"end":145.1,"confidence":0.94}
+{"speaker":"Dana","text":"And just to confirm, you're looking at 25 seats, right?","start":145.4,"end":149.6,"confidence":0.87}
+{"speaker":"Lena","text":"Exactly, we’re ready for that.","start":150,"end":152.1,"confidence":0.91}
+{"speaker":"Marco","text":"Awesome! And about the budget, I know we discussed some figures last time.","start":152.6,"end":158,"confidence":0.82}
+{"speaker":"Lena","text":"Right, so the budget has increased to about forty-five thousand dollars a year for this larger rollout.","start":158.5,"end":165.6,"confidence":0.84}
+{"speaker":"Raj","text":"That’s correct. We’ve got the funds approved for this fiscal year.","start":166.1,"end":170.7,"confidence":0.94}
+{"speaker":"Dana","text":"Perfect, that’s good to know. So, forty-five thousand for 25 seats?","start":171,"end":175.6,"confidence":0.94}
+{"speaker":"Marco","text":"Yes, that’s a significant jump from where we started. But it sounds like it’s a go?","start":175.9,"end":182.6,"confidence":0.9}
+{"speaker":"Lena","text":"Yeah, we feel it’s worth the investment.","start":182.8,"end":185.7,"confidence":0.92}
+{"speaker":"Raj","text":"And the approval from procurement, that was crucial.","start":186,"end":189.3,"confidence":0.86}
+{"speaker":"Marco","text":"Absolutely, glad to have that in place. Any concerns about the rollout?","start":189.5,"end":194.5,"confidence":0.88}
+{"speaker":"Lena","text":"Not really, just want to make sure implementation goes smoothly.","start":194.7,"end":198.9,"confidence":0.87}
+{"speaker":"Dana","text":"We can definitely help with that. We’ll provide all the support needed.","start":199.3,"end":204.3,"confidence":0.88}
+{"speaker":"Marco","text":"Right, we’ll set up training sessions and everything.","start":204.5,"end":207.8,"confidence":0.86}
+{"speaker":"Raj","text":"That would be helpful, yes.","start":208,"end":210.1,"confidence":0.91}
+{"speaker":"Lena","text":"And maybe some resources for onboarding the team?","start":210.6,"end":213.9,"confidence":0.86}
+{"speaker":"Dana","text":"For sure! We’ve got plenty of materials to share.","start":214.1,"end":217.9,"confidence":0.93}
+{"speaker":"Marco","text":"And we can also schedule check-ins after the rollout starts.","start":218.4,"end":222.6,"confidence":0.87}
+{"speaker":"Lena","text":"That sounds good. Just to make sure we’re on track.","start":223,"end":227.2,"confidence":0.87}
+{"speaker":"Raj","text":"Yeah, and if any issues pop up, we can address them quickly.","start":227.6,"end":232.6,"confidence":0.88}
+{"speaker":"Dana","text":"Exactly, we want to ensure you’re getting the most out of Raven.","start":232.8,"end":237.8,"confidence":0.88}
+{"speaker":"Marco","text":"So, to recap: 25 seats at forty-five thousand, and procurement's approved?","start":238,"end":242.6,"confidence":0.94}
+{"speaker":"Lena","text":"That’s right, we’re all set on that front.","start":242.9,"end":246.2,"confidence":0.86}
+{"speaker":"Raj","text":"Ready to move forward.","start":246.4,"end":248.1,"confidence":0.84}
+{"speaker":"Marco","text":"Great! Let’s get the paperwork sorted.","start":248.3,"end":250.8,"confidence":0.85}
+{"speaker":"Dana","text":"And then we can kick off your onboarding.","start":251.2,"end":254.5,"confidence":0.86}
+{"speaker":"Lena","text":"Looking forward to it!","start":254.7,"end":256.4,"confidence":0.84}
+{"speaker":"Raj","text":"Me too, this should be exciting.","start":256.6,"end":259.1,"confidence":0.85}
+{"speaker":"Marco","text":"Absolutely, we’ll make it a smooth transition.","start":259.5,"end":262.4,"confidence":0.92}
+{"speaker":"Dana","text":"And we’ll keep the lines of communication open throughout.","start":262.7,"end":266.5,"confidence":0.93}
+{"speaker":"Lena","text":"Thanks, everyone. Feel good about this!","start":267,"end":269.5,"confidence":0.85}
+{"speaker":"Raj","text":"Yeah, let’s do it!","start":269.9,"end":271.6,"confidence":0.84}
+{"speaker":"Marco","text":"Alright, so thanks for joining again, everyone. I hope you all had a chance to look over the pilot results.","start":271.8,"end":280.1,"confidence":0.92}
+{"speaker":"Lena","text":"Yeah, we did. I think overall, it went well.","start":280.3,"end":284.1,"confidence":0.93}
+{"speaker":"Raj","text":"Definitely. The team liked the features, and it seemed to really help with meeting notes.","start":284.6,"end":290.9,"confidence":0.83}
+{"speaker":"Dana","text":"That’s great to hear! So, moving on to the contract, I wanted to confirm that you’re ready to sign a 12-month annual contract starting in August?","start":291.2,"end":302,"confidence":0.82}
+{"speaker":"Lena","text":"Yes, we can agree to that. August works for us.","start":302.4,"end":306.6,"confidence":0.87}
+{"speaker":"Marco","text":"Awesome. I’ll have the paperwork sent over. Just to recap, that’s a full year, starting next month.","start":307,"end":314.1,"confidence":0.84}
+{"speaker":"Raj","text":"Right, and we also reviewed the SOC 2 Type II report you sent us.","start":314.6,"end":320.4,"confidence":0.89}
+{"speaker":"Dana","text":"Glad to hear that! And you’ve accepted it?","start":320.8,"end":324.1,"confidence":0.86}
+{"speaker":"Raj","text":"Yes, our security team went through it and they’re satisfied with the findings.","start":324.3,"end":329.7,"confidence":0.82}
+{"speaker":"Lena","text":"So, security-wise, we’re all good now.","start":330.2,"end":332.7,"confidence":0.85}
+{"speaker":"Marco","text":"Perfect! That’s a big step forward. But I understand there’s a new blocker?","start":333.1,"end":338.5,"confidence":0.82}
+{"speaker":"Raj","text":"Yeah, um, before we can roll this out company-wide, we need SSO via SAML integrated with our Okta.","start":339,"end":346.5,"confidence":0.91}
+{"speaker":"Dana","text":"Got it. So, just to clarify, without that integration, IT won’t approve access for everyone?","start":346.9,"end":353.2,"confidence":0.83}
+{"speaker":"Lena","text":"Exactly. It’s a requirement for us.","start":353.5,"end":356,"confidence":0.85}
+{"speaker":"Marco","text":"Okay, makes sense. We can work on that integration. How soon do you need it?","start":356.4,"end":362.7,"confidence":0.83}
+{"speaker":"Raj","text":"The sooner the better, honestly. We’d like to see it done before the rollout.","start":363,"end":368.8,"confidence":0.89}
+{"speaker":"Dana","text":"Alright, we can prioritize that. I’ll coordinate with our engineering team right after this call.","start":369.2,"end":375.5,"confidence":0.83}
+{"speaker":"Lena","text":"That works for us. Do you think it can be wrapped up in time?","start":375.8,"end":381.6,"confidence":0.89}
+{"speaker":"Marco","text":"We’ll do our best to make it happen. I’ll keep you posted on the progress.","start":382,"end":388.3,"confidence":0.83}
+{"speaker":"Raj","text":"Thanks, that’d be helpful.","start":388.6,"end":390.3,"confidence":0.84}
+{"speaker":"Dana","text":"And if you have any specific requirements for the SSO setup, just let us know.","start":390.5,"end":396.8,"confidence":0.83}
+{"speaker":"Lena","text":"Will do. We have some documentation we can share.","start":397.1,"end":400.9,"confidence":0.93}
+{"speaker":"Marco","text":"Great! That’ll speed things up.","start":401.4,"end":403.5,"confidence":0.91}
+{"speaker":"Raj","text":"Right, and once that’s in place, we can proceed with the full rollout.","start":404,"end":409.4,"confidence":0.82}
+{"speaker":"Dana","text":"Absolutely. We’re excited to get this going.","start":409.9,"end":412.8,"confidence":0.92}
+{"speaker":"Lena","text":"Same here. It’s all looking good so far.","start":413.1,"end":416.4,"confidence":0.86}
+{"speaker":"Raj","text":"Yeah, just need to clear this last hurdle.","start":416.6,"end":419.9,"confidence":0.86}
+{"speaker":"Marco","text":"Exactly. We’ll tackle it together. Anything else on your minds regarding the contract or security?","start":420.1,"end":426.4,"confidence":0.83}
+{"speaker":"Lena","text":"No, I think that covers it for now.","start":426.7,"end":430,"confidence":0.86}
+{"speaker":"Raj","text":"Yeah, I’m good. Let’s focus on that integration.","start":430.2,"end":433.5,"confidence":0.86}
+{"speaker":"Dana","text":"Sounds like a plan! I’ll follow up with you both soon.","start":433.7,"end":438.3,"confidence":0.94}
+{"speaker":"Marco","text":"Thanks, everyone. Let’s make this happen!","start":438.6,"end":441.1,"confidence":0.85}
+{"speaker":"Marco","text":"Alright, so let’s talk about next steps. I think we’re all on the same page after the pilot, right?","start":441.5,"end":449.4,"confidence":0.85}
+{"speaker":"Lena","text":"Yeah, definitely. The team really liked how Raven worked for us.","start":449.7,"end":454.3,"confidence":0.94}
+{"speaker":"Raj","text":"Agreed. It was pretty smooth, actually.","start":454.6,"end":457.1,"confidence":0.85}
+{"speaker":"Dana","text":"That’s great to hear! So, what should we tackle first?","start":457.5,"end":461.7,"confidence":0.87}
+{"speaker":"Marco","text":"I can send over the annual contract for you guys to sign. I’ll get that to you by Thursday.","start":462.1,"end":470,"confidence":0.85}
+{"speaker":"Lena","text":"Sounds good. I’ll make sure to have it reviewed.","start":470.3,"end":474.1,"confidence":0.93}
+{"speaker":"Raj","text":"Yeah, we should be able to move quickly on that.","start":474.6,"end":478.8,"confidence":0.87}
+{"speaker":"Dana","text":"Perfect! And we should also get the SSO/SAML integration going.","start":479.2,"end":483.4,"confidence":0.87}
+{"speaker":"Lena","text":"Right, when can we start that?","start":483.8,"end":486.3,"confidence":0.85}
+{"speaker":"Dana","text":"I can schedule the kickoff for next week. How does that sound?","start":486.7,"end":491.7,"confidence":0.88}
+{"speaker":"Raj","text":"Next week works for us.","start":491.9,"end":494,"confidence":0.91}
+{"speaker":"Marco","text":"Awesome. Just let us know what time works for you, Dana.","start":494.5,"end":499.1,"confidence":0.94}
+{"speaker":"Dana","text":"I’ll reach out to coordinate with your team after this call.","start":499.4,"end":504,"confidence":0.94}
+{"speaker":"Lena","text":"Great! And I’ll introduce you, Marco, to our IT lead for the Okta setup.","start":504.3,"end":510.1,"confidence":0.89}
+{"speaker":"Marco","text":"Thank you, Lena. That’ll really help streamline things.","start":510.5,"end":513.8,"confidence":0.86}
+{"speaker":"Raj","text":"Yeah, we want to make sure the integration is smooth.","start":514,"end":518.2,"confidence":0.87}
+{"speaker":"Dana","text":"Exactly. The sooner we get that set up, the better.","start":518.6,"end":522.8,"confidence":0.87}
+{"speaker":"Lena","text":"I’ll send that introduction email today.","start":523.2,"end":525.7,"confidence":0.85}
+{"speaker":"Marco","text":"Awesome! I appreciate that.","start":526.1,"end":527.8,"confidence":0.84}
+{"speaker":"Raj","text":"Let’s keep everything moving. I think we’re all excited to get this rolling.","start":528,"end":533.4,"confidence":0.82}
+{"speaker":"Dana","text":"Definitely! I think it’ll really benefit your team.","start":533.9,"end":537.2,"confidence":0.86}
+{"speaker":"Lena","text":"For sure. So, just to recap: Marco, contract by Thursday, Dana, kickoff next week, and I’ll connect you with IT.","start":537.4,"end":545.7,"confidence":0.92}
+{"speaker":"Marco","text":"Yep, that’s the plan.","start":545.9,"end":547.6,"confidence":0.84}
+{"speaker":"Raj","text":"Sounds like a solid plan to me.","start":547.8,"end":550.7,"confidence":0.92}
+{"speaker":"Dana","text":"Great! I’ll follow up with an email summarizing all this.","start":551,"end":555.2,"confidence":0.87}
+{"speaker":"Lena","text":"Perfect. Looking forward to it!","start":555.6,"end":557.7,"confidence":0.91}
+{"speaker":"Marco","text":"Thanks, everyone! Excited to move forward.","start":558.2,"end":560.7,"confidence":0.85}
+{"speaker":"Raj","text":"Same here. Let’s do this!","start":561.1,"end":563.2,"confidence":0.91}
+{"speaker":"Dana","text":"Talk soon, everyone!","start":563.7,"end":565.1,"confidence":0.9}
+{"speaker":"Lena","text":"Bye!","start":565.4,"end":566.8,"confidence":0.89}
+{"speaker":"Marco","text":"See ya!","start":567.3,"end":568.7,"confidence":0.83}
+{"speaker":"Marco","text":"Alright, so to wrap things up, I think we all agree on the goal to get the 25-seat rollout live by the end of August, right?","start":569.1,"end":579.9,"confidence":0.82}
+{"speaker":"Lena","text":"Yeah, that sounds good to me. We’re all on the same page there.","start":580.3,"end":585.7,"confidence":0.82}
+{"speaker":"Raj","text":"Definitely, end of August works. We can make that happen.","start":586.2,"end":590.4,"confidence":0.87}
+{"speaker":"Dana","text":"Great! I think that timeline gives us enough space to address any final tweaks.","start":590.8,"end":596.6,"confidence":0.89}
+{"speaker":"Marco","text":"Exactly, we want to make sure everything runs smoothly. And, um, if any issues come up, we’ll be here to help.","start":597,"end":605.8,"confidence":0.86}
+{"speaker":"Lena","text":"Appreciate that, Marco. I’m really looking forward to seeing how this scales.","start":606.3,"end":611.3,"confidence":0.88}
+{"speaker":"Raj","text":"Yeah, it’s been a good pilot. I think we’re ready for the next step.","start":611.5,"end":617.3,"confidence":0.89}
+{"speaker":"Dana","text":"Thanks, everyone, for your collaboration. It's been really productive.","start":617.7,"end":621.5,"confidence":0.93}
+{"speaker":"Marco","text":"Yeah, thanks a lot, everyone. I really appreciate your time today.","start":622,"end":626.6,"confidence":0.94}
+{"speaker":"Lena","text":"Thanks, Marco, Dana. Looking forward to working together on this!","start":626.9,"end":631.1,"confidence":0.87}
