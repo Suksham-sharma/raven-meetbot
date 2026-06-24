@@ -143,6 +143,7 @@
       "question": "What budget did Priya from Northwind say they had for tooling?",
       "expected_facts": ["twenty to twenty-five thousand", "for this half"],
       "must_not_say": ["thirty thousand"],
+      "forbidden_in_evidence": ["thirty thousand", "forty-five thousand", "fifteen thousand"],
       "relevant_meetings": ["sales-northwind_2026-06-12_15-00-00"],
       "relevant_ids": ["sales-northwind_2026-06-12_15-00-00#0"],
       "notes": "Adversarial — entity confusion. Acme (sales-acme) has a ~$30k budget; the agent must scope to Northwind and not return Acme's number."
@@ -200,6 +201,7 @@
       "question": "What annual budget figures has Acme mentioned across our calls with them?",
       "expected_facts": ["about thirty thousand", "forty-five thousand"],
       "must_not_say": ["twenty to twenty-five thousand", "fifteen thousand"],
+      "forbidden_in_evidence": ["twenty to twenty-five thousand", "fifteen thousand"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00", "sales-acme_2026-07-10_15-00-00"],
       "relevant_ids": ["sales-acme_2026-06-19_15-00-00#5", "sales-acme_2026-07-10_15-00-00#1"],
       "notes": "Cross-meeting aggregation over BOTH Acme calls; must not pull Northwind's (~20-25k) or Globex's (~15k) budget into an Acme answer (forbidden-fact contamination)."
@@ -210,6 +212,7 @@
       "question": "What transcription tool does Globex currently use?",
       "expected_facts": ["Fireflies"],
       "must_not_say": ["Otter"],
+      "forbidden_in_evidence": ["Otter"],
       "relevant_meetings": ["sales-globex_2026-06-25_11-00-00"],
       "relevant_ids": ["sales-globex_2026-06-25_11-00-00#0"],
       "notes": "Entity confusion: Acme uses Otter, Globex uses Fireflies. Otter appearing in the gathered evidence is contamination."
@@ -248,6 +251,7 @@
       "question": "In the original June Acme discovery call, how big was the pilot they agreed to?",
       "expected_facts": ["2-week pilot", "10 seats"],
       "must_not_say": ["25 seats"],
+      "forbidden_in_evidence": ["25 seats", "twenty-five seats"],
       "relevant_meetings": ["sales-acme_2026-06-19_15-00-00"],
       "relevant_ids": ["sales-acme_2026-06-19_15-00-00#5", "sales-acme_2026-06-19_15-00-00#6"],
       "notes": "Paired with q20 to test date-disambiguation between the two Acme calls: must report the JUNE pilot (10 seats), not the July rollout (25). 25 seats in the evidence = wrong-instance contamination."

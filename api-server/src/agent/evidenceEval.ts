@@ -32,7 +32,13 @@ interface GoldenQ {
   type: string;
   question: string;
   expected_facts: string[];
-  must_not_say?: string[]; // facts that must NOT appear (forbidden / wrong-entity)
+  // Wrong-ENTITY facts that must not appear in the gathered EVIDENCE (e.g. Acme's
+  // budget for a Northwind question). Distinct from must_not_say, which guards the
+  // ANSWER's conclusion — a must_not_say like "decided to deploy on Fridays" shares
+  // words with the legitimately-retrieved rejected-Friday discussion, so using it
+  // for evidence contamination produces false positives. Only true cross-entity
+  // leakage belongs here.
+  forbidden_in_evidence?: string[];
   relevant_ids: string[]; // meetingId#seq
   relevant_meetings: string[];
   expect_refusal?: boolean;
@@ -134,9 +140,9 @@ async function main(): Promise<void> {
       const factHit = q.expected_facts.filter((f) => factInText(evidenceText, f)).length;
       a.recall.push(q.expected_facts.length ? factHit / q.expected_facts.length : 1);
 
-      // CONTAMINATION: a forbidden / wrong-entity fact leaked into the evidence.
+      // CONTAMINATION: a wrong-entity fact leaked into the gathered evidence.
       a.forbidden.push(
-        q.must_not_say?.some((f) => factInText(evidenceText, f)) ? 1 : 0
+        q.forbidden_in_evidence?.some((f) => factInText(evidenceText, f)) ? 1 : 0
       );
 
       // PRECISION + scope: evidence items from relevant meetings / all items;
@@ -169,8 +175,8 @@ async function main(): Promise<void> {
   const recallByType = new Map<string, number[]>();
   for (const q of scored) recallByType.set(q.type, [...(recallByType.get(q.type) ?? []), mean(agg.get(q.id)!.recall)]);
 
-  // contamination is only meaningful for questions that declare a forbidden fact.
-  const contamQs = scored.filter((q) => q.must_not_say?.length);
+  // contamination is only meaningful for questions that declare a forbidden entity.
+  const contamQs = scored.filter((q) => q.forbidden_in_evidence?.length);
   const contamRate = mean(contamQs.map((q) => mean(agg.get(q.id)!.forbidden)));
 
   console.log("─".repeat(110));
