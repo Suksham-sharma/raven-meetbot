@@ -105,6 +105,18 @@ async function resolveMeetingMatches(ref: string): Promise<MeetingMatch[]> {
     .sort((a, b) => b.score - a.score);
 }
 
+// Drop a meeting_type filter that matches no known type — the model sometimes
+// passes a descriptor that isn't a real type (e.g. "follow-up" from "the follow-up
+// Acme call"), which would silently empty every result and trigger a spurious
+// refusal. A bad type filter is ignored rather than enforced (same tolerance as a
+// fuzzy meeting_id); real meeting scoping still comes from the exact meeting_id.
+async function resolveMeetingType(t?: string): Promise<string | undefined> {
+  if (!t) return undefined;
+  const rows = await db.selectDistinct({ type: meetings.type }).from(meetings);
+  const known = rows.map((r) => r.type?.toLowerCase()).filter(Boolean);
+  return known.includes(t.toLowerCase()) ? t : undefined;
+}
+
 // ── search_transcript ──────────────────────────────────────────────────────
 const searchTranscriptSchema: JsonSchema = {
   type: "object",
@@ -129,7 +141,7 @@ async function searchTranscript(a: {
 }) {
   const hits = await hybridSearch(a.query, {
     k: a.k ?? 8,
-    filters: { meetingId: a.meeting_id, meetingType: a.meeting_type },
+    filters: { meetingId: a.meeting_id, meetingType: await resolveMeetingType(a.meeting_type) },
   });
   return hits.map((h) => ({
     meeting_id: h.meetingId,
@@ -180,13 +192,14 @@ async function searchStructured(a: {
   limit?: number;
 }) {
   const limit = Math.min(Math.max(a.limit ?? STRUCTURED_DEFAULT, 1), STRUCTURED_MAX);
+  const meetingType = await resolveMeetingType(a.meeting_type);
   const out: Record<string, unknown>[] = [];
   let totalMatched = 0;
 
   if (a.kind === "decisions" || a.kind === "both") {
     const conds = [];
     if (a.meeting_id) conds.push(eq(decisions.meetingId, a.meeting_id));
-    if (a.meeting_type) conds.push(eq(meetings.type, a.meeting_type));
+    if (meetingType) conds.push(eq(meetings.type, meetingType));
     if (a.query) {
       conds.push(
         or(ilike(decisions.text, `%${a.query}%`), ilike(decisions.evidenceQuote, `%${a.query}%`))
@@ -233,7 +246,7 @@ async function searchStructured(a: {
   if (a.kind === "action_items" || a.kind === "both") {
     const conds = [];
     if (a.meeting_id) conds.push(eq(actionItems.meetingId, a.meeting_id));
-    if (a.meeting_type) conds.push(eq(meetings.type, a.meeting_type));
+    if (meetingType) conds.push(eq(meetings.type, meetingType));
     if (a.owner) conds.push(ilike(actionItems.owner, `%${a.owner}%`));
     if (a.query) {
       conds.push(
@@ -406,7 +419,8 @@ async function listMeetings(a: {
       conds.push(ilike(meetings.title, `%${a.title}%`));
     }
   }
-  if (a.meeting_type) conds.push(eq(meetings.type, a.meeting_type));
+  const meetingType = await resolveMeetingType(a.meeting_type);
+  if (meetingType) conds.push(eq(meetings.type, meetingType));
   if (a.participant) {
     conds.push(sql`${meetings.participants} @> ${JSON.stringify([a.participant])}::jsonb`);
   }
