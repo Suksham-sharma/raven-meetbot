@@ -332,9 +332,15 @@ async function fetchMeeting(a: { meeting_id: string; mode?: "light" | "full" }) 
     duration_s: m.durationS,
     participants: m.participants,
     summary: m.summary,
+    // Each chapter carries meeting_id + start_s + text so the loop's citation
+    // harvester registers it — otherwise a summary answer built from fetch_meeting
+    // has nothing to cite and comes out ungrounded (cite-or-refuse hole on
+    // open-ended "summarize X" questions). text = the gist (the citable clip).
     chapters: chs.map((c) => ({
+      meeting_id: m.id,
       title: c.title,
       gist: c.gist,
+      text: c.gist ?? c.title,
       start_s: c.startS,
       end_s: c.endS,
     })),
@@ -349,7 +355,13 @@ async function fetchMeeting(a: { meeting_id: string; mode?: "light" | "full" }) 
     .orderBy(asc(chunks.seq));
   return {
     ...base,
-    transcript: cks.map((c) => ({ start_s: c.startS, speaker: c.speaker, text: c.text })),
+    // meeting_id on each line so full-mode transcript clips are citable too.
+    transcript: cks.map((c) => ({
+      meeting_id: m.id,
+      start_s: c.startS,
+      speaker: c.speaker,
+      text: c.text,
+    })),
   };
 }
 
