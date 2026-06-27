@@ -1,6 +1,6 @@
 import { DeepgramClient, type Deepgram } from "@deepgram/sdk";
 import botConfig from "../config";
-import R2Uploader from "./r2Uploader";
+import { createStorageSink, StorageSink } from "./storageSink";
 
 interface TranscriptSegment {
   speaker: number;
@@ -18,7 +18,7 @@ type V1Socket = Awaited<
 class Transcriber {
   private client: DeepgramClient;
   private connection: V1Socket | null = null;
-  private r2Uploader: R2Uploader | null = null;
+  private transcriptSink: StorageSink | null = null;
   private segments: TranscriptSegment[] = [];
   private jsonlBuffer: string[] = [];
   private flushTimer: ReturnType<typeof setInterval> | null = null;
@@ -31,9 +31,16 @@ class Transcriber {
   }
 
   async start(): Promise<void> {
-    this.r2Uploader = new R2Uploader(`${this.meetingId}.transcript.jsonl`);
-    await this.r2Uploader.init();
+    // R2 when configured, local recordings/ dir otherwise — mirrors recordingSink.
+    this.transcriptSink = createStorageSink(`${this.meetingId}.transcript.jsonl`);
+    await this.transcriptSink.init();
 
+    // The browser sends audio/webm;codecs=opus chunks (a WebM-CONTAINERIZED Opus
+    // stream from MediaRecorder). Do NOT declare encoding/sample_rate — that tells
+    // Deepgram the bytes are raw Opus and breaks its container detection, so it
+    // decodes nothing, emits no transcript, idle-times-out, and reconnect-loops.
+    // Omitting them lets Deepgram auto-detect the WebM/Opus container from the
+    // stream header (the standard MediaRecorder -> Deepgram-live path).
     this.connection = await this.client.listen.v1.connect({
       Authorization: `Token ${botConfig.DEEPGRAM_API_KEY}`,
       model: "nova-3",
@@ -41,8 +48,6 @@ class Transcriber {
       punctuate: "true",
       diarize: "true",
       interim_results: "false",
-      encoding: "opus" as Deepgram.ListenV1Encoding,
-      sample_rate: 48000,
     });
 
     this.connection.on("open", () => {
@@ -68,8 +73,8 @@ class Transcriber {
     this.connection.connect();
     await this.connection.waitForOpen();
 
-    // Flush transcript buffer to R2 every 30s
-    this.flushTimer = setInterval(() => this.flushToR2(), 30_000);
+    // Flush transcript buffer to storage every 30s
+    this.flushTimer = setInterval(() => this.flushToSink(), 30_000);
 
     console.log("[Transcriber] Started");
   }
@@ -148,17 +153,17 @@ class Transcriber {
     this.jsonlBuffer.push(JSON.stringify(segment));
   }
 
-  private async flushToR2(): Promise<void> {
-    if (this.jsonlBuffer.length === 0 || !this.r2Uploader) return;
+  private async flushToSink(): Promise<void> {
+    if (this.jsonlBuffer.length === 0 || !this.transcriptSink) return;
 
     const data = this.jsonlBuffer.join("\n") + "\n";
     this.jsonlBuffer = [];
 
     try {
-      await this.r2Uploader.addChunk(Buffer.from(data, "utf-8"));
+      await this.transcriptSink.addChunk(Buffer.from(data, "utf-8"));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[Transcriber] Failed to flush to R2: ${message}`);
+      console.error(`[Transcriber] Failed to flush transcript: ${message}`);
     }
   }
 
@@ -180,10 +185,10 @@ class Transcriber {
     }
 
     // Final flush
-    await this.flushToR2();
+    await this.flushToSink();
 
-    if (this.r2Uploader) {
-      await this.r2Uploader.complete();
+    if (this.transcriptSink) {
+      await this.transcriptSink.complete();
     }
 
     console.log(
