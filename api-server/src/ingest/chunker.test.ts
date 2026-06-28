@@ -30,11 +30,14 @@ describe("chunkTranscript", () => {
     expect(chunks.map((c) => c.seq)).toEqual(chunks.map((_, i) => i));
   });
 
-  it("labels the chunk with the dominant speaker by characters", () => {
+  it("labels the chunk with the speaker at its start, matching startS", () => {
+    // A speaks first (the clip plays from A's utterance), B talks longer. The label
+    // must be A — the speaker heard at startS — not the dominant-by-chars speaker.
     const segs = [seg("A", "hi", 0, 1), seg("B", "this is a much longer turn by B", 1, 3)];
     const chunks = chunkTranscript(segs, { maxTokens: 500 });
 
-    expect(chunks[0].speaker).toBe("B");
+    expect(chunks[0].startS).toBe(0);
+    expect(chunks[0].speaker).toBe("A");
   });
 
   it("returns no chunks for empty input", () => {

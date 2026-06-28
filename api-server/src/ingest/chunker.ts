@@ -21,7 +21,7 @@ export interface TranscriptSegment {
 
 export interface Chunk {
   seq: number;
-  speaker: string; // dominant speaker by character count
+  speaker: string; // speaker at the chunk's start (matches startS — see buildChunk)
   text: string; // speaker-labeled dialogue
   startS: number;
   endS: number;
@@ -40,22 +40,15 @@ function estTokens(text: string): number {
 function buildChunk(seq: number, segs: TranscriptSegment[]): Chunk {
   const text = segs.map((s) => `${s.speaker}: ${s.text}`).join("\n");
 
-  const charsBySpeaker = new Map<string, number>();
-  for (const s of segs) {
-    charsBySpeaker.set(s.speaker, (charsBySpeaker.get(s.speaker) ?? 0) + s.text.length);
-  }
-  let speaker = segs[0].speaker;
-  let maxChars = -1;
-  for (const [sp, chars] of charsBySpeaker) {
-    if (chars > maxChars) {
-      maxChars = chars;
-      speaker = sp;
-    }
-  }
-
+  // A chunk usually spans several turns from different speakers (whole utterances
+  // are never split). `speaker` is the ONE label a citation shows for the clip, and
+  // the clip plays from `startS` = the first utterance's start — so the label must
+  // be the FIRST utterance's speaker, the person heard at that timestamp. (An
+  // earlier "dominant speaker by char count" disagreed with startS and mislabeled
+  // clips, e.g. a clip that opens with A but is tagged B because B talked more.)
   return {
     seq,
-    speaker,
+    speaker: segs[0].speaker,
     text,
     startS: segs[0].start,
     endS: segs[segs.length - 1].end,
