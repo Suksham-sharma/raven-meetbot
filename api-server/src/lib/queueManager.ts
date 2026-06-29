@@ -4,10 +4,11 @@ import systemConfig from "../config";
 class QueueManager {
   private static instance: QueueManager;
   public meetQueue: Queue;
-  // Ingest queue (D1): the bot enqueues { meetingId } here when a recording is
-  // done; the memory worker (same codebase, separate process) runs the full
-  // ingest. Shares retry/backoff with the bot queue.
+  // Ingest queue (D1): drained by the memory worker (same codebase, separate process).
   public memoryQueue: Queue;
+  // Post-processing: enqueued by the orchestrator on successful bot exit,
+  // drained by the diarize worker.
+  public diarizeQueue: Queue;
 
   private constructor() {
     const defaultJobOptions = {
@@ -21,6 +22,7 @@ class QueueManager {
 
     this.meetQueue = new Queue("gmeet-bot", { connection, defaultJobOptions });
     this.memoryQueue = new Queue("memory", { connection, defaultJobOptions });
+    this.diarizeQueue = new Queue("diarize", { connection, defaultJobOptions });
   }
 
   static getInstance(): QueueManager {
@@ -34,9 +36,15 @@ class QueueManager {
 const queueManager = QueueManager.getInstance();
 export const meetQueue = queueManager.meetQueue;
 export const memoryQueue = queueManager.memoryQueue;
+export const diarizeQueue = queueManager.diarizeQueue;
 
-// Payload of one ingest job. meetingId resolves to a transcript source (R2 in
-// production, the seed loader in dev).
 export interface MemoryJob {
   meetingId: string;
+}
+
+// Keys are the bot's R2 upload keys ({meetingId}.webm / {meetingId}.speakers.jsonl).
+export interface DiarizeJob {
+  meetingId: string;
+  recordingKey: string;
+  speakersKey: string;
 }

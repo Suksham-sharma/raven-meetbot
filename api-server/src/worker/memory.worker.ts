@@ -1,7 +1,9 @@
 import { Worker } from "bullmq";
 import systemConfig from "../config";
 import { db, pool } from "../db/client";
+import { ArtifactNotFoundError, getArtifactStore } from "../diarize/artifactStore";
 import { ingestMeeting } from "../ingest/ingestMeeting";
+import { buildRealMeeting, loadNamedTranscript } from "../ingest/realSource";
 import { loadSeedMeeting } from "../ingest/seedSource";
 import type { MemoryJob } from "../lib/queueManager";
 
@@ -14,10 +16,30 @@ import type { MemoryJob } from "../lib/queueManager";
 
 const CONCURRENCY = Number(process.env.MEMORY_WORKER_CONCURRENCY) || 2;
 
-// Resolve a meetingId to its transcript + meta. Dev/eval: the seed loader.
-// Production swap point: fetch transcript.jsonl from R2 here.
+// Resolve a meetingId: the diarize worker's named-transcript in R2 (real
+// speaker names), else the seed corpus (eval). R2 unconfigured = seed-only dev.
 async function resolveMeeting(meetingId: string) {
-  return loadSeedMeeting(meetingId);
+  if (!systemConfig.R2_ENDPOINT) return loadSeedMeeting(meetingId);
+
+  try {
+    const { path, cleanup } = await getArtifactStore().resolve(
+      `${meetingId}.named-transcript.jsonl`
+    );
+    try {
+      const segments = loadNamedTranscript(path);
+      const { meta } = buildRealMeeting(segments, meetingId);
+      console.log(`[memory] resolved ${meetingId} from named-transcript (${segments.length} segs)`);
+      return { segments, meta };
+    } finally {
+      await cleanup();
+    }
+  } catch (err) {
+    if (err instanceof ArtifactNotFoundError) {
+      console.log(`[memory] no named-transcript for ${meetingId} — falling back to seed`);
+      return loadSeedMeeting(meetingId);
+    }
+    throw err;
+  }
 }
 
 const worker = new Worker<MemoryJob>(

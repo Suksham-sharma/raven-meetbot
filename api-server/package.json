@@ -10,6 +10,9 @@
     "db:migrate": "drizzle-kit migrate",
     "worker": "tsx src/worker/memory.worker.ts",
     "worker:dev": "tsx watch src/worker/memory.worker.ts",
+    "worker:diarize": "tsx src/diarize/diarize.worker.ts",
+    "worker:diarize:dev": "tsx watch src/diarize/diarize.worker.ts",
+    "diarize": "tsx src/diarize/runDiarize.ts",
     "ingest:seed": "tsx src/ingest/runIngest.ts",
     "enqueue:seed": "tsx src/ingest/enqueueSeeds.ts",
     "gen:seed": "tsx src/ingest/genTranscript.ts",
@@ -22,6 +25,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1078.0",
     "bullmq": "^5.53.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

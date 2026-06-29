@@ -1,0 +1,87 @@
+import { Worker } from "bullmq";
+import systemConfig from "../config";
+import { pool } from "../db/client";
+import { diarizeQueue, memoryQueue, type DiarizeJob } from "../lib/queueManager";
+import { getArtifactStore } from "./artifactStore";
+import { diarizeRecording, serializeNamedTranscript } from "./pipeline";
+
+// v4 post-processing worker: one job = one finished recording → fetch from R2 →
+// diarize (keyterms from tile names) → interval-vote name-merge → write
+// {meetingId}.named-transcript.jsonl → enqueue memory ingest.
+// Idempotent (overwrite + idempotent ingest), so BullMQ retries are safe.
+//
+// Run: pnpm worker:diarize (needs ffmpeg on PATH)
+
+const worker = new Worker<DiarizeJob>(
+  "diarize",
+  async (job) => {
+    const { meetingId, recordingKey, speakersKey } = job.data;
+    const log = (m: string) => console.log(`[diarize] ${meetingId}: ${m}`);
+    log(`start (job ${job.id})`);
+
+    const apiKey = systemConfig.DEEPGRAM_API_KEY;
+    if (!apiKey) throw new Error("DEEPGRAM_API_KEY not set");
+
+    const store = getArtifactStore();
+    const webm = await store.resolve(recordingKey);
+    const speakers = await store.resolve(speakersKey);
+
+    let namedKey: string;
+    try {
+      const result = await diarizeRecording(webm.path, speakers.path, {
+        apiKey,
+        onLog: log,
+      });
+      for (const a of result.assignments) {
+        log(
+          `Speaker ${a.speaker} → ${a.name} ` +
+            `[${a.method}, conf=${(a.mappingConfidence * 100).toFixed(0)}%, ${a.utterances} utt]`
+        );
+      }
+
+      namedKey = `${meetingId}.named-transcript.jsonl`;
+      await store.write(namedKey, serializeNamedTranscript(result));
+      log(`wrote ${result.named.length} named utterances → ${namedKey}`);
+    } finally {
+      await webm.cleanup();
+      await speakers.cleanup();
+    }
+
+    if (systemConfig.INGEST_AFTER_DIARIZE) {
+      await memoryQueue.add("ingest", { meetingId }, { jobId: meetingId });
+      log("enqueued memory ingest");
+    } else {
+      log("INGEST_AFTER_DIARIZE=false — skipping memory ingest");
+    }
+
+    return { meetingId, namedKey, ingestEnqueued: systemConfig.INGEST_AFTER_DIARIZE };
+  },
+  {
+    connection: { url: systemConfig.REDIS_URL },
+    concurrency: systemConfig.DIARIZE_WORKER_CONCURRENCY,
+  }
+);
+
+worker.on("failed", (job, err) => {
+  console.error(`[diarize] job ${job?.id} (${job?.data.meetingId}) failed:`, err.message);
+});
+
+console.log(
+  `[diarize] worker up, concurrency=${systemConfig.DIARIZE_WORKER_CONCURRENCY}, draining "diarize" queue`
+);
+
+let shuttingDown = false;
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[diarize] received ${signal}, closing worker...`);
+  await worker.close();
+  await diarizeQueue.close();
+  await memoryQueue.close();
+  await pool.end();
+  console.log("[diarize] worker closed.");
+  process.exit(0);
+}
+
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));

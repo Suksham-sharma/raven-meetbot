@@ -1,5 +1,9 @@
 import dotenv from "dotenv";
+import path from "path";
+// api-server/.env first, then repo-root .env (Deepgram + R2 creds live there;
+// dotenv won't clobber already-set vars).
 dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), "..", ".env") });
 
 const systemConfig = {
   PORT: Number(process.env.PORT) || 3000,
@@ -7,6 +11,14 @@ const systemConfig = {
   DATABASE_URL:
     process.env.DATABASE_URL ||
     "postgresql://postgres:postgres@localhost:5432/meetbot",
+
+  // Deepgram batch transcription for the v4 diarize worker (repo-root .env).
+  DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY || "",
+
+  // Diarize worker: ffmpeg + a Deepgram call per job → keep concurrency low.
+  DIARIZE_WORKER_CONCURRENCY: Number(process.env.DIARIZE_WORKER_CONCURRENCY) || 1,
+  // Auto-enqueue memory ingest when the named-transcript is ready.
+  INGEST_AFTER_DIARIZE: process.env.INGEST_AFTER_DIARIZE !== "false",
 
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
   OPENAI_EXTRACT_MODEL: process.env.OPENAI_EXTRACT_MODEL || "gpt-4o-mini",
@@ -20,6 +32,13 @@ const systemConfig = {
   OPENAI_JUDGE_MODEL: process.env.OPENAI_JUDGE_MODEL || "gpt-4o-mini",
   // Cheap model for the offline eval-seed transcript generator (dev tool only).
   OPENAI_GEN_MODEL: process.env.OPENAI_GEN_MODEL || "gpt-4o-mini",
+
+  // R2 (S3-compatible) — the artifact store for recordings + transcripts.
+  R2_ENDPOINT: process.env.R2_ENDPOINT || "",
+  R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID || "",
+  R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY || "",
+  R2_BUCKET: process.env.R2_BUCKET || "meeting-recordings",
+  R2_REGION: process.env.R2_REGION || "auto",
 
   JOB_ATTEMPTS: Number(process.env.JOB_ATTEMPTS) || 3,
   JOB_BACKOFF_MS: Number(process.env.JOB_BACKOFF_MS) || 5000,
