@@ -20,6 +20,14 @@ const systemConfig = {
   // Auto-enqueue memory ingest when the named-transcript is ready.
   INGEST_AFTER_DIARIZE: process.env.INGEST_AFTER_DIARIZE !== "false",
 
+  // v3 agent: auto-propose actions after ingest; approval is always human.
+  AGENT_AFTER_INGEST: process.env.AGENT_AFTER_INGEST !== "false",
+  // Force approves into previews (no external calls) regardless of creds.
+  AGENT_DRY_RUN: process.env.AGENT_DRY_RUN === "true",
+  LINEAR_API_KEY: process.env.LINEAR_API_KEY || "",
+  LINEAR_TEAM_ID: process.env.LINEAR_TEAM_ID || "",
+  SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL || "",
+
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
   OPENAI_EXTRACT_MODEL: process.env.OPENAI_EXTRACT_MODEL || "gpt-4o-mini",
   OPENAI_EMBED_MODEL: process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small",
@@ -32,6 +40,8 @@ const systemConfig = {
   OPENAI_JUDGE_MODEL: process.env.OPENAI_JUDGE_MODEL || "gpt-4o-mini",
   // Cheap model for the offline eval-seed transcript generator (dev tool only).
   OPENAI_GEN_MODEL: process.env.OPENAI_GEN_MODEL || "gpt-4o-mini",
+  // v3 action proposer (structured outputs, no tools).
+  OPENAI_PROPOSE_MODEL: process.env.OPENAI_PROPOSE_MODEL || "gpt-4o-mini",
 
   // R2 (S3-compatible) — the artifact store for recordings + transcripts.
   R2_ENDPOINT: process.env.R2_ENDPOINT || "",

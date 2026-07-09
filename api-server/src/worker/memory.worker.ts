@@ -5,7 +5,7 @@ import { ArtifactNotFoundError, getArtifactStore } from "../diarize/artifactStor
 import { ingestMeeting } from "../ingest/ingestMeeting";
 import { buildRealMeeting, loadNamedTranscript } from "../ingest/realSource";
 import { loadSeedMeeting } from "../ingest/seedSource";
-import type { MemoryJob } from "../lib/queueManager";
+import { agentQueue, type MemoryJob } from "../lib/queueManager";
 
 // The ingest worker (D1): a process in the api-server codebase — NOT a 4th
 // service — that drains the `memory` queue. One job = full ingest of one
@@ -58,6 +58,12 @@ const worker = new Worker<MemoryJob>(
         `actions=${counts.actionItems} chapters=${counts.chapters} ` +
         `dropped=${dropped.decisions + dropped.actionItems}`
     );
+
+    // Chain to the v3 proposer (idempotent; jobId dedupes re-ingests).
+    if (systemConfig.AGENT_AFTER_INGEST) {
+      await agentQueue.add("propose", { meetingId }, { jobId: meetingId });
+      console.log(`[memory] enqueued agent propose for ${meetingId}`);
+    }
     return result;
   },
   {

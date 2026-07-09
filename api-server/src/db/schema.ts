@@ -133,6 +133,41 @@ export const decisions = pgTable(
   ]
 );
 
+// v3 agent actions: external side-effects the agent PROPOSES from a meeting
+// (Linear issue, Slack message, ...). Nothing fires until a human approves —
+// approval executes via the adapter and moves proposed → executed | failed;
+// rejected is terminal. action_hash (meeting + kind + normalized payload) makes
+// re-running the proposer idempotent. Evidence fields are the cite-the-moment
+// provenance: the verbatim quote + timespan that justified the action.
+export const agentActions = pgTable(
+  "agent_actions",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // linear_issue | slack_message
+    title: text("title").notNull(), // short human label for the approval UI
+    payload: jsonb("payload").notNull(), // adapter-specific input
+    reasoning: text("reasoning"),
+    evidenceQuote: text("evidence_quote"),
+    evidenceStartS: doublePrecision("evidence_start_s"),
+    evidenceEndS: doublePrecision("evidence_end_s"),
+    actionHash: text("action_hash").notNull(),
+    status: text("status").notNull().default("proposed"), // proposed | executed | failed | rejected
+    result: jsonb("result"), // adapter output ({ external_id, url }) or { error }
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    executedAt: timestamp("executed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("agent_actions_hash_uq").on(table.actionHash),
+    index("agent_actions_meeting_id").on(table.meetingId),
+    index("agent_actions_status").on(table.status),
+  ]
+);
+
 // Structured extraction: action items (who owns what, optional due). Same provenance
 // + quote-guard contract as decisions. Feeds v2 "open action items" queries and v3's agent.
 export const actionItems = pgTable(

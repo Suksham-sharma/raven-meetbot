@@ -12,6 +12,8 @@
     "worker:dev": "tsx watch src/worker/memory.worker.ts",
     "worker:diarize": "tsx src/diarize/diarize.worker.ts",
     "worker:diarize:dev": "tsx watch src/diarize/diarize.worker.ts",
+    "worker:agent": "tsx src/worker/agent.worker.ts",
+    "propose": "tsx src/actions/runPropose.ts",
     "diarize": "tsx src/diarize/runDiarize.ts",
     "ingest:seed": "tsx src/ingest/runIngest.ts",
     "enqueue:seed": "tsx src/ingest/enqueueSeeds.ts",

@@ -9,6 +9,8 @@ class QueueManager {
   // Post-processing: enqueued by the orchestrator on successful bot exit,
   // drained by the diarize worker.
   public diarizeQueue: Queue;
+  // v3 action proposer: enqueued by the memory worker after ingest.
+  public agentQueue: Queue;
 
   private constructor() {
     const defaultJobOptions = {
@@ -23,6 +25,7 @@ class QueueManager {
     this.meetQueue = new Queue("gmeet-bot", { connection, defaultJobOptions });
     this.memoryQueue = new Queue("memory", { connection, defaultJobOptions });
     this.diarizeQueue = new Queue("diarize", { connection, defaultJobOptions });
+    this.agentQueue = new Queue("agent", { connection, defaultJobOptions });
   }
 
   static getInstance(): QueueManager {
@@ -37,8 +40,13 @@ const queueManager = QueueManager.getInstance();
 export const meetQueue = queueManager.meetQueue;
 export const memoryQueue = queueManager.memoryQueue;
 export const diarizeQueue = queueManager.diarizeQueue;
+export const agentQueue = queueManager.agentQueue;
 
 export interface MemoryJob {
+  meetingId: string;
+}
+
+export interface AgentJob {
   meetingId: string;
 }
 
