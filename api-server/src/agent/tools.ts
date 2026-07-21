@@ -48,10 +48,14 @@ export interface MeetingMatch {
 // same-title calls disambiguate by date). The caller (list_meetings) surfaces
 // remaining ambiguity rather than arbitrarily picking — two same-named meetings must
 // NOT be silently merged (the entity-confusion failure mode at corpus scale).
-async function resolveMeetingMatches(ref: string): Promise<MeetingMatch[]> {
+async function resolveMeetingMatches(
+  ref: string,
+  ownerId: string | null
+): Promise<MeetingMatch[]> {
   const all = await db
     .select({ id: meetings.id, title: meetings.title, date: meetings.startedAt })
-    .from(meetings);
+    .from(meetings)
+    .where(ownerId ? eq(meetings.ownerId, ownerId) : undefined);
 
   const exactId = all.find((m) => m.id === ref);
   if (exactId) return [{ id: exactId.id, title: exactId.title, score: Infinity, exact: true }];
@@ -110,9 +114,15 @@ async function resolveMeetingMatches(ref: string): Promise<MeetingMatch[]> {
 // Acme call"), which would silently empty every result and trigger a spurious
 // refusal. A bad type filter is ignored rather than enforced (same tolerance as a
 // fuzzy meeting_id); real meeting scoping still comes from the exact meeting_id.
-async function resolveMeetingType(t?: string): Promise<string | undefined> {
+async function resolveMeetingType(
+  t: string | undefined,
+  ownerId: string | null
+): Promise<string | undefined> {
   if (!t) return undefined;
-  const rows = await db.selectDistinct({ type: meetings.type }).from(meetings);
+  const rows = await db
+    .selectDistinct({ type: meetings.type })
+    .from(meetings)
+    .where(ownerId ? eq(meetings.ownerId, ownerId) : undefined);
   const known = rows.map((r) => r.type?.toLowerCase()).filter(Boolean);
   return known.includes(t.toLowerCase()) ? t : undefined;
 }
@@ -133,15 +143,17 @@ const searchTranscriptSchema: JsonSchema = {
   },
 };
 
-async function searchTranscript(a: {
-  query: string;
-  k?: number;
-  meeting_id?: string;
-  meeting_type?: string;
-}) {
+async function searchTranscript(
+  a: { query: string; k?: number; meeting_id?: string; meeting_type?: string },
+  ownerId: string | null
+) {
   const hits = await hybridSearch(a.query, {
     k: a.k ?? 8,
-    filters: { meetingId: a.meeting_id, meetingType: await resolveMeetingType(a.meeting_type) },
+    filters: {
+      ownerId: ownerId ?? undefined,
+      meetingId: a.meeting_id,
+      meetingType: await resolveMeetingType(a.meeting_type, ownerId),
+    },
   });
   return hits.map((h) => ({
     meeting_id: h.meetingId,
@@ -183,21 +195,25 @@ const searchStructuredSchema: JsonSchema = {
 const STRUCTURED_MAX = 100;
 const STRUCTURED_DEFAULT = 50;
 
-async function searchStructured(a: {
-  kind: "decisions" | "action_items" | "both";
-  query?: string;
-  meeting_id?: string;
-  meeting_type?: string;
-  owner?: string;
-  limit?: number;
-}) {
+async function searchStructured(
+  a: {
+    kind: "decisions" | "action_items" | "both";
+    query?: string;
+    meeting_id?: string;
+    meeting_type?: string;
+    owner?: string;
+    limit?: number;
+  },
+  ownerId: string | null
+) {
   const limit = Math.min(Math.max(a.limit ?? STRUCTURED_DEFAULT, 1), STRUCTURED_MAX);
-  const meetingType = await resolveMeetingType(a.meeting_type);
+  const meetingType = await resolveMeetingType(a.meeting_type, ownerId);
   const out: Record<string, unknown>[] = [];
   let totalMatched = 0;
 
   if (a.kind === "decisions" || a.kind === "both") {
     const conds = [];
+    if (ownerId) conds.push(eq(meetings.ownerId, ownerId));
     if (a.meeting_id) conds.push(eq(decisions.meetingId, a.meeting_id));
     if (meetingType) conds.push(eq(meetings.type, meetingType));
     if (a.query) {
@@ -245,6 +261,7 @@ async function searchStructured(a: {
 
   if (a.kind === "action_items" || a.kind === "both") {
     const conds = [];
+    if (ownerId) conds.push(eq(meetings.ownerId, ownerId));
     if (a.meeting_id) conds.push(eq(actionItems.meetingId, a.meeting_id));
     if (meetingType) conds.push(eq(meetings.type, meetingType));
     if (a.owner) conds.push(ilike(actionItems.owner, `%${a.owner}%`));
@@ -327,8 +344,19 @@ const fetchMeetingSchema: JsonSchema = {
   },
 };
 
-async function fetchMeeting(a: { meeting_id: string; mode?: "light" | "full" }) {
-  const [m] = await db.select().from(meetings).where(eq(meetings.id, a.meeting_id));
+async function fetchMeeting(
+  a: { meeting_id: string; mode?: "light" | "full" },
+  ownerId: string | null
+) {
+  const [m] = await db
+    .select()
+    .from(meetings)
+    .where(
+      ownerId
+        ? and(eq(meetings.id, a.meeting_id), eq(meetings.ownerId, ownerId))
+        : eq(meetings.id, a.meeting_id)
+    );
+  // Not found OR not owned reads the same — a user can't probe others' meeting ids.
   if (!m) return { error: `no meeting with id ${a.meeting_id}` };
 
   const chs = await db
@@ -391,14 +419,12 @@ const listMeetingsSchema: JsonSchema = {
   },
 };
 
-async function listMeetings(a: {
-  from?: string;
-  to?: string;
-  participant?: string;
-  title?: string;
-  meeting_type?: string;
-}) {
+async function listMeetings(
+  a: { from?: string; to?: string; participant?: string; title?: string; meeting_type?: string },
+  ownerId: string | null
+) {
   const conds = [];
+  if (ownerId) conds.push(eq(meetings.ownerId, ownerId));
   if (a.from) conds.push(gte(meetings.startedAt, new Date(a.from)));
   if (a.to) conds.push(lte(meetings.startedAt, new Date(a.to)));
 
@@ -409,7 +435,7 @@ async function listMeetings(a: {
   // overlaps. Returns the REAL id the agent then passes verbatim to the scoped tools.
   let ambiguous = false;
   if (a.title) {
-    const matches = await resolveMeetingMatches(a.title);
+    const matches = await resolveMeetingMatches(a.title, ownerId);
     if (matches.length) {
       const topScore = matches[0].score;
       const topTier = matches.filter((m) => m.score === topScore);
@@ -419,7 +445,7 @@ async function listMeetings(a: {
       conds.push(ilike(meetings.title, `%${a.title}%`));
     }
   }
-  const meetingType = await resolveMeetingType(a.meeting_type);
+  const meetingType = await resolveMeetingType(a.meeting_type, ownerId);
   if (meetingType) conds.push(eq(meetings.type, meetingType));
   if (a.participant) {
     conds.push(sql`${meetings.participants} @> ${JSON.stringify([a.participant])}::jsonb`);
@@ -477,7 +503,7 @@ export const TOOL_SPECS: ToolSpec[] = [
   },
 ];
 
-type ToolFn = (args: any) => Promise<unknown>;
+type ToolFn = (args: any, ownerId: string | null) => Promise<unknown>;
 const DISPATCH: Record<string, ToolFn> = {
   search_transcript: searchTranscript,
   search_structured: searchStructured,
@@ -485,8 +511,13 @@ const DISPATCH: Record<string, ToolFn> = {
   list_meetings: listMeetings,
 };
 
-export async function runTool(name: string, args: unknown): Promise<unknown> {
+// ownerId is enforced here, not trusted from tool args; null = unscoped (eval/CLI).
+export async function runTool(
+  name: string,
+  args: unknown,
+  ownerId: string | null
+): Promise<unknown> {
   const fn = DISPATCH[name];
   if (!fn) return { error: `unknown tool ${name}` };
-  return fn(args ?? {});
+  return fn(args ?? {}, ownerId);
 }

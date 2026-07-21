@@ -255,7 +255,6 @@ class MeetBot {
     this.recordingSink = createStorageSink(`${this.meetingId}.webm`);
     await this.recordingSink.init();
 
-    // Initialize Deepgram transcriber
     const useTranscription = Boolean(botConfig.DEEPGRAM_API_KEY);
     if (useTranscription) {
       this.transcriber = new Transcriber(this.meetingId);

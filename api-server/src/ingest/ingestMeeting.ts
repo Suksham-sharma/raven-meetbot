@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import {
   actionItems,
@@ -23,6 +23,9 @@ export interface IngestInput {
   meetingId: string;
   segments: TranscriptSegment[];
   meta: MeetingMeta;
+  // Owning user, threaded from the join request; null for eval/seed ingests,
+  // which land ownerless and are backfilled (seed:owner).
+  ownerId?: string | null;
   // Swappable per D2; defaults to OpenAI for both generation and embeddings.
   llm?: LLMProvider;
   embedder?: EmbeddingProvider;
@@ -72,6 +75,7 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
       .insert(meetings)
       .values({
         id: meetingId,
+        ownerId: input.ownerId ?? null,
         title: meta.title,
         type: extraction.meetingType,
         startedAt: meta.startedAt,
@@ -86,6 +90,9 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
       .onConflictDoUpdate({
         target: meetings.id,
         set: {
+          // Ownership is sticky: an existing owner is never changed; an ownerless
+          // (seed) row can still be claimed. Never orphans, never hijacks.
+          ownerId: sql`coalesce(${meetings.ownerId}, ${input.ownerId ?? null}::uuid)`,
           title: meta.title,
           type: extraction.meetingType,
           startedAt: meta.startedAt,

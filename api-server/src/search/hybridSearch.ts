@@ -14,6 +14,7 @@ import type { EmbeddingProvider } from "../llm/provider";
 // reason about recency / superseded decisions (D3).
 
 export interface SearchFilters {
+  ownerId?: string; // restrict to one user's meetings (the tenancy boundary)
   meetingId?: string;
   meetingType?: string;
   participant?: string;
@@ -48,6 +49,9 @@ export interface HybridSearchOptions {
 function buildFilterConds(filters?: SearchFilters): SQL[] {
   const conds: SQL[] = [];
   if (!filters) return conds;
+  // Both the vector and FTS legs join meetings m, so this scopes retrieval to the
+  // caller's meetings before any ranking.
+  if (filters.ownerId) conds.push(sql`m.owner_id = ${filters.ownerId}`);
   if (filters.meetingId) conds.push(sql`c.meeting_id = ${filters.meetingId}`);
   if (filters.meetingType) conds.push(sql`m.type = ${filters.meetingType}`);
   if (filters.from) conds.push(sql`m.started_at >= ${filters.from.toISOString()}`);

@@ -122,7 +122,7 @@ async function main(): Promise<void> {
 
     for (let run = 0; run < runs; run++) {
       const t0 = Date.now();
-      const r = await ask(q.question);
+      const r = await ask(q.question, null);
       a.latencyMs.push(Date.now() - t0);
       a.toolCalls.push(r.toolCalls.length);
       if (r.toolCalls.some((t) => t.name === "search_structured")) a.usedStructured++;

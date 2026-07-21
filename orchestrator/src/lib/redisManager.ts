@@ -6,6 +6,7 @@ export interface DiarizeJob {
   meetingId: string;
   recordingKey: string;
   speakersKey: string;
+  ownerId?: string | null;
 }
 
 class RedisManager {

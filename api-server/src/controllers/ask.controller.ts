@@ -1,14 +1,17 @@
 import { Request, Response } from "express";
 import { ask } from "../agent/ask";
-import { BadRequestError } from "../utils/AppError";
+import { BadRequestError, UnauthorizedError } from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
 
-// POST /api/v1/ask { q } → agentic answer + cited clips (PLAN §4).
+// POST /api/v1/ask { q } → agentic answer + cited clips (PLAN §4). Scoped to the
+// authenticated user: the agent only ever sees this caller's meetings.
 export const askQuestion = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) throw new UnauthorizedError();
   const q = req.body?.q;
   if (!q || typeof q !== "string") throw new BadRequestError("Body must include a string `q`");
 
-  const result = await ask(q);
+  const result = await ask(q, userId);
 
   res.status(200).json({
     answer: result.answer,

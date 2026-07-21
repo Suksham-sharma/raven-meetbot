@@ -36,6 +36,13 @@
       "when": 1783552736000,
       "tag": "0004_elite_silver_sable",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784599106554,
+      "tag": "0005_flashy_joystick",
+      "breakpoints": true
     }
   ]
 }

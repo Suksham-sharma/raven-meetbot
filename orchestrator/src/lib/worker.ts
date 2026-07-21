@@ -15,7 +15,7 @@ const STATUS_PREFIX = "[BOT_STATUS] ";
 const METRICS_PREFIX = "[BOT_METRICS] ";
 
 const processJob = async (job: Job<MeetBotJob>) => {
-  const { url, botName, maxDurationMinutes } = job.data;
+  const { url, botName, maxDurationMinutes, ownerId } = job.data;
   console.log(
     `[Worker] Processing job ${job.id} (attempt ${job.attemptsMade + 1}): ${url}`
   );
@@ -95,6 +95,7 @@ const processJob = async (job: Job<MeetBotJob>) => {
         meetingId,
         recordingKey: recording,
         speakersKey: speakers,
+        ownerId,
       });
     } else {
       console.warn(

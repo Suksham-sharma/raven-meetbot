@@ -42,8 +42,11 @@ export const memoryQueue = queueManager.memoryQueue;
 export const diarizeQueue = queueManager.diarizeQueue;
 export const agentQueue = queueManager.agentQueue;
 
+// ownerId rides the job from the join request through diarize/ingest; null for
+// eval + seed ingests (backfilled via seed:owner).
 export interface MemoryJob {
   meetingId: string;
+  ownerId?: string | null;
 }
 
 export interface AgentJob {
@@ -55,4 +58,5 @@ export interface DiarizeJob {
   meetingId: string;
   recordingKey: string;
   speakersKey: string;
+  ownerId?: string | null;
 }

@@ -45,11 +45,11 @@ async function resolveMeeting(meetingId: string) {
 const worker = new Worker<MemoryJob>(
   "memory",
   async (job) => {
-    const { meetingId } = job.data;
+    const { meetingId, ownerId } = job.data;
     console.log(`[memory] ingest start: ${meetingId} (job ${job.id})`);
 
     const { segments, meta } = await resolveMeeting(meetingId);
-    const result = await ingestMeeting({ meetingId, segments, meta });
+    const result = await ingestMeeting({ meetingId, segments, meta, ownerId: ownerId ?? null });
 
     const { counts, dropped } = result;
     console.log(

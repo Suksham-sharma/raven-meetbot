@@ -7,8 +7,21 @@ import {
   listMeetingActions,
   rejectAction,
 } from "../controllers/actions.controller";
+import { login, logout, me, register } from "../controllers/auth.controller";
+import { requireAuth } from "../middleware/auth";
 
 const apiRouter = Router();
+
+// Public: no session required.
+apiRouter.post("/auth/register", register);
+apiRouter.post("/auth/login", login);
+apiRouter.post("/auth/logout", logout);
+
+// Everything below requires a valid session; requireAuth pins req.userId that
+// controllers and the /ask agent use to scope every read to the caller.
+apiRouter.use(requireAuth);
+
+apiRouter.get("/auth/me", me);
 apiRouter.post("/join-meet", joinMeet);
 apiRouter.get("/bots/:jobId/status", getBotStatus);
 apiRouter.get("/bots", listBots);

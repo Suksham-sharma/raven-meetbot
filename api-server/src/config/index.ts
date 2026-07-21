@@ -12,6 +12,16 @@ const systemConfig = {
     process.env.DATABASE_URL ||
     "postgresql://postgres:postgres@localhost:5432/meetbot",
 
+  // Auth (simple JWT). JWT_SECRET MUST be set in real deployments — the dev
+  // default is intentionally insecure. Default user owns pre-auth meetings (seed:owner).
+  JWT_SECRET: process.env.JWT_SECRET || "dev-insecure-secret-change-me-please-0123456789",
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
+  JWT_MAX_AGE_MS: Number(process.env.JWT_MAX_AGE_MS) || 7 * 24 * 60 * 60 * 1000,
+  COOKIE_SECURE: process.env.COOKIE_SECURE === "true",
+  DEFAULT_USER_EMAIL: process.env.DEFAULT_USER_EMAIL || "dev@raven.local",
+  DEFAULT_USER_PASSWORD: process.env.DEFAULT_USER_PASSWORD || "devpassword",
+  DEFAULT_USER_NAME: process.env.DEFAULT_USER_NAME || "Dev User",
+
   // Deepgram batch transcription for the v4 diarize worker (repo-root .env).
   DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY || "",
 

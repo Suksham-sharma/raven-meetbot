@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../db/client";
 import { meetings } from "../db/schema";
 import { openaiProvider } from "../llm/openai";
@@ -162,8 +162,12 @@ function resolveCitations(
   return out;
 }
 
+// ownerId scopes every tool call to the caller's meetings (the tenancy boundary).
+// Pass a real user id from the HTTP layer; pass null only for trusted internal
+// callers (eval / CLI) that run unscoped over the whole corpus.
 export async function ask(
   question: string,
+  ownerId: string | null,
   provider: ChatProvider = openaiProvider
 ): Promise<AskResult> {
   const messages: ChatMessage[] = [
@@ -175,7 +179,6 @@ export async function ask(
   // Progress guard: short-circuit an identical repeated tool call (same name +
   // args) so the loop can't spin on e.g. list_meetings and starve itself.
   const seenCalls = new Set<string>();
-  // list_meetings is discovery — allowed once; further calls are nudged to proceed.
   let listedOnce = false;
 
   let answer = "";
@@ -226,7 +229,7 @@ export async function ask(
         } catch {
           parsed = {};
         }
-        result = await runTool(tc.name, parsed);
+        result = await runTool(tc.name, parsed, ownerId);
         harvest(registry, result);
       }
       messages.push({
@@ -251,7 +254,13 @@ export async function ask(
         url: meetings.recordingUrl,
       })
       .from(meetings)
-      .where(inArray(meetings.id, meetingIds));
+      .where(
+        // Registry ids already came from owner-scoped tools; re-assert the owner
+        // here too so a citation can never resolve against another user's meeting.
+        ownerId
+          ? and(inArray(meetings.id, meetingIds), eq(meetings.ownerId, ownerId))
+          : inArray(meetings.id, meetingIds)
+      );
     for (const r of rows) {
       offsets.set(r.id, { offset: r.offset, url: r.url });
       meta.set(r.id, { title: r.title, date: r.date });

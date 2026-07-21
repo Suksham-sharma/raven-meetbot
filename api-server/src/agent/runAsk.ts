@@ -10,7 +10,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const r = await ask(q);
+  const r = await ask(q, null);
   console.log(`\nQ: ${q}\n`);
   console.log(`A: ${r.answer}\n`);
   console.log(

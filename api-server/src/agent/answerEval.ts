@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   console.log("─".repeat(86));
 
   for (const q of golden.questions) {
-    const r = await ask(q.question);
+    const r = await ask(q.question, null);
     const notes: string[] = [];
 
     const compliant = q.expect_refusal ? r.refused : r.citations.length > 0;

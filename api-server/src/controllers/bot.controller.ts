@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
-import { NotFoundError } from "../utils/AppError";
+import { NotFoundError, UnauthorizedError } from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
 import { meetQueue } from "../lib/queueManager";
 
 export const getBotStatus = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) throw new UnauthorizedError();
   const jobId = req.params.jobId as string;
 
   const job = await meetQueue.getJob(jobId);
-  if (!job) throw new NotFoundError("Bot not found");
+  // Not-found and not-owned both 404 so job ids can't be enumerated across tenants.
+  if (!job || job.data.ownerId !== userId) throw new NotFoundError("Bot not found");
 
   const jobState = await job.getState();
   const progress = (job.progress as {
@@ -52,14 +55,18 @@ export const getBotStatus = asyncHandler(async (req: Request, res: Response) => 
   });
 });
 
-export const listBots = asyncHandler(async (_req: Request, res: Response) => {
+export const listBots = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) throw new UnauthorizedError();
   const jobs = await meetQueue.getJobs(
     ["active", "waiting", "completed", "failed"],
     0,
     100,
   );
 
-  const bots = jobs.map((job) => {
+  const bots = jobs
+    .filter((job) => job.data.ownerId === userId)
+    .map((job) => {
     const progress = (job.progress as { state?: string }) || {};
     return {
       jobId: job.id,

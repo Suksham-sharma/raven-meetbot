@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
   vector,
 } from "drizzle-orm/pg-core";
 
@@ -20,11 +21,32 @@ const tsvector = customType<{ data: string }>({
   },
 });
 
+// Accounts. Auth is single-level: the tenant IS the user. Everything a user can
+// see hangs off meetings.owner_id — no org/team layer (deliberately out of scope).
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    name: text("name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("users_email_uq").on(table.email)]
+);
+
 // One row per recorded meeting. id matches the meetingId used in R2 keys and the status API.
 export const meetings = pgTable(
   "meetings",
   {
     id: text("id").primaryKey(),
+    // Every child table (chunks/decisions/actions/...) inherits ownership through
+    // its meeting_id FK, so this one column is the whole tenancy boundary. Nullable
+    // during rollout: pre-auth meetings are backfilled (seed:owner) and reads scope
+    // by owner, so an ownerless row is invisible rather than leaked.
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "cascade" }),
     title: text("title"),
     type: text("type"), // meeting_type from extraction: sales | intro | standup | ...
     startedAt: timestamp("started_at", { withTimezone: true }),
@@ -44,7 +66,10 @@ export const meetings = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("meetings_started_at").on(table.startedAt.desc())]
+  (table) => [
+    index("meetings_started_at").on(table.startedAt.desc()),
+    index("meetings_owner_id").on(table.ownerId),
+  ]
 );
 
 // The embedded retrieval units. One chunk = one ~20-40s utterance window.

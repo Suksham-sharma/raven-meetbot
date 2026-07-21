@@ -1,11 +1,16 @@
 import { Request, Response } from "express";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import systemConfig from "../config";
 import { db } from "../db/client";
 import { agentActions, meetings } from "../db/schema";
 import { getAdapter } from "../actions/registry";
 import { AdapterConfigError } from "../actions/adapter";
-import { BadRequestError, ConflictError, NotFoundError } from "../utils/AppError";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+  UnauthorizedError,
+} from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
 
 // v3 approval surface. Approve is the ONLY path that fires an external call;
@@ -34,11 +39,40 @@ function serialize(a: typeof agentActions.$inferSelect, recordingUrl?: string | 
   };
 }
 
+function requireUserId(req: Request): string {
+  const userId = req.userId;
+  if (!userId) throw new UnauthorizedError();
+  return userId;
+}
+
+// A user only sees actions for meetings they own; not-found and not-owned both 404.
+async function requireOwnedMeeting(meetingId: string, userId: string) {
+  const [meeting] = await db
+    .select()
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.ownerId, userId)));
+  if (!meeting) throw new NotFoundError(`meeting ${meetingId} not found`);
+  return meeting;
+}
+
+// 404 for an unowned action id reads the same as nonexistent — ids can't be probed.
+async function assertActionOwned(
+  meetingId: string,
+  userId: string,
+  actionId: number
+): Promise<void> {
+  const [meeting] = await db
+    .select({ id: meetings.id })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.ownerId, userId)));
+  if (!meeting) throw new NotFoundError(`action ${actionId} not found`);
+}
+
 // GET /api/v1/meetings/:id/actions
 export const listMeetingActions = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
   const meetingId = String(req.params.id);
-  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId));
-  if (!meeting) throw new NotFoundError(`meeting ${meetingId} not found`);
+  const meeting = await requireOwnedMeeting(meetingId, userId);
 
   const rows = await db
     .select()
@@ -54,11 +88,13 @@ export const listMeetingActions = asyncHandler(async (req: Request, res: Respons
 
 // POST /api/v1/actions/:id/approve { dry_run? }
 export const approveAction = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) throw new BadRequestError("action id must be an integer");
 
   const [action] = await db.select().from(agentActions).where(eq(agentActions.id, id));
   if (!action) throw new NotFoundError(`action ${id} not found`);
+  await assertActionOwned(action.meetingId, userId, id);
   if (action.status !== "proposed" && action.status !== "failed") {
     throw new ConflictError(`action ${id} is ${action.status}, not approvable`);
   }
@@ -106,11 +142,13 @@ export const approveAction = asyncHandler(async (req: Request, res: Response) =>
 
 // POST /api/v1/actions/:id/reject
 export const rejectAction = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) throw new BadRequestError("action id must be an integer");
 
   const [action] = await db.select().from(agentActions).where(eq(agentActions.id, id));
   if (!action) throw new NotFoundError(`action ${id} not found`);
+  await assertActionOwned(action.meetingId, userId, id);
   if (action.status !== "proposed" && action.status !== "failed") {
     throw new ConflictError(`action ${id} is ${action.status}, not rejectable`);
   }
