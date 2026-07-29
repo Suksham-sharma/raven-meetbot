@@ -1,15 +1,17 @@
 # API surface — what the frontend can actually get
 
-Verified against `api-server/src` at commit `a52f524`. Written for whoever builds
-the UI, so nothing here is assumed.
+Verified against `api-server/src`. Written for whoever builds the UI, so nothing
+here is assumed.
 
-**Headline:** the backend is a **pipeline plus an agent**, not a content API.
-There is no way over HTTP to list meetings, fetch a meeting, or read a transcript.
-Those capabilities exist only as LLM tools inside `/ask`.
+**Headline:** the backend was a **pipeline plus an agent**, not a content API.
+`GET /meetings`, `GET /meetings/:id` and `GET /meetings/:id/transcript` now close
+the biggest part of that gap — the UI can discover, open and read a meeting over
+HTTP. What is still missing is anything that *plays*: `recording_url` holds an R2
+key, so no video resolves yet (gap 3).
 
 ---
 
-## Every route (11 total)
+## Every route (14 total)
 
 Mounted at `/api/v1`. Middleware is only `express.json()` + `cors()` — no
 cookie-parser, no rate limiter, no error middleware.
@@ -24,6 +26,9 @@ cookie-parser, no rate limiter, no error middleware.
 | GET | `/bots/:jobId/status` | required |
 | GET | `/bots` | required |
 | POST | `/ask` | required |
+| GET | `/meetings` | required |
+| GET | `/meetings/:id` | required |
+| GET | `/meetings/:id/transcript` | required |
 | GET | `/meetings/:id/actions` | required |
 | POST | `/actions/:id/approve` | required |
 | POST | `/actions/:id/reject` | required |
@@ -182,20 +187,66 @@ never appears.
 
 ---
 
-## Gaps blocking a real UI
+## The read endpoints
 
-Ranked. The first four are small — three already exist as owner-scoped functions
-trapped behind the LLM tool layer.
+All three scope by `owner_id`, and not-found and not-owned both return **404** so
+meeting ids cannot be probed across tenants.
 
-1. `GET /meetings` — wrap `listMeetings` (`agent/tools.ts:422`). **Unblocks everything.**
-2. `GET /meetings/:id` — wrap `fetchMeeting` (`agent/tools.ts:347`).
-3. `GET /meetings/:id/recording-url` — presign the R2 key. Without it **no video plays.**
-4. `GET /meetings/:id/transcript` — serve the R2 jsonl. `chunks` will not do.
+They deliberately do **not** wrap the `/ask` agent's `list_meetings` /
+`fetch_meeting` tools. Those return prompt-shaped payloads tuned for token cost
+and model behaviour; binding the UI to them means a prompt tweak silently
+reshapes the meetings list. Same queries, same scoping, separate contract.
+
+**`GET /meetings?limit=&before=`**
+`{ meetings: [{ id, title, type, started_at, ended_at, duration_s, participants,
+status, has_recording }], next_before }`
+
+- Newest first. `limit` defaults to 50, caps at 200; a bad value is a **400**.
+- `next_before` is passed back verbatim as `?before=` for the next page, and is
+  `null` at the end. A meeting with a null `started_at` cannot anchor a cursor,
+  so it also ends pagination rather than looping.
+- `has_recording` replaces the raw `recording_url`, which is an R2 key and means
+  nothing to a client.
+- **`title` is still null for every real meeting.** The UI must fall back.
+
+**`GET /meetings/:id`**
+The list shape plus `summary`, `recording_offset_s`, `chapters[]`, `decisions[]`
+and `action_items[]`. One request, because the detail screen needs all of it on
+first paint and four round trips is a worse contract than one larger payload.
+`recording_offset_s` is exposed rather than assumed to be 0 so the client never
+replicates the clock-skew correction. `action_items[].due` is free text as
+spoken — **not a date, never parse it.**
+
+**`GET /meetings/:id/transcript`**
+`{ meeting_id, recording_offset_s, turns: [{ speaker, start_s, end_s, text }] }`,
+served from the R2 `.named-transcript.jsonl`.
+
+- **409, not 404, when the transcript is not ready.** The meeting exists and is
+  owned; only the artifact is missing. A 404 would be indistinguishable from
+  "no such meeting", and the UI needs the tab to explain itself.
+- **409** with neutral copy when R2 is unconfigured — checked before
+  `getArtifactStore()`, whose message names the missing env vars, because
+  `asyncHandler` forwards non-`AppError` messages to the client verbatim.
+- Real shape check: the 10-minute meeting on disk is 114 turns / ~15KB, so a
+  4-hour call lands near 400KB. Fine as one response; revisit if it isn't.
+
+---
+
+## Gaps still blocking a real UI
+
+1. ~~`GET /meetings`~~ — **done.**
+2. ~~`GET /meetings/:id`~~ — **done**, and it also covers gap 7.
+3. `GET /meetings/:id/recording-url` — presign the R2 key. Without it **no video
+   plays.** Not a wrapper like the others: needs a decision on TTL, on whether
+   `recording_url` migrates to be consistently a key, and on fixing the `clip`
+   string in `actions.controller.ts` (which concatenates the key with `#t=`) at
+   the same time.
+4. ~~`GET /meetings/:id/transcript`~~ — **done.**
 5. Real `meetings.status` written by each worker — makes the pipeline observable.
 6. `GET /actions?status=proposed` — cross-meeting inbox.
-7. `GET /meetings/:id/{decisions,action-items,chapters}` — populated, zero exposure.
-8. Cursor pagination — nothing is paginated. `/bots` caps at 100 **before** owner
-   filtering, so results can be silently wrong.
+7. ~~decisions / action-items / chapters~~ — **served by `GET /meetings/:id`.**
+8. Pagination — `/meetings` is paginated; nothing else is. `/bots` still caps at
+   100 **before** owner filtering, so results can be silently wrong.
 9. `PATCH /meetings/:id` — set a title. No mutation on domain data exists at all.
 10. SSE on `/ask` + the raw answer with markers intact.
 

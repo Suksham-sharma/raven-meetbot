@@ -7,6 +7,11 @@ import {
   listMeetingActions,
   rejectAction,
 } from "../controllers/actions.controller";
+import {
+  getMeeting,
+  getMeetingTranscript,
+  listMeetings,
+} from "../controllers/meetings.controller";
 import { login, logout, me, register } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth";
 
@@ -26,6 +31,9 @@ apiRouter.post("/join-meet", joinMeet);
 apiRouter.get("/bots/:jobId/status", getBotStatus);
 apiRouter.get("/bots", listBots);
 apiRouter.post("/ask", askQuestion);
+apiRouter.get("/meetings", listMeetings);
+apiRouter.get("/meetings/:id", getMeeting);
+apiRouter.get("/meetings/:id/transcript", getMeetingTranscript);
 apiRouter.get("/meetings/:id/actions", listMeetingActions);
 apiRouter.post("/actions/:id/approve", approveAction);
 apiRouter.post("/actions/:id/reject", rejectAction);
