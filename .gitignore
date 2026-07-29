@@ -8,3 +8,4 @@ recordings/
 *.log
 CLAUDE.md
 bot/.auth/
+.gstack/

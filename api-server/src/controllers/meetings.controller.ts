@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { and, asc, desc, eq, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, lt, max, min } from "drizzle-orm";
 import systemConfig from "../config";
 import { db } from "../db/client";
 import { actionItems, chapters, decisions, meetings } from "../db/schema";
@@ -75,12 +75,24 @@ export const listMeetings = asyncHandler(async (req: Request, res: Response) => 
   const conds = [eq(meetings.ownerId, userId)];
   if (before) conds.push(lt(meetings.startedAt, before));
 
-  const rows = await db
-    .select()
-    .from(meetings)
-    .where(and(...conds))
-    .orderBy(desc(meetings.startedAt))
-    .limit(limit + 1);
+  const [rows, [corpus]] = await Promise.all([
+    db
+      .select()
+      .from(meetings)
+      .where(and(...conds))
+      .orderBy(desc(meetings.startedAt))
+      .limit(limit + 1),
+    // The whole archive, not this page: it states the boundary an answer was
+    // searched against, so it must not shrink as you paginate.
+    db
+      .select({
+        total: count(),
+        from: min(meetings.startedAt),
+        to: max(meetings.startedAt),
+      })
+      .from(meetings)
+      .where(eq(meetings.ownerId, userId)),
+  ]);
 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
@@ -89,6 +101,11 @@ export const listMeetings = asyncHandler(async (req: Request, res: Response) => 
   res.status(200).json({
     meetings: page.map(summarize),
     next_before: hasMore ? (last?.startedAt?.toISOString() ?? null) : null,
+    corpus: {
+      total: corpus?.total ?? 0,
+      from: corpus?.from?.toISOString() ?? null,
+      to: corpus?.to?.toISOString() ?? null,
+    },
   });
 });
 

@@ -4,7 +4,7 @@ _Living doc. Check off items as they ship. Each phase is independently demo-able
 
 ## Where we are
 
-**v1 (shipped, mostly):** Bot joins Google Meet, records to R2 via multipart streaming upload, live-transcribes via Deepgram, real-time status API, Docker-per-meeting isolation. Three-service architecture (api-server / orchestrator / bot). See `progress.md` for the full inventory.
+**v1 + v1.x (shipped):** Bot joins Google Meet signed-in, records to R2 (or local disk) via multipart streaming upload, live-transcribes via Deepgram, captures a speaker-attribution timeline, real-time status API, Docker-per-meeting isolation. Three-service architecture (api-server / orchestrator / bot). Only v1.x item left open is webhooks (deferred). Next: confirm name-binding on a real meeting, then v2.
 
 ## Where we're going
 
