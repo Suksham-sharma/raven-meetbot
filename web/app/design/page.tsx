@@ -45,7 +45,7 @@ export default function DesignSystem() {
       <Nav />
       <main className="min-w-0 px-12 py-14">
         <header className="mb-16 max-w-[640px]">
-          <p className="mb-3 text-[11.5px] font-semibold tracking-[0.11em] text-ink-4 uppercase">
+          <p className="mb-3 text-[11.5px] font-semibold tracking-[0.11em] text-ink-3 uppercase">
             Raven
           </p>
           <h1 className="mb-4 font-serif text-[40px] leading-[1.1] font-normal tracking-[-0.018em] text-balance">
@@ -160,7 +160,7 @@ const INKS = [
   ["ink-1", "bg-ink-1", "#23211D", "primary text"],
   ["ink-2", "bg-ink-2", "#5C574F", "secondary"],
   ["ink-3", "bg-ink-3", "#8B857A", "tertiary"],
-  ["ink-4", "bg-ink-4", "#ADA79B", "labels, placeholder"],
+  ["ink-4", "bg-ink-4", "#ADA79B", "NOT text — disabled, rules"],
 ];
 
 const ACCENTS = [
@@ -194,7 +194,7 @@ function Swatch({
         aria-hidden="true"
       />
       <div className="font-mono text-[11.5px] text-ink-1">{name}</div>
-      <div className="font-mono text-[11px] text-ink-4">{hex}</div>
+      <div className="font-mono text-[11px] text-ink-3">{hex}</div>
       <div className="mt-0.5 text-[11.5px] text-ink-3">{use}</div>
     </div>
   );
@@ -214,7 +214,7 @@ function Color() {
         ["Semantic — never used as an accent", SEMANTIC],
       ].map(([label, items]) => (
         <div key={label as string} className="mb-8">
-          <p className="mb-3 text-[12px] font-semibold tracking-[0.09em] text-ink-4 uppercase">
+          <p className="mb-3 text-[12px] font-semibold tracking-[0.09em] text-ink-3 uppercase">
             {label as string}
           </p>
           <div className="flex flex-wrap gap-4">
@@ -226,7 +226,7 @@ function Color() {
       ))}
 
       <div>
-        <p className="mb-3 text-[12px] font-semibold tracking-[0.09em] text-ink-4 uppercase">
+        <p className="mb-3 text-[12px] font-semibold tracking-[0.09em] text-ink-3 uppercase">
           Speaker hues — fixed lightness, hue varies only
         </p>
         <div className="flex flex-wrap gap-2">
@@ -297,7 +297,7 @@ function Type() {
           </span>
         </Spec>
         <Spec label="Eyebrow · 600 · 11.5px · 0.11em">
-          <span className="text-[11.5px] font-semibold tracking-[0.11em] text-ink-4 uppercase">
+          <span className="text-[11.5px] font-semibold tracking-[0.11em] text-ink-3 uppercase">
             Someone needs to
           </span>
         </Spec>
@@ -321,7 +321,7 @@ function Spec({
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_260px] items-baseline gap-8">
       <div>{children}</div>
-      <span className="font-mono text-[11.5px] text-ink-4">{label}</span>
+      <span className="font-mono text-[11.5px] text-ink-3">{label}</span>
     </div>
   );
 }
@@ -346,7 +346,7 @@ function Space() {
         {steps.map((s) => (
           <div key={s} className="text-center">
             <div className="mb-1.5 bg-accent-line" style={{ width: s, height: s }} />
-            <span className="font-mono text-[11px] text-ink-4">{s}</span>
+            <span className="font-mono text-[11px] text-ink-3">{s}</span>
           </div>
         ))}
       </div>
@@ -355,7 +355,7 @@ function Space() {
           <div key={n} className="w-[92px] text-center">
             <div className={`mb-2 h-14 border border-rule bg-card ${cls}`} />
             <div className="font-mono text-[11.5px] text-ink-1">{n}</div>
-            <div className="font-mono text-[11px] text-ink-4">{v}</div>
+            <div className="font-mono text-[11px] text-ink-3">{v}</div>
           </div>
         ))}
       </div>
@@ -709,7 +709,7 @@ function Meetings() {
             onClick={() => setSel(i + 2)}
           />
         ))}
-        <p className="mt-4 text-[12.5px] text-ink-4">
+        <p className="mt-4 text-[12.5px] text-ink-3">
           Three of these four say nothing about their state, because nothing is
           wrong with them. Row three has no title — the backend leaves it null
           for every real meeting, so it falls back to a date, never the raw id.
@@ -750,7 +750,10 @@ function Proposals() {
     >
       <div className="grid max-w-[560px] gap-4">
         <ProposalCard proposal={BASE_PROPOSAL} />
-        <ProposalCard proposal={{ ...BASE_PROPOSAL, status: "executing" }} />
+        <ProposalCard
+          proposal={{ ...BASE_PROPOSAL, status: "executing" }}
+          onCancel={() => {}}
+        />
         <ProposalCard
           proposal={{
             ...BASE_PROPOSAL,
@@ -835,9 +838,15 @@ function States() {
       <div className="grid max-w-[680px] gap-10">
         <div>
           <Label>Processing — honestly indeterminate</Label>
-          <Processing />
-          <p className="mt-2.5 text-[12.5px] text-ink-4">
+          <div className="grid gap-2.5">
+            <Processing />
+            <Processing late />
+          </div>
+          <p className="mt-2.5 text-[12.5px] text-ink-3">
             No progress bar, because there is no progress signal to render.
+            Neutral for the normal case — it is the happy path after every call,
+            and amber for ten minutes a meeting is not calm. The second one is
+            past 15 minutes, which is the state that has actually gone wrong.
           </p>
         </div>
 
@@ -848,6 +857,10 @@ function States() {
             <SkeletonRow />
             <SkeletonRow />
           </div>
+          <p className="mt-2.5 text-[12.5px] text-ink-3">
+            Matches MeetingRow: thumbnail left, title and one meta line right. A
+            skeleton shaped like a different component is worse than none.
+          </p>
         </div>
 
         <div>
@@ -855,6 +868,10 @@ function States() {
           <Refusal
             query="Acme's renewal date"
             searched="Searched 34 meetings, 3 Jan – 3 Aug"
+            actions={[
+              { label: "Search all time", onClick: () => {} },
+              { label: "Ask something else", onClick: () => {} },
+            ]}
           />
         </div>
 
@@ -883,7 +900,7 @@ function States() {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-3 text-[11.5px] font-semibold tracking-[0.09em] text-ink-4 uppercase">
+    <p className="mb-3 text-[11.5px] font-semibold tracking-[0.09em] text-ink-3 uppercase">
       {children}
     </p>
   );

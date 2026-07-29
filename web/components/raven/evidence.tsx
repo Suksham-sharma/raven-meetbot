@@ -12,24 +12,6 @@ export interface Source {
   clipLength?: number;
 }
 
-/* ────────────────────────────────────────────────────────────────
-   Evidence is a footnote.
-
-   The first attempt was a bordered card, and the objection to it
-   was structural rather than cosmetic: a box around a quote
-   asserts the quote is an object in its own right, which hands a
-   fallible retrieval result more standing than it has earned.
-
-   Two other approaches were built and cut — a boxless pull-quote
-   (didn't scale past two sources) and a transcript-style log
-   (read as a developer tool). See DESIGN.md for why.
-
-   What survives: the answer reads clean, and evidence unfolds
-   only when someone asks for it. Verification is available
-   rather than insisted upon.
-   ──────────────────────────────────────────────────────────────── */
-
-/** Names a person, never a number. `[3]` is for citing anonymous web pages. */
 export function CitationChip({
   speaker,
   at,
@@ -64,10 +46,6 @@ export function CitationChip({
   );
 }
 
-/**
- * An answer with its sources attached. Chips sit at the end of the prose; one
- * expands at a time, directly beneath.
- */
 export function EvidenceFootnote({
   sources,
   onPlay,
@@ -75,7 +53,6 @@ export function EvidenceFootnote({
 }: {
   sources: Source[];
   onPlay?: (s: Source) => void;
-  /** The answer prose. */
   children: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState<number | null>(null);
@@ -105,9 +82,15 @@ export function EvidenceFootnote({
           <button
             type="button"
             onClick={() => onPlay?.(current)}
-            className="inline-flex items-center gap-1.5 text-[12px] text-ink-4 transition-colors hover:text-accent"
+            aria-label={`Play ${current.speaker} at ${timecode(current.at)}`}
+            className="-my-1 inline-flex min-h-6 items-center gap-1.5 py-1 text-[12px] text-ink-3 transition-colors hover:text-accent"
           >
-            <svg viewBox="0 0 9 10" className="size-2" fill="currentColor">
+            <svg
+              viewBox="0 0 9 10"
+              className="size-2"
+              fill="currentColor"
+              aria-hidden="true"
+            >
               <path d="M.5.5 8.5 5 .5 9.5z" />
             </svg>
             Play

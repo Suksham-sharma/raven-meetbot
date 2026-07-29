@@ -4,11 +4,6 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
-/**
- * DESIGN.md: the three actions on a proposal are deliberately unequal —
- * Approve (solid) / Edit (outline) / Dismiss (text). Symmetric buttons imply
- * the choices carry equal weight, and approve is the irreversible one.
- */
 const button = cva(
   [
     "inline-flex items-center justify-center gap-2 whitespace-nowrap",
@@ -27,8 +22,6 @@ const button = cva(
         quiet: "text-ink-3 hover:text-ink-1",
         danger: "bg-live text-white hover:opacity-90",
       },
-      // Radius varies by element, never by size of the same element — a pill
-      // next to a rounded rect in one row reads as an accident.
       size: {
         sm: "h-8 px-3.5 text-[13px] rounded-[999px]",
         md: "h-9 px-4 text-sm rounded-[999px]",
@@ -91,7 +84,6 @@ function Spinner() {
   );
 }
 
-/** Square icon-only button. Needs an aria-label from the caller. */
 export const IconButton = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement> & {

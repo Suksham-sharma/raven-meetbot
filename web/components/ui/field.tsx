@@ -3,11 +3,6 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-/**
- * DESIGN.md forbids placeholder-as-label: the label has to stay visible once
- * the field has content, so `label` renders a real <label> element rather than
- * leaning on the placeholder.
- */
 export interface FieldProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;
@@ -48,13 +43,13 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
             pill ? "rounded-[999px]" : "rounded-sm",
             error
               ? "border-live focus-within:ring-2 focus-within:ring-live/25"
-              : "border-rule hover:border-ink-4 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
+              : "border-field hover:border-ink-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
             props.disabled && "opacity-50 pointer-events-none",
             className,
           )}
         >
           {icon && (
-            <span className="shrink-0 text-ink-4" aria-hidden="true">
+            <span className="shrink-0 text-ink-3" aria-hidden="true">
               {icon}
             </span>
           )}
@@ -65,7 +60,7 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
             aria-describedby={describedBy}
             className={cn(
               "min-w-0 flex-1 bg-transparent text-[14px] text-ink-1",
-              "placeholder:text-ink-4 focus:outline-none",
+              "placeholder:text-ink-3 focus:outline-none",
             )}
             {...props}
           />

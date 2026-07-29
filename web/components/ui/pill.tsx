@@ -33,11 +33,6 @@ export function Pill({ className, tone, size, ...props }: PillProps) {
   return <span className={cn(pill({ tone, size }), className)} {...props} />;
 }
 
-/**
- * DESIGN.md: status is exception-only. A meeting that processed normally shows
- * nothing at all — rendering "Ready" on thirty rows is pure noise. Only these
- * five states are allowed to speak.
- */
 export type MeetingState =
   | "recording"
   | "processing"
@@ -51,7 +46,7 @@ const STATE_COPY: Record<
 > = {
   recording: { label: "Recording", tone: "live", pulse: true },
   waiting: { label: "Waiting to be let in", tone: "warn" },
-  processing: { label: "Working out who said what", tone: "warn" },
+  processing: { label: "Working out who said what", tone: "neutral" },
   failed: { label: "Ended early", tone: "neutral" },
 };
 

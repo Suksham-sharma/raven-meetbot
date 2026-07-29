@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { timecode } from "@/lib/speaker";
 
-/** Mirrors agent_actions.status exactly. `failed` is retryable server-side. */
+/** `executing` is client-only — the ledger never holds it. Never PUT it back. */
 export type ProposalStatus = "proposed" | "executing" | "executed" | "failed" | "rejected";
 
 export interface Proposal {
@@ -15,7 +15,6 @@ export interface Proposal {
   title: string;
   target?: string;
   owner?: string | null;
-  /** Free text from the transcript, never a date. Render as a string. */
   due?: string | null;
   reason?: string;
   evidenceSpeaker?: string;
@@ -24,26 +23,20 @@ export interface Proposal {
   result?: { url?: string; externalId?: string; error?: string };
 }
 
-/**
- * DESIGN.md: a proposal renders as the artifact it will become, not as a
- * description of it. The user should be evaluating the output, not the intent.
- *
- * Actions are deliberately unequal: Approve is solid and irreversible, Edit is
- * outline, Dismiss is text. Symmetric buttons cause misclicks on the one action
- * that cannot be undone.
- */
 export function ProposalCard({
   proposal,
   onApprove,
   onEdit,
   onDismiss,
   onRetry,
+  onCancel,
 }: {
   proposal: Proposal;
   onApprove?: () => void;
   onEdit?: () => void;
   onDismiss?: () => void;
   onRetry?: () => void;
+  onCancel?: () => void;
 }) {
   const { status } = proposal;
   const settled = status === "executed" || status === "rejected";
@@ -59,20 +52,20 @@ export function ProposalCard({
             : "bg-accent-tint",
       )}
     >
-      <div className="mb-1.5 flex items-center gap-2">
-        <p className="text-[13px] text-ink-2">{kindLabel(proposal)}</p>
+      <div className="mb-1.5 flex items-start justify-between gap-3">
+        <p className="min-w-0 text-[13px] text-ink-2">{kindLabel(proposal)}</p>
         {status === "executed" && (
-          <Pill tone="good" size="sm" className="ml-auto">
+          <Pill tone="good" size="sm" className="shrink-0">
             {proposal.result?.externalId ?? "Done"}
           </Pill>
         )}
         {status === "rejected" && (
-          <Pill tone="bare" size="sm" className="ml-auto">
+          <Pill tone="bare" size="sm" className="shrink-0">
             Dismissed
           </Pill>
         )}
         {status === "failed" && (
-          <Pill tone="live" size="sm" className="ml-auto">
+          <Pill tone="live" size="sm" className="shrink-0">
             Couldn&rsquo;t file it
           </Pill>
         )}
@@ -88,13 +81,20 @@ export function ProposalCard({
         {proposal.title}
       </p>
 
-      {proposal.reason && !settled && (
-        <p className="mb-5 text-[13px] text-ink-2">
+      {/* Provenance survives the decision. "Why was this filed?" is a question
+          you ask about the thing that already got filed. */}
+      {proposal.reason && (
+        <p
+          className={cn(
+            "mb-5 text-[13px]",
+            settled ? "text-ink-3" : "text-ink-2",
+          )}
+        >
           {proposal.reason}
           {proposal.evidenceAt != null && (
             <>
               {` — because of what ${proposal.evidenceSpeaker ?? "they"} said at `}
-              <span className="font-mono text-accent">
+              <span className={cn("font-mono", settled ? "" : "text-accent")}>
                 {timecode(proposal.evidenceAt)}
               </span>
             </>
@@ -124,9 +124,16 @@ export function ProposalCard({
       )}
 
       {status === "executing" && (
-        <Button variant="primary" loading>
-          Filing it
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="primary" loading>
+            {proposal.kind === "linear_issue" ? "Filing it" : "Posting it"}
+          </Button>
+          {onCancel && (
+            <Button variant="quiet" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+        </div>
       )}
 
       {status === "failed" && (
@@ -143,29 +150,48 @@ export function ProposalCard({
       {status === "executed" && proposal.result?.url && (
         <a
           href={proposal.result.url}
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-accent hover:underline"
         >
-          Open in Linear
+          {proposal.kind === "linear_issue" ? "Open in Linear" : "Open in Slack"}
           <svg
             viewBox="0 0 12 12"
             className="size-3"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
+            aria-hidden="true"
           >
             <path d="M4 2h6v6M10 2 3 9" />
           </svg>
+          <span className="sr-only">(opens in a new tab)</span>
         </a>
       )}
     </div>
   );
 }
 
+const KIND = {
+  linear_issue: { present: "file", past: "filed" },
+  slack_message: { present: "post", past: "posted" },
+} as const;
+
 function kindLabel(p: Proposal): string {
-  if (p.kind === "linear_issue") {
-    return p.target
-      ? `Raven wants to file a Linear issue in ${p.target}`
-      : "Raven wants to file a Linear issue";
+  const what =
+    p.kind === "linear_issue"
+      ? p.target
+        ? `a Linear issue in ${p.target}`
+        : "a Linear issue"
+      : "a recap to Slack";
+  const { present, past } = KIND[p.kind];
+
+  switch (p.status) {
+    case "executed":
+      return `Raven ${past} ${what}`;
+    case "rejected":
+      return `Raven wanted to ${present} ${what}`;
+    default:
+      return `Raven wants to ${present} ${what}`;
   }
-  return "Raven wants to post a recap to Slack";
 }

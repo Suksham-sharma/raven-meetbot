@@ -6,25 +6,15 @@ import { timecode, clockTime, longDate } from "@/lib/speaker";
 
 export interface Meeting {
   id: string;
-  /** Null for every real meeting — the backend never sets it. Fall back. */
   title: string | null;
   startedAt: string;
   durationS: number | null;
   participants: string[];
   state: MeetingState;
   stateDetail?: string;
-  /** Frame from the recording. Absent until the pipeline has produced one. */
   poster?: string;
 }
 
-/**
- * DESIGN.md: two things per row — title, then one line.
- *
- * The thumbnail carries the duration as an overlay badge the way every video
- * product does, which takes it out of the metadata line. An avatar stack was
- * tried here and cut: it made the row say three things at once, and faces at
- * 23px are decoration rather than information.
- */
 export function MeetingRow({
   meeting,
   selected,
@@ -64,7 +54,7 @@ export function MeetingRow({
           {meeting.state !== "ok" && (
             <>
               <StatusFlag state={meeting.state} detail={meeting.stateDetail} />
-              <span className="text-ink-4 opacity-50">·</span>
+              <span className="text-ink-3 opacity-50">·</span>
             </>
           )}
           <span className="truncate">{secondary(meeting)}</span>
@@ -74,10 +64,6 @@ export function MeetingRow({
   );
 }
 
-/**
- * 16:9, sized so a row stays scannable. Shows the recording frame once one
- * exists; until then a neutral well rather than a decorative gradient.
- */
 function Thumb({ meeting }: { meeting: Meeting }) {
   const live = meeting.state === "recording";
 
@@ -92,9 +78,6 @@ function Thumb({ meeting }: { meeting: Meeting }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={meeting.poster} alt="" className="size-full object-cover" />
       ) : (
-        // No frame yet. A warm well with a clear play mark reads as "video,
-        // no preview"; the dark box with a faint glyph it replaced read as a
-        // broken image.
         <span className="grid size-full place-items-center">
           <span
             className={cn(
@@ -140,16 +123,14 @@ function secondary(m: Meeting): string {
   return [clockTime(m.startedAt), people].filter(Boolean).join(" · ");
 }
 
-/** `kdz-mrqa-fhi_2026-07-29_15-00-00` is not a title. A date is. */
 function fallbackTitle(id: string, startedAt: string): string {
   const label = longDate(startedAt);
   return label ? `Untitled — ${label}` : id;
 }
 
-/** Day grouping header for the meetings list. */
 export function DayHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="mt-9 mb-1.5 px-2.5 text-[11px] font-semibold tracking-[0.1em] text-ink-4 uppercase first:mt-0">
+    <h2 className="mt-9 mb-1.5 px-2.5 text-[11px] font-semibold tracking-[0.1em] text-ink-3 uppercase first:mt-0">
       {children}
     </h2>
   );

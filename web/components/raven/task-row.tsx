@@ -42,20 +42,27 @@ export function TaskRow({
           )}
         >
           {item.text}
-          {item.mine && (
-            <span className="ml-2 inline-flex h-[17px] items-center rounded-[999px] bg-accent px-2 align-[1px] text-[10.5px] font-semibold tracking-[0.03em] text-accent-ink">
-              You
-            </span>
-          )}
         </span>
 
+        {/* "You" is an owner, so it goes in the owner slot. It used to be a
+            solid accent pill spliced into the task text, which made ownership
+            the loudest thing in the row — louder than the timecode, the only
+            control here — and left the owner slot empty on exactly the rows
+            that mattered most. Weight carries it instead of colour. */}
         <span className="text-[12.5px] text-ink-3">
-          {[item.owner, item.due].filter(Boolean).join(" · ")}
-          {(item.owner || item.due) && " · "}
+          {item.mine ? (
+            <span className="font-medium text-ink-2">You</span>
+          ) : (
+            item.owner
+          )}
+          {(item.mine || item.owner) && item.due ? " · " : null}
+          {item.due}
+          {(item.mine || item.owner || item.due) && " · "}
           <button
             type="button"
             onClick={onJump}
-            className="font-mono text-accent hover:underline"
+            aria-label={`Jump to ${timecode(item.at)}, where this was said`}
+            className="-my-1 inline-block py-1 font-mono text-accent hover:underline"
           >
             {timecode(item.at)}
           </button>
