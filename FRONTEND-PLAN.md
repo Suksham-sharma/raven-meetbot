@@ -24,7 +24,7 @@ transcripts.
 
 | Layer | Choice | Reason |
 |---|---|---|
-| Framework | **TanStack Start**, SPA mode except share routes | Backend is a separate Express API, so RSC's server-colocated-data advantage does not apply — it would add a hop and a second Node process to proxy. Typed search params are load-bearing: the entire citation system is `?t=` / `?cue=` / `?q=` state. |
+| Framework | **Next.js 16**, App Router, client-rendered | Backend is a separate Express API, so RSC's server-colocated-data advantage does not apply — it would add a hop and a second Node process to proxy. We use App Router for routing and layouts, not for data. **See the search-param note below.** |
 | SSR | Only `/s/:token` share pages | Needs real OG tags so a Slack paste renders the quote |
 | Styling | **Tailwind v4**, default palette deleted via `--color-*: initial` | Makes `bg-indigo-500` a compile error, not a temptation |
 | Primitives | **base-ui** | `shadcn init -b base` to scaffold, then de-shadcn. Radix has no Combobox, which ⌘K needs. |
@@ -35,8 +35,15 @@ transcripts.
 | Lists | **Virtuoso** | Transcripts exceed 1,000 turns |
 | Video | `<video>` + **hls.js** + own controls | Every player library's value is chrome we're replacing |
 
-Enable React Compiler. A transcript re-rendering on `timeupdate` is exactly what
-it's for.
+Enable React Compiler — a transcript re-rendering on `timeupdate` is exactly what
+it's for. Not on yet; `next.config.ts` is empty. Check
+`node_modules/next/dist/docs/` for the flag in this version before setting it.
+
+**Search params are the open hole in this swap.** The framework was chosen partly
+for typed search params, because the whole citation system is `?t=` / `?cue=` /
+`?q=` state, and Next gives you `useSearchParams()` returning `string | null`.
+Every `?t=` read becomes a hand-rolled parse unless we put something in front of
+it. Needs an answer before the player, not after — see §10.
 
 ---
 
@@ -153,7 +160,7 @@ written by each worker. Documented in §8, not built here.
   transcript still works
 - **Transcript still processing** → tab disabled with reason, summary may exist first
 - **Zero decisions / zero action items** → omit the section entirely, don't render an empty header
-- **Single-speaker meeting** → ribbon degrades to one band
+- **Single-speaker meeting** → participants line reads one name; nothing else changes
 - **4-hour meeting** → Virtuoso; chapter marks must not overflow (bug already hit once)
 
 ### 6.4 Ask
@@ -166,10 +173,13 @@ written by each worker. Documented in §8, not built here.
   error**. Show the search boundary: "Searched 34 meetings, Jan 3 – Aug 2."
 - **Ungrounded** — `grounded: false` means claims with no resolvable citation, and
   it is served as a normal 200 with the answer intact. **The API delegates this
-  decision entirely to us.** Decision needed: banner, or suppress?
-  *Recommendation: render with a visible "couldn't trace this to a source" caveat.*
-  Note `grounded: false` also fires when citations fell outside the 3s resolution
-  tolerance — a resolution bug is indistinguishable from a hallucination.
+  decision entirely to us.** Decided: a plain caveat line under the answer — no
+  box, no tint, no alert glyph. The caveat is the words.
+  Reason for the restraint: `grounded: false` also fires when citations fell
+  outside the 3s resolution tolerance, so a resolution bug is indistinguishable
+  from a hallucination. Alert chrome asserts a confidence about the cause that we
+  do not have, and crying wolf on our own retrieval bug is the fastest way to
+  teach people to ignore the one that matters.
 - **Citations are positionless.** The server strips `[[meeting@sec]]` markers before
   returning and citations carry no offsets. **Inline numbered chips are impossible
   without a server change.** v1 renders prose + evidence cards below. Accepted.
@@ -219,11 +229,14 @@ terminal with no undo.
 **Primitives** — Button, IconButton, Pill, Field, Dialog, Popover, Menu, Tabs,
 Checkbox, Toast, Tooltip, Skeleton
 
-**Domain** — `MeetingRow` · `StatusFlag` (exception-only) · `SpeakerAvatar`
-(deterministic hue by ID hash) · `EvidenceCard` · `CitationChip` (`Priya · 14:32`)
-· `ProposalCard` · `TaskRow` · `TranscriptTurn` · `SpeakerRibbon` (canvas) ·
-`ChapterMarks` · `PinnedPlayer` · `TheaterPlayer` · `AskPanel` · `AnswerBlock` ·
-`CommandPalette` (cmdk) · `EmptyState`
+**Domain** — `MeetingRow` · `MeetingCard` · `StatusFlag` (exception-only) ·
+`EvidenceFootnote` · `CitationChip` (`Priya · 14:32`) · `ProposalCard` · `TaskRow` ·
+`TranscriptTurn` · `ChapterMarks` · `PinnedPlayer` · `TheaterPlayer` · `AskPanel` ·
+`AnswerBlock` · `CommandPalette` (cmdk) · `EmptyState`
+
+No `SpeakerAvatar` and no `SpeakerRibbon`. Both were cut — see DESIGN.md §3. A
+speaker is written out by name everywhere they appear, so nothing needs a hue
+hash or a canvas band. Do not reintroduce either from an older draft of this list.
 
 **Layout** — `AppShell` (232 / fluid / 420, independent scroll regions) ·
 `NavRail` · `DocumentColumn` (text ≤700px) · `SideRail`
@@ -260,7 +273,7 @@ persist**. Either add one or render them read-only. Decision needed.
 2. `AppShell` + `NavRail` + auth
 3. Meetings list against `GET /meetings` (#1)
 4. Meeting detail: summary, decisions, tasks
-5. Player + speaker ribbon + chapters (#3)
+5. Player + chapter marks (#3)
 6. Transcript tab, virtualized, with find (#4)
 7. Ask panel + evidence cards
 8. Proposals, inline-editable, with the three approve outcomes
@@ -275,7 +288,12 @@ the quality bar everything else inherits.
 ## 10. Open questions
 
 1. Same-origin deploy, or JWT in memory? (§3)
-2. `grounded: false` — caveat banner or suppress? (§6.4)
-3. Action-item checkboxes — add a `completed` column, or read-only? (§8)
-4. Is a fake sample meeting for onboarding worth building? (§6.6)
-5. Do we ship `/answers` in v1 given it needs a persistence layer that doesn't exist?
+2. Action-item checkboxes — add a `completed` column, or read-only? (§8)
+3. Is a fake sample meeting for onboarding worth building? (§6.6)
+4. Do we ship `/answers` in v1 given it needs a persistence layer that doesn't exist?
+5. **Typed search params on Next.** The citation system is entirely `?t=` / `?cue=` /
+   `?q=` state and `useSearchParams()` is untyped. A thin parse/serialize module per
+   route is probably enough — but decide before the player, since `?t=` is how every
+   citation deep-link lands. (§2)
+
+Resolved: `grounded: false` renders as a plain caveat line, not a banner — see §6.4.

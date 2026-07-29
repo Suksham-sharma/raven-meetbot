@@ -67,16 +67,36 @@ All values are the shipping tokens. Do not introduce colors outside this list.
 | `--rule` | `#E4E0D6` | Borders that should be seen |
 | `--rule-lo` | `#EDEAE2` | Row dividers that should barely register |
 
-### Ink — four levels, no more
+### Ink — three text levels, plus one that is not text
 
-| Token | Hex | Use |
-|---|---|---|
-| `--ink-1` | `#23211D` | Primary text, headings, quotes |
-| `--ink-2` | `#5C574F` | Secondary text, speaker names, metadata |
-| `--ink-3` | `#8B857A` | Tertiary — timestamps, inactive tabs |
-| `--ink-4` | `#ADA79B` | Labels, placeholders, disabled |
+| Token | Hex | On paper | Use |
+|---|---|---|---|
+| `--ink-1` | `#23211D` | 15.7:1 | Primary text, headings, quotes |
+| `--ink-2` | `#5C574F` | 6.98:1 | Secondary text, speaker names, metadata |
+| `--ink-3` | `#6C675F` | 5.44:1 | Tertiary — timestamps, inactive tabs, the quietest text we ship |
+| `--ink-4` | `#ADA79B` | 2.33:1 | **Never text.** Disabled controls, rules, decorative marks only |
 
-Hierarchy comes from these four plus weight and space. **Never from boxes.**
+Hierarchy comes from these plus weight and space. **Never from boxes.**
+
+**Why four text levels became three.** The original scale had `--ink-3` at
+`#8B857A` (3.57:1 on paper) and `--ink-4` at `#ADA79B` (2.33:1), and §9 asked for
+both to be verified against every ground. They failed all of them — worst case
+`--ink-4` on `--card-2` is 1.93:1, under even the 3:1 floor for UI boundaries.
+
+The fix is not a nudge, because solving each for 4.5:1 lands `--ink-3` at
+`#79746B` and `--ink-4` at `#78746C`. **They converge.** Four legible steps do not
+fit between `#23211D` and a near-white ground; the scale was over-subdivided.
+
+So `--ink-3` moved down to `#6C675F`, which clears 4.5:1 on `--paper`, `--rail`,
+`--card` *and* `--card-2`, and `--ink-4` stopped being a text colour. WCAG 2.2
+exempts inactive controls from contrast (1.4.3), which is the one job it keeps.
+Anything a user is meant to *read* — including placeholders, boundary lines, and
+metadata — is `--ink-3` or darker.
+
+The trap this closes: the quietest text in the product was carrying the copy that
+matters most when it appears — the search boundary on a refusal, and the notice
+that Raven joins as a visible participant. A privacy disclosure set at 2.33:1 is
+not a style problem.
 
 ### Accent — Forest
 
@@ -167,7 +187,7 @@ Space follows that ranking. Frequency earns real estate; volume does not.
 ┌─────────┬───────────────────────────┬──────────────────┐
 │  nav    │ title + facts + tabs      │  recording       │  pinned,
 │  232px  ├───────────────────────────┤  chapters        │  never scrolls
-│         │ summary · decided ·       │  speaker ribbon  │  away
+│         │ summary · decided ·       │                  │  away
 │  fixed  │ proposals · actions       ├──────────────────┤
 │         │        (scrolls)          │  ask, scoped     │
 └─────────┴───────────────────────────┴──────────────────┘
@@ -233,6 +253,13 @@ Never `opacity: 0` to hide a control — it stays focusable. Use `display: none`
 status at all. Only recording, still-processing, and failed states speak. Do not
 render a "Ready" badge on thirty rows.
 
+**Processing is not a warning.** "Working out who said what" is the happy path
+for the first 2–10 minutes after *every* call, so it takes a neutral tone. Amber
+is reserved for the case that has actually gone wrong — past ~15 minutes, where
+the copy changes to "This is taking longer than usual." Colouring the normal
+post-meeting state as caution turns every finished meeting amber for ten minutes,
+in a product whose first commitment is that calm is functional.
+
 **Evidence is a footnote.** A citation chip sits at the end of the answer,
 naming a person and a moment — `Priya · 14:32`, never `[3]`. Clicking it unfolds
 that quote directly beneath, with a play control. One open at a time.
@@ -264,10 +291,19 @@ the archive. Both carry a video thumbnail with duration as an overlay badge,
 which keeps duration out of the metadata line.
 
 **Agent proposal.** Renders as the artifact it will become — a Linear issue looks
-like a Linear issue, with its fields inline-editable. Always carries provenance
-("because of what he said at 22:07"). Three actions, deliberately unequal:
-`Approve` (solid) · `Edit first` (outline) · `Not this one` (text, pushed right).
-Symmetric approve/reject buttons imply equal weight; they are not equal.
+like a Linear issue, with its fields inline-editable. Three actions, deliberately
+unequal: `Approve` (solid) · `Edit first` (outline) · `Not this one` (text, pushed
+right). Symmetric approve/reject buttons imply equal weight; they are not equal.
+
+Provenance ("because of what he said at 22:07") is carried at **every** status,
+not just while the proposal is pending. It matters most after the fact: "why did
+Raven file this?" is a question you ask about the thing that already got filed. On
+a settled card it drops to `--ink-2` rather than disappearing.
+
+The card speaks in the tense it is in. "Raven wants to file…" is correct while
+`proposed`; once the action is `executed` or `rejected` it reads as past, because
+the decision has been made. A settled card still offering to do the thing it
+already did reads as a stuck UI.
 
 **Plain language over system labels.** Section headings read
 "What happened", "Decided", "Someone needs to", "Raven would like to",
@@ -304,8 +340,9 @@ These are the specific tells of generated UI. All are forbidden.
 
 Non-negotiable for a general-audience product.
 
-- Contrast 4.5:1 body, 3:1 large text and UI boundaries. Verify `--ink-3` and
-  `--ink-4` against every ground they land on.
+- Contrast 4.5:1 body, 3:1 large text and UI boundaries. Measured, not assumed —
+  see §3. `--ink-4` is not a text colour; if you are reaching for it to set type,
+  the answer is `--ink-3`.
 - Touch targets ≥ 24×24px, including timestamps and player controls.
 - Transcript turns are real buttons with accessible names that include speaker
   and time: *"Priya, 14:32, jump to this moment"*.
@@ -328,6 +365,13 @@ Non-negotiable for a general-audience product.
   one block when we do it. Do not naively invert; reduce chroma on dark.
 - **Real photography or texture** — the current design is flat. Granola uses
   photography to avoid sterility. Undecided for Raven.
+- **Waveform on the scrubber** — open, and deliberately *not* a locked pick. It
+  was listed as one while paired with the speaker ribbon; the ribbon was cut and
+  the waveform came off the locked list with it. Unlike the ribbon it was never
+  rejected on merit — a real waveform encodes where speech is, which helps
+  seeking — but nothing consumes it today, and it costs a peaks stage in the
+  diarize worker. Decide when the scrubber is built, not before. Chapter marks
+  ship first; if they turn out to be enough, this stays cut.
 
 ---
 
@@ -360,14 +404,14 @@ Off the curated list, decided separately:
 | Need | Choice |
 |---|---|
 | Video playback / adaptive streaming | `<video>` + **hls.js**, custom control layer |
-| Waveform + speaker ribbon | Peaks precomputed in the worker, rendered by us |
+| Chapter marks on the scrubber | Rendered by us from the `chapters` table |
 | Server state / caching | **TanStack Query** |
 | Streaming answers | raw `fetch` + `ReadableStream` — not `EventSource` (GET-only, cannot send the JWT header), not TanStack `streamedQuery` (hides chunks) |
 
 No player library. Their value is their default chrome, and we replace 100% of it
-with a transcript-synced scrubber, speaker ribbon, and chapter marks. Vidstack,
-Media Chrome and Plyr are also mid-merger into Video.js v10 — adopting any of
-them today means adopting a migration.
+with a transcript-synced scrubber and chapter marks. Vidstack, Media Chrome and
+Plyr are also mid-merger into Video.js v10 — adopting any of them today means
+adopting a migration.
 
 ---
 
@@ -387,3 +431,8 @@ them today means adopting a migration.
 | 2026-08-03 | Evidence is a footnote, not a card | A box asserts standing a fallible retrieval result hasn't earned |
 | 2026-08-03 | Meeting card alongside row | Browsing and seeking are different jobs |
 | 2026-08-03 | No summary on the meeting card | Title, thumbnail and one meta line are enough to decide a click |
+| 2026-08-03 | Ink scale cut to three text levels | `ink-3` 3.57:1 and `ink-4` 2.33:1 both failed AA; solving both converges them |
+| 2026-08-03 | `ink-4` demoted to non-text | Only job left is disabled controls and rules, which 1.4.3 exempts |
+| 2026-08-03 | Processing takes a neutral tone, not warn | It is the happy path after every call; amber is for the 15-minute case |
+| 2026-08-03 | Proposals keep provenance after they settle | "Why was this filed?" is asked about filed things |
+| 2026-08-03 | Waveform off the locked list, into open decisions | Never rejected on merit, but nothing consumes it and it costs a worker stage |
