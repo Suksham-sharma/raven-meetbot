@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Newsreader, Instrument_Sans } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
 
 // Serif is for speech: quotes, transcript, summary prose.
@@ -31,7 +32,9 @@ export default function RootLayout({
       lang="en"
       className={`${newsreader.variable} ${instrument.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

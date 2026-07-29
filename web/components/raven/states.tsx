@@ -77,8 +77,8 @@ export function Processing({
 
 export function SkeletonRow() {
   return (
-    <div className="flex items-center gap-3.5 border-b border-rule-lo p-2.5">
-      <div className="aspect-video w-[76px] shrink-0 animate-pulse rounded-sm bg-sunk" />
+    <div className="flex items-center gap-4 border-b border-rule-lo p-3">
+      <div className="aspect-video w-[92px] shrink-0 animate-pulse rounded-md bg-sunk" />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <Bar className="h-[15px] w-[46%]" />
         <Bar className="h-[13px] w-[64%]" />

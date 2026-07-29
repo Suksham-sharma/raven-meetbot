@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ArrowUpRight } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
@@ -155,16 +156,7 @@ export function ProposalCard({
           className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-accent hover:underline"
         >
           {proposal.kind === "linear_issue" ? "Open in Linear" : "Open in Slack"}
-          <svg
-            viewBox="0 0 12 12"
-            className="size-3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            aria-hidden="true"
-          >
-            <path d="M4 2h6v6M10 2 3 9" />
-          </svg>
+          <ArrowUpRight size={14} />
           <span className="sr-only">(opens in a new tab)</span>
         </a>
       )}
