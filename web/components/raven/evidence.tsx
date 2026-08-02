@@ -1,0 +1,120 @@
+"use client";
+
+import * as React from "react";
+import { cn } from "@/lib/cn";
+import { timecode } from "@/lib/speaker";
+
+export interface Source {
+  speaker: string;
+  at: number;
+  quote: string;
+  where?: string;
+  clipLength?: number;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   Evidence is a footnote.
+
+   The first attempt was a bordered card, and the objection to it
+   was structural rather than cosmetic: a box around a quote
+   asserts the quote is an object in its own right, which hands a
+   fallible retrieval result more standing than it has earned.
+
+   Two other approaches were built and cut — a boxless pull-quote
+   (didn't scale past two sources) and a transcript-style log
+   (read as a developer tool). See DESIGN.md for why.
+
+   What survives: the answer reads clean, and evidence unfolds
+   only when someone asks for it. Verification is available
+   rather than insisted upon.
+   ──────────────────────────────────────────────────────────────── */
+
+/** Names a person, never a number. `[3]` is for citing anonymous web pages. */
+export function CitationChip({
+  speaker,
+  at,
+  open,
+  onClick,
+  className,
+}: {
+  speaker: string;
+  at: number;
+  open?: boolean;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label={`${speaker}, ${timecode(at)}, show what they said`}
+      className={cn(
+        "inline-flex h-[22px] items-center gap-1.5 rounded-[999px] px-2",
+        "align-[1px] text-[12px] font-medium transition-colors duration-150 ease-out",
+        open
+          ? "bg-accent text-accent-ink"
+          : "bg-accent-tint text-accent hover:bg-accent-line",
+        className,
+      )}
+    >
+      {speaker}
+      <span className="font-mono text-[11px] opacity-70">{timecode(at)}</span>
+    </button>
+  );
+}
+
+/**
+ * An answer with its sources attached. Chips sit at the end of the prose; one
+ * expands at a time, directly beneath.
+ */
+export function EvidenceFootnote({
+  sources,
+  onPlay,
+  children,
+}: {
+  sources: Source[];
+  onPlay?: (s: Source) => void;
+  /** The answer prose. */
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState<number | null>(null);
+  const current = open === null ? null : sources[open];
+
+  return (
+    <div>
+      <div className="measure font-serif text-[16.5px] leading-[1.65] font-light">
+        {children}{" "}
+        {sources.map((s, i) => (
+          <CitationChip
+            key={i}
+            speaker={s.speaker}
+            at={s.at}
+            open={open === i}
+            onClick={() => setOpen(open === i ? null : i)}
+            className="mr-1"
+          />
+        ))}
+      </div>
+
+      {current && (
+        <div className="measure mt-3 border-l-2 border-accent-line pl-4">
+          <q className="mb-1.5 block font-serif text-[15.5px] leading-[1.55] font-light text-ink-2 italic [quotes:none]">
+            {current.quote}
+          </q>
+          <button
+            type="button"
+            onClick={() => onPlay?.(current)}
+            className="inline-flex items-center gap-1.5 text-[12px] text-ink-4 transition-colors hover:text-accent"
+          >
+            <svg viewBox="0 0 9 10" className="size-2" fill="currentColor">
+              <path d="M.5.5 8.5 5 .5 9.5z" />
+            </svg>
+            Play
+            {current.clipLength != null && ` ${timecode(current.clipLength)}`}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
