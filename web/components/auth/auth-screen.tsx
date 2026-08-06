@@ -10,6 +10,32 @@ import { keys } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 
+type FieldErrors = { email?: string; password?: string };
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validate({
+  email,
+  password,
+  registering,
+}: {
+  email: string;
+  password: string;
+  registering: boolean;
+}): FieldErrors {
+  const found: FieldErrors = {};
+
+  if (!email.trim()) found.email = "Enter your email address.";
+  else if (!EMAIL.test(email.trim()))
+    found.email = "That doesn't look like an email address.";
+
+  if (!password) found.password = "Enter your password.";
+  else if (registering && password.length < 8)
+    found.password = "Use at least 8 characters.";
+
+  return found;
+}
+
 export function AuthScreen({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -37,9 +63,21 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
         ? "Something went wrong. Try again."
         : undefined;
 
+  const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
+  const emailRef = React.useRef<HTMLInputElement>(null);
+  const passwordRef = React.useRef<HTMLInputElement>(null);
+
+  const clear = (key: keyof FieldErrors) =>
+    setFieldErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-      <main className="flex flex-col justify-center px-8 py-16 sm:px-14">
+    <div className="relative grid min-h-dvh bg-rail lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <Grain />
+      {/* Lifted out of grid flow so the plate can reach left of the column
+          boundary; `main` then falls into column one on its own. */}
+      <Specimen />
+
+      <main className="relative z-10 flex flex-col justify-center px-8 py-16 sm:px-14">
         <div className="mx-auto w-full max-w-[360px]">
           <Link href="/" className="mb-10 flex items-center gap-2.5">
             <span className="size-2 rounded-full bg-accent" />
@@ -59,8 +97,20 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
           <form
             className="flex flex-col gap-4"
+            noValidate
             onSubmit={(e) => {
               e.preventDefault();
+              const found = validate({ email, password, registering });
+              setFieldErrors(found);
+              const first = found.email
+                ? emailRef
+                : found.password
+                  ? passwordRef
+                  : null;
+              if (first) {
+                first.current?.focus();
+                return;
+              }
               submit.mutate();
             }}
           >
@@ -74,26 +124,34 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
             )}
 
             <Field
+              ref={emailRef}
               label="Email"
               type="email"
               required
               value={email}
               autoComplete="email"
-              onChange={(e) => setEmail(e.target.value)}
+              error={fieldErrors.email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                clear("email");
+              }}
             />
 
             <Field
+              ref={passwordRef}
               label="Password"
               type="password"
               required
               value={password}
               autoComplete={registering ? "new-password" : "current-password"}
               hint={registering ? "At least 8 characters" : undefined}
-              onChange={(e) => setPassword(e.target.value)}
+              error={fieldErrors.password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                clear("password");
+              }}
             />
 
-            {/* One message from the server, so it sits with the form rather
-                than being pinned to whichever field we guessed was at fault. */}
             {error && (
               <p role="alert" className="text-[13px] text-live">
                 {error}
@@ -122,45 +180,40 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
           </p>
         </div>
       </main>
-
-      <Specimen />
     </div>
   );
 }
 
-/**
- * Not a feature grid and not a screenshot. The atomic unit of this product is
- * the moment — a speaker, a timestamp, a quote you can play — so the way to
- * show what Raven is, is to show one.
- */
+const PANEL = "/auth-panel-a.jpg";
+
+const GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23p)'/%3E%3C/svg%3E\")";
+
+function Grain() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{ backgroundImage: GRAIN, opacity: 0.02 }}
+    />
+  );
+}
+
 function Specimen() {
   return (
     <aside
       aria-label="What Raven keeps"
-      className="relative hidden overflow-hidden bg-paper lg:block"
+      className="pointer-events-none absolute inset-y-0 right-0 left-[43%] hidden lg:block"
     >
-      {/* Never fully opaque. The paint holds 90% at the outer edge and thins
-          to 60% toward the middle of the screen, so paper shows through and
-          the image reads as printed on the page rather than laid over it.
-          No stop reaches transparent: a ramp to zero turned the dark trees
-          translucent over cream, and that pale strip beside the opaque trees
-          read as a light leak down the seam. A plate in a book has an edge. */}
       <Image
-        src="/auth-panel.jpg"
+        src={PANEL}
         alt=""
         fill
         priority
-        sizes="55vw"
-        className="object-cover object-top [mask-image:linear-gradient(to_right,rgba(0,0,0,0.6)_0%,rgba(0,0,0,0.75)_50%,rgba(0,0,0,0.9)_100%)]"
+        quality={92}
+        sizes="60vw"
+        className="object-cover object-top"
       />
-
-      {/* A caption on a plate, not a showcase. The form is the job on this
-          screen; a display-sized pull quote competed with it. */}
-      {/* No type on the panel. Thinned to 60–90% the forest composites to a
-          mid-tone, which is the one ground nothing sits on — too dark for ink,
-          too light for cream, measured between 1.0:1 and 3.3:1 either way.
-          The panel is atmosphere; the form is the screen's only job. The
-          specimen moment belongs on a surface with room for it. */}
     </aside>
   );
 }

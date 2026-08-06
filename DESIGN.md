@@ -27,7 +27,7 @@ people said, so it should feel closer to a well-set book than to an analytics
 console. Calm is a functional requirement, not a mood: users open Raven to catch
 up on something they missed, often while behind.
 
-Three commitments:
+Four commitments:
 
 - **Light-first.** Not dark. The primary surfaces (summary, decisions, ask) are
   reading surfaces. Dark mode may ship later; it is not the design order.
@@ -35,6 +35,13 @@ Three commitments:
   Cool blue-greys read as unfinished SaaS default.
 - **Space over lines.** Regions separate by whitespace and background shift,
   not by borders. When in doubt, delete the border.
+- **Texture only where there is nothing to read.** Paper grain and painted
+  plates belong on auth, empty states and marketing — surfaces that are mostly
+  void and briefly read. Never behind the document column, transcript or list
+  rows: at body sizes the grain sits at the same spatial frequency as glyph
+  antialiasing and the type reads as slightly out of focus. What carries the
+  look between screens is the warm ground, the accent and serif-for-speech —
+  not the fibre.
 
 ### Deliberate departures from the category
 
@@ -363,8 +370,6 @@ Non-negotiable for a general-audience product.
   licensed pair is planned pre-launch. Swap is token-level.
 - **Dark mode** — deferred, not cancelled. Every token is semantic, so it costs
   one block when we do it. Do not naively invert; reduce chroma on dark.
-- **Real photography or texture** — the current design is flat. Granola uses
-  photography to avoid sterility. Undecided for Raven.
 - **Waveform on the scrubber** — open, and deliberately *not* a locked pick. It
   was listed as one while paired with the speaker ribbon; the ribbon was cut and
   the waveform came off the locked list with it. Unlike the ribbon it was never
@@ -436,3 +441,5 @@ adopting a migration.
 | 2026-08-03 | Processing takes a neutral tone, not warn | It is the happy path after every call; amber is for the 15-minute case |
 | 2026-08-03 | Proposals keep provenance after they settle | "Why was this filed?" is asked about filed things |
 | 2026-08-03 | Waveform off the locked list, into open decisions | Never rejected on merit, but nothing consumes it and it costs a worker stage |
+| 2026-08-06 | Texture decided, and fenced to empty surfaces | Reads as paper only where there is negative space; behind body text it reads as a dirty screen |
+| 2026-08-06 | Auth ground is `rail`, no new parchment token | Within Δ6 of the painting's own parchment; a token with one consumer is how the palette rots |

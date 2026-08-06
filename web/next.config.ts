@@ -8,6 +8,8 @@ const API_ORIGIN = process.env.API_ORIGIN ?? "http://localhost:3001";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  // 92 is the auth panel; the default 75 smooths its paper texture away.
+  images: { qualities: [75, 92] },
   // Without this Next walks up and picks ~/pnpm-lock.yaml as the workspace
   // root, which also makes a bare `pnpm add` here install into ~/package.json.
   // import.meta.dirname, not __dirname — this config is ESM.
