@@ -7,12 +7,18 @@ Read this before writing any component, screen, or style.
 
 ## 1. What Raven is, in one line
 
-A meeting bot that records your calls, remembers them across time, and answers
-questions with evidence you can play back.
+A meeting bot that records your calls, remembers them across time, and turns
+what was said into answers you can play back and actions you approve before
+they happen.
 
 **The atomic unit of this product is the moment** — a speaker, a timestamp, a
 quote, a playable clip. Not the meeting. Cross-meeting memory is the product; a
 meeting is just where a moment happens to live.
+
+That holds for the acting half, and is the reason it can be trusted: a proposal
+is anchored to the moment that caused it, so "why did Raven file this?" always
+resolves to a person saying a thing at a time. An action with no moment behind
+it is a bug, not a feature.
 
 Everything below follows from that.
 
@@ -48,13 +54,14 @@ Four commitments:
 Granola, Fathom, Otter and Fireflies all converge on a clean-neutral look with a
 notes-or-video hero. Raven departs in three places, on purpose:
 
-1. **Evidence is a card that plays in place**, never a link that navigates away.
-   Research on citation UI found source cards beat inline citations, and both beat
-   bottom-of-answer lists.
-2. **A citation names a person, not a number.** `Priya · 14:32`, never `[3]`.
+1. **Agent actions are human-gated and shown as the artifact they will become.**
+   Circleback ships connector writes with no approval step. That gap is our surface,
+   which is why it is listed first.
+2. **Evidence is a footnote, not a card**, and it plays in place rather than
+   navigating away. A card asserts a standing that a fallible retrieval result has
+   not earned.
+3. **A citation names a person, not a number.** `Priya · 14:32`, never `[3]`.
    Numbered chips are for citing anonymous web pages; ours cite a human at a moment.
-3. **Agent actions are human-gated and shown as the artifact they will become.**
-   Circleback ships connector writes with no approval step. That gap is our surface.
 
 ---
 
@@ -449,3 +456,5 @@ adopting a migration.
 | 2026-08-03 | Waveform off the locked list, into open decisions | Never rejected on merit, but nothing consumes it and it costs a worker stage |
 | 2026-08-06 | Texture decided, and fenced to empty surfaces | Reads as paper only where there is negative space; behind body text it reads as a dirty screen |
 | 2026-08-06 | Auth ground is `rail`, no new parchment token | Within Δ6 of the painting's own parchment; a token with one consumer is how the palette rots |
+| 2026-08-06 | §1 states the acting half, and §2 leads with it | The one-liner described only record-and-answer while §2 called agent actions "our surface"; work framed off §1 kept narrowing to retrieval |
+| 2026-08-06 | §2 corrected to "evidence is a footnote" | It still read "card", contradicting both the 2026-08-03 log entry and `EvidenceFootnote` in the code |
