@@ -71,7 +71,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
     setFieldErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
 
   return (
-    <div className="relative grid min-h-dvh bg-rail lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+    <div className="relative grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <Grain />
       {/* Lifted out of grid flow so the plate can reach left of the column
           boundary; `main` then falls into column one on its own. */}

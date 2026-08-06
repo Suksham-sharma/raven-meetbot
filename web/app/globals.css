@@ -14,10 +14,10 @@
   --font-*: initial;
 
   /* Neutrals — warm-biased. A pure grey reads as unconsidered. */
-  --color-paper: #fdfcf9;
-  --color-rail: #f8f6f1;
-  --color-card: #f4f2ec;
-  --color-sunk: #eae7de;
+  --color-paper: #f8f6f1;
+  --color-rail: #f3f0e9;
+  --color-card: #efece4;
+  --color-sunk: #e5e1d6;
   --color-white: #ffffff;
 
   /* Contrast on paper. ink-4 is NOT a text colour — see DESIGN.md §3. */
@@ -26,8 +26,8 @@
   --color-ink-3: #6c675f; /*  5.44:1 */
   --color-ink-4: #ada79b; /*  2.33:1 — disabled, rules, decorative marks only */
 
-  --color-rule: #e4e0d6;
-  --color-rule-lo: #edeae2;
+  --color-rule: #dfdace;
+  --color-rule-lo: #e8e4da;
 
   /* Input borders only — 3.30:1, the 1.4.11 floor. Dividers keep `rule`. */
   --color-field: #8e8b85;

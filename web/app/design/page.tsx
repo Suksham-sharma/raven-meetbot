@@ -149,17 +149,17 @@ function Code({ children }: { children: React.ReactNode }) {
 /* ─────────────────────────── sections ─────────────────────────── */
 
 const NEUTRALS = [
-  ["paper", "bg-paper", "#FDFCF9", "app ground"],
-  ["rail", "bg-rail", "#F8F6F1", "nav, side rail"],
-  ["card", "bg-card", "#F4F2EC", "raised blocks"],
-  ["sunk", "bg-sunk", "#EAE7DE", "tracks, wells"],
+  ["paper", "bg-paper", "#F8F6F1", "app ground"],
+  ["rail", "bg-rail", "#F3F0E9", "nav, side rail"],
+  ["card", "bg-card", "#EFECE4", "raised blocks"],
+  ["sunk", "bg-sunk", "#E5E1D6", "tracks, wells"],
   ["white", "bg-white", "#FFFFFF", "quote cards only"],
 ];
 
 const INKS = [
   ["ink-1", "bg-ink-1", "#23211D", "primary text"],
   ["ink-2", "bg-ink-2", "#5C574F", "secondary"],
-  ["ink-3", "bg-ink-3", "#8B857A", "tertiary"],
+  ["ink-3", "bg-ink-3", "#6C675F", "tertiary"],
   ["ink-4", "bg-ink-4", "#ADA79B", "NOT text — disabled, rules"],
 ];
 

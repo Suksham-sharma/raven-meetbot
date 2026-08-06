@@ -66,13 +66,19 @@ All values are the shipping tokens. Do not introduce colors outside this list.
 
 | Token | Hex | Use |
 |---|---|---|
-| `--paper` | `#FDFCF9` | App background, the ground everything sits on |
-| `--rail` | `#F8F6F1` | Nav and side rail — a half-step down from paper |
-| `--card` | `#F4F2EC` | Raised blocks: summary, tab chips |
-| `--card-2` | `#EAE7DE` | Sunken elements: track backgrounds, avatars |
+| `--paper` | `#F8F6F1` | App background, the ground everything sits on |
+| `--rail` | `#F3F0E9` | Nav and side rail — a half-step down from paper |
+| `--card` | `#EFECE4` | Raised blocks: summary, tab chips |
+| `--card-2` | `#E5E1D6` | Sunken elements: track backgrounds, avatars |
 | `--white` | `#FFFFFF` | Quote cards only — the one true white |
-| `--rule` | `#E4E0D6` | Borders that should be seen |
-| `--rule-lo` | `#EDEAE2` | Row dividers that should barely register |
+| `--rule` | `#DFDACE` | Borders that should be seen |
+| `--rule-lo` | `#E8E4DA` | Row dividers that should barely register |
+
+The whole scale sits one step down from where it started, a uniform
+`(-5,-6,-8)`. Paper is now the value rail used to hold. Nothing else moved:
+ink, accent and semantic tokens are unchanged, and every text pairing still
+clears AA — `ink-3` reads 5.19:1 on paper, 4.93:1 on rail, 4.75:1 on card. No
+text sits on `card-2`, which is why it can go this dark.
 
 ### Ink — three text levels, plus one that is not text
 
