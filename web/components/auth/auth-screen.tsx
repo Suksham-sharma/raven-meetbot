@@ -9,6 +9,7 @@ import { api, ApiError } from "@/lib/api";
 import { keys } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { Wordmark } from "@/components/brand/wordmark";
 
 type FieldErrors = { email?: string; password?: string };
 
@@ -79,11 +80,8 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
       <main className="relative z-10 flex flex-col justify-center px-8 py-16 sm:px-14">
         <div className="mx-auto w-full max-w-[360px]">
-          <Link href="/" className="mb-10 flex items-center gap-2.5">
-            <span className="size-2 rounded-full bg-accent" />
-            <span className="font-serif text-[20px] font-medium tracking-[-0.02em]">
-              Raven
-            </span>
+          <Link href="/" aria-label="Raven" className="mb-10 inline-block">
+            <Wordmark className="text-[20px]" />
           </Link>
 
           <h1 className="mb-1.5 font-serif text-[32px] leading-[1.12] font-normal tracking-[-0.018em] text-balance">

@@ -8,6 +8,7 @@ import type { Icon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/queries";
+import { Mark, Wordmark } from "@/components/brand/wordmark";
 
 // Only routes that exist are listed. A nav full of links to unbuilt screens is
 // the same failure as a button with no handler.
@@ -49,12 +50,11 @@ export function NavRail({
           collapsed ? "justify-center" : "justify-between px-3",
         )}
       >
-        <Link href="/" className="flex items-center gap-2.5" title="Raven">
-          <span className="size-2 shrink-0 rounded-full bg-accent" />
-          {!collapsed && (
-            <span className="font-serif text-[19px] font-medium tracking-[-0.02em]">
-              Raven
-            </span>
+        <Link href="/" title="Raven" aria-label="Raven" className="inline-block">
+          {collapsed ? (
+            <Mark className="text-accent text-[19px]" />
+          ) : (
+            <Wordmark className="text-[19px]" />
           )}
         </Link>
         {canToggle && !collapsed && (
