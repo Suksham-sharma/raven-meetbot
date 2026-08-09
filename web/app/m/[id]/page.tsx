@@ -34,8 +34,11 @@ import type { Decision, MeetingActionItem, MeetingDetail } from "@/lib/types";
  * chapter is a seek, a transcript turn is a seek, and `?t=` is how a citation
  * from anywhere else in the app lands here.
  *
- * The player is pinned in the rail rather than run as a hero because a hero
- * scrolls away exactly when quote-clicking starts (§5).
+ * Layout runs title and detail first, then the recording, then the document.
+ * DESIGN.md §5 argued against a video at the top because a hero scrolls away
+ * exactly when quote-clicking starts — which is answered by the summary being
+ * short enough not to scroll, and by the transcript handing the video to the
+ * sidebar instead of leaving it overhead.
  */
 export default function Page() {
   // useSearchParams needs a boundary; the deep link is read below it.
@@ -55,6 +58,31 @@ function MeetingView() {
 
   const [tab, setTab] = React.useState<Tab>("happened");
   const [theater, toggleTheater] = useTheater();
+  /**
+   * The tab picks the layout, because the two tabs want opposite things: the
+   * summary is short and the video is the point, the transcript is long and the
+   * video is company. Reading a transcript through the gap a big player leaves
+   * is the one arrangement neither mode is good at.
+   *
+   * Still overridable — watching along with the transcript open is a real way to
+   * use this — but only for as long as you stay on that tab. Only the summary
+   * tab's choice is the remembered one.
+   */
+  const [override, setOverride] = React.useState<boolean | null>(null);
+  const bigPlayer = override ?? (theater && tab !== "said");
+
+  function chooseTab(next: Tab) {
+    setTab(next);
+    setOverride(null);
+  }
+
+  function togglePlayerMode() {
+    if (tab === "said") setOverride(!bigPlayer);
+    else {
+      setOverride(null);
+      toggleTheater();
+    }
+  }
   const { data: session } = useSession();
   const meeting = useMeeting(meetingId);
   const recording = useRecording(meetingId);
@@ -107,12 +135,12 @@ function MeetingView() {
     <AppShell
       rail={
         <div className="flex flex-col gap-7 px-7 py-8">
-          {!theater && (
+          {!bigPlayer && (
             <RecordingPane
               state={recording}
               meeting={m}
               turns={transcript.data?.turns}
-              onToggleTheater={toggleTheater}
+              onToggleTheater={togglePlayerMode}
             />
           )}
           {m && m.chapters.length > 0 && (
@@ -137,33 +165,24 @@ function MeetingView() {
         </div>
       }
     >
-      <div className="flex h-full min-h-0 flex-col px-12 py-11">
+      {/* The summary is a document and scrolls the column. The transcript is
+          its own scroll region, so the column is pinned to the viewport and the
+          list scrolls inside it rather than dragging the page along. */}
+      <div
+        className={cn(
+          "flex flex-col px-12 py-11",
+          tab === "said" && "h-full min-h-0",
+        )}
+      >
         {meeting.isPending && <SkeletonCard />}
 
         {m && (
           <>
-            {/* Theater: the video takes the column, and the title and detail
-                sit under it. It docks to a corner once scrolled past — the
-                objection to a video hero was that it scrolls away exactly when
-                quote-clicking starts, and this answers that rather than
-                accepting it. */}
-            {theater && (
-              <TheaterSlot>
-                <RecordingPane
-                  state={recording}
-                  meeting={m}
-                  turns={transcript.data?.turns}
-                  theater
-                  onToggleTheater={toggleTheater}
-                />
-              </TheaterSlot>
-            )}
-
-            <header>
-              <h1 className="font-serif text-[34px] leading-[1.1] font-normal tracking-[-0.018em] text-balance">
+            <header className="mb-9">
+              <h1 className="font-serif text-[34px] leading-[1.15] font-normal tracking-[-0.018em] text-balance">
                 {title(m)}
               </h1>
-              <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[13px] text-ink-3">
+              <p className="mt-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] leading-[1.5] text-ink-3">
                 <span>{longDate(m.started_at ?? "")}</span>
                 {m.duration_s ? <span>· {duration(m.duration_s)}</span> : null}
                 {m.participants.length > 0 && (
@@ -174,16 +193,31 @@ function MeetingView() {
               </p>
             </header>
 
-            <nav className="mt-7 mb-6 flex gap-1.5" aria-label="Meeting views">
+            {/* Who and when first, then the recording. The title is what tells
+                you which meeting you are in; the video is what you came to
+                watch, and it reads as a subject once it is named. */}
+            {bigPlayer && (
+              <TheaterSlot>
+                <RecordingPane
+                  state={recording}
+                  meeting={m}
+                  turns={transcript.data?.turns}
+                  theater
+                  onToggleTheater={togglePlayerMode}
+                />
+              </TheaterSlot>
+            )}
+
+            <nav className="mb-7 flex gap-1.5" aria-label="Meeting views">
               <TabChip
                 active={tab === "happened"}
-                onClick={() => setTab("happened")}
+                onClick={() => chooseTab("happened")}
               >
                 What happened
               </TabChip>
               <TabChip
                 active={tab === "said"}
-                onClick={() => setTab("said")}
+                onClick={() => chooseTab("said")}
                 count={transcript.data?.turns.length}
               >
                 Everything said
@@ -212,21 +246,16 @@ function title(m: MeetingDetail): string {
 }
 
 /**
- * The theater player sits above the document rather than scrolling with it: the
- * column pins the video, title, detail and tabs, and only the section beneath
- * scrolls. So the objection to a video hero — that it scrolls away exactly when
- * quote-clicking starts — does not apply here. It never leaves.
+ * Two modes, and only two: big here, or in the sidebar. A third floating state
+ * was built — the player following the reader into a corner — and cut, because
+ * "where is the video now" became a question the page kept asking of you.
  *
- * Height is capped instead. 16:9 across a wide column is tall enough to leave a
- * short viewport with a video and nothing to read, and since the document
- * scrolls *under* the player there would be no way to scroll the rest of it
- * into view. Capping the width by the height the aspect ratio implies keeps the
- * frame intact and always leaves the document room.
+ * Height is capped against the viewport: 16:9 across a wide column can
+ * otherwise fill a short screen with video and leave nothing to read. When the
+ * document needs the room, the sidebar is the mode for that.
  */
 function TheaterSlot({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-7 w-full max-w-[calc(46vh*16/9)] shrink-0">{children}</div>
-  );
+  return <div className="mb-9 w-full max-w-[calc(46vh*16/9)]">{children}</div>;
 }
 
 function TabChip({
@@ -285,7 +314,7 @@ function Happened({
   }
 
   return (
-    <div className="min-h-0 overflow-y-auto pb-8">
+    <div className="pb-8">
       {meeting.summary && (
         <section className="mb-10">
           <SectionHead>What happened</SectionHead>

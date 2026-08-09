@@ -80,6 +80,9 @@ export function TranscriptView({
   }
 
   return (
+    // Its own scroll region, unlike the summary: a thousand turns is a place you
+    // scroll *within*, and hoisting it into the column would push find out of
+    // reach and drag the player off screen on the one tab you read longest.
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-3 flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[999px] border border-rule bg-paper px-3.5 py-1.5 focus-within:border-field">
