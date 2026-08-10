@@ -22,11 +22,16 @@ export function meetingState(m: MeetingSummary): MeetingState {
 export function toRow(m: MeetingSummary): Meeting {
   return {
     id: m.id,
-    title: m.title,
+    // The backend leaves `title` null for every real meeting, so without this
+    // the whole archive falls through to the participant list and every row is
+    // named after who was in it. The first chapter is what a person would have
+    // called the meeting — "Pilot Feedback" beats "Marco, Lena and 2 others".
+    title: m.title ?? m.first_chapter,
     startedAt: m.started_at ?? "",
     durationS: m.duration_s,
     participants: m.participants,
     state: meetingState(m),
+    summary: m.summary,
   };
 }
 

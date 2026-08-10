@@ -1,11 +1,18 @@
 "use client";
 
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api } from "./api";
+import type { OpenAction } from "./types";
 
 export const keys = {
   session: ["session"] as const,
   meetings: ["meetings"] as const,
+  actionItems: ["action-items"] as const,
   meeting: (id: string) => ["meeting", id] as const,
   transcript: (id: string) => ["transcript", id] as const,
 };
@@ -34,6 +41,63 @@ export function useMeetings() {
       meetings: data.pages.flatMap((p) => p.meetings),
       corpus: data.pages[0].corpus,
     }),
+  });
+}
+
+// Session-gated for the same reason as useMeetings.
+export function useActionItems(limit = 12) {
+  const { data: session } = useSession();
+
+  return useQuery({
+    queryKey: [...keys.actionItems, limit],
+    queryFn: () => api.actionItems({ limit }),
+    enabled: Boolean(session),
+  });
+}
+
+/**
+ * Optimistic, because a checkbox that waits on a round trip feels broken —
+ * this is the one control in the product a user clicks reflexively.
+ *
+ * The cache is patched in place rather than invalidated on success: the list is
+ * ordered open-first server-side, so refetching would slide a row out from
+ * under the cursor the instant it is ticked. It settles on the next natural
+ * refetch instead.
+ */
+export function useToggleActionItem(limit = 12) {
+  const queryClient = useQueryClient();
+  const key = [...keys.actionItems, limit];
+
+  return useMutation({
+    mutationFn: ({ id, completed }: { id: number; completed: boolean }) =>
+      api.setActionItemCompleted(id, completed),
+
+    onMutate: async ({ id, completed }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<{ items: OpenAction[] }>(key);
+
+      queryClient.setQueryData<{ items: OpenAction[] }>(key, (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((i) =>
+                i.id === id
+                  ? {
+                      ...i,
+                      completed_at: completed ? new Date().toISOString() : null,
+                    }
+                  : i,
+              ),
+            }
+          : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
   });
 }
 

@@ -4,9 +4,23 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api";
-import { useSession } from "@/lib/queries";
+import { useMeetings, useSession } from "@/lib/queries";
 import { useNav } from "@/lib/use-nav";
+import { CommandPalette } from "@/components/raven/command-palette";
 import { NavRail } from "./nav-rail";
+
+/**
+ * The palette lives here rather than on the page that first needed it, because
+ * ⌘K is a global shortcut and one mounted on a single route only answers on
+ * that route — which reads as the shortcut being broken, not as it being
+ * scoped. Anything inside the shell can open it through this.
+ */
+const PaletteContext = React.createContext<(() => void) | null>(null);
+
+/** Opens the ⌘K palette. Null outside the shell, so callers can hide the affordance. */
+export function useCommandPalette() {
+  return React.useContext(PaletteContext);
+}
 
 /**
  * DESIGN.md §5: full viewport, regions scroll independently, the page itself
@@ -23,7 +37,12 @@ export function AppShell({
   const router = useRouter();
   const { data, error, isPending } = useSession();
   const { collapsed, canToggle, toggle } = useNav();
+  const [searching, setSearching] = React.useState(false);
+  // Already in cache on the meetings route; a cheap first fetch anywhere else.
+  const meetings = useMeetings();
   const unauthorized = error instanceof ApiError && error.status === 401;
+
+  const openPalette = React.useCallback(() => setSearching(true), []);
 
   React.useEffect(() => {
     if (unauthorized) router.replace("/login");
@@ -37,6 +56,7 @@ export function AppShell({
   const navWide = collapsed ? "64px" : "232px";
 
   return (
+    <PaletteContext.Provider value={openPalette}>
     <div
       style={
         {
@@ -82,6 +102,14 @@ export function AppShell({
           {rail}
         </aside>
       )}
+
+      <CommandPalette
+        meetings={meetings.data?.meetings ?? []}
+        open={searching}
+        onOpenChange={setSearching}
+        onSelect={(id) => router.push(`/m/${encodeURIComponent(id)}`)}
+      />
     </div>
+    </PaletteContext.Provider>
   );
 }

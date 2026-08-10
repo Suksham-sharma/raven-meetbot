@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import {
   actionItems,
@@ -106,6 +106,33 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
         },
       });
 
+    // Ticking an action item off is the one piece of user intent in any of
+    // these tables, and the wholesale rewrite below would silently drop it on
+    // every re-ingest — the diarize chain re-ingests as a matter of course.
+    //
+    // Keyed on the evidence quote, not on seq: seq is positional, so an
+    // extraction run that finds one extra item shifts every seq beneath it and
+    // the completions land on the wrong rows. The quote is a verbatim span of
+    // the transcript (the quote-guard enforces it), so it is stable across runs
+    // of the same source. Same reasoning as v3's action idempotency, which
+    // hashes the quote rather than the model's prose.
+    const carried = new Map(
+      (
+        await tx
+          .select({
+            evidenceQuote: actionItems.evidenceQuote,
+            completedAt: actionItems.completedAt,
+          })
+          .from(actionItems)
+          .where(
+            and(
+              eq(actionItems.meetingId, meetingId),
+              isNotNull(actionItems.completedAt)
+            )
+          )
+      ).map((r) => [r.evidenceQuote, r.completedAt])
+    );
+
     await tx.delete(chunks).where(eq(chunks.meetingId, meetingId));
     await tx.delete(chapters).where(eq(chapters.meetingId, meetingId));
     await tx.delete(decisions).where(eq(decisions.meetingId, meetingId));
@@ -166,6 +193,7 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
           speaker: a.speaker,
           startS: a.startS,
           endS: a.endS,
+          completedAt: carried.get(a.evidenceQuote) ?? null,
         }))
       );
     }

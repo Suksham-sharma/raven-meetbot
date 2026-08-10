@@ -1,16 +1,44 @@
 "use client";
 
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AskPanel } from "@/components/raven/ask-panel";
+import { FollowUps } from "@/components/raven/follow-ups";
+import { MeetingCard } from "@/components/raven/meeting-card";
 import { DayHeading, MeetingRow } from "@/components/raven/meeting-row";
-import { EmptyState, SkeletonRow } from "@/components/raven/states";
+import { EmptyState, SkeletonCard, SkeletonRow } from "@/components/raven/states";
 import { Button } from "@/components/ui/button";
-import { useMeetings } from "@/lib/queries";
+import {
+  useActionItems,
+  useMeetings,
+  useSession,
+  useToggleActionItem,
+} from "@/lib/queries";
 import { corpusLabel, groupByDay, toRow } from "@/lib/meetings";
-import type { MeetingSummary } from "@/lib/types";
+import type { MeetingSummary, OpenAction } from "@/lib/types";
+
+/**
+ * Cards for the newest few, rows for the rest.
+ *
+ * The split earns its keep only if the card shows something the row can't —
+ * otherwise it is the same fields at four times the height (§7). So the card
+ * carries a line of summary and the row does not: recent meetings get a preview
+ * of what happened, the archive stays a dense index you scan to find one.
+ *
+ * That summary is a deliberate departure from the 2026-08-03 "no summary on the
+ * card" entry. It is what makes the two components mean different things instead
+ * of being two sizes of one, and it matches §7's own prose ("shows a line of
+ * summary"). The plate is still grey until `has_recording` turns true; the
+ * summary is what gives the card substance in the meantime.
+ */
+const RECENT = 3;
 
 export default function MeetingsPage() {
+  const router = useRouter();
+  const { data: session } = useSession();
+  const actions = useActionItems();
+  const toggle = useToggleActionItem();
   const {
     data,
     error,
@@ -21,11 +49,39 @@ export default function MeetingsPage() {
     refetch,
   } = useMeetings();
 
-  const corpus = data ? corpusLabel(data.corpus) : "";
+  const meetings = data?.meetings ?? [];
+
+  function open(id: string, at?: number) {
+    const t = at ? `?t=${Math.floor(at)}` : "";
+    router.push(`/m/${encodeURIComponent(id)}${t}`);
+  }
 
   return (
-    <AppShell rail={data?.corpus.total ? <AskPanel corpus={corpus} /> : null}>
+    <AppShell
+      rail={
+        data?.corpus.total ? (
+          <div className="flex flex-col gap-7 px-7 py-11">
+            <AskPanel corpus={corpusLabel(data.corpus)} />
+            {actions.data && actions.data.items.length > 0 && (
+              <div className="border-t border-rule pt-6">
+                <FollowUps
+                  items={actions.data.items}
+                  me={session?.user.name}
+                  onOpen={(a: OpenAction) => open(a.meeting_id, a.start_s)}
+                  onToggle={(a, completed) =>
+                    toggle.mutate({ id: a.id, completed })
+                  }
+                />
+              </div>
+            )}
+          </div>
+        ) : null
+      }
+    >
       <div className="px-12 py-11">
+        {/* The search affordance moved to the nav, where it is reachable from
+            every route rather than only this one. Two entry points to the same
+            palette in one viewport was chrome, not discoverability. */}
         <header className="mb-9">
           <h1 className="font-serif text-[34px] leading-[1.1] font-normal tracking-[-0.018em] text-balance">
             Everything you&rsquo;ve been in
@@ -37,13 +93,7 @@ export default function MeetingsPage() {
           )}
         </header>
 
-        {isPending && (
-          <div>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <SkeletonRow key={i} />
-            ))}
-          </div>
-        )}
+        {isPending && <Loading />}
 
         {error && (
           <EmptyState
@@ -53,7 +103,7 @@ export default function MeetingsPage() {
           />
         )}
 
-        {data && data.meetings.length === 0 && (
+        {data && meetings.length === 0 && (
           <EmptyState
             title="No meetings yet"
             body="Invite Raven to a Google Meet call and it will join, record, and remember it."
@@ -61,48 +111,70 @@ export default function MeetingsPage() {
           />
         )}
 
-        {data && data.meetings.length > 0 && (
-          <MeetingList
-            meetings={data.meetings}
+        {meetings.length > 0 && (
+          <Archive
+            meetings={meetings}
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}
             onLoadMore={fetchNextPage}
+            onOpen={open}
           />
         )}
       </div>
+
     </AppShell>
   );
 }
 
-function MeetingList({
+function Archive({
   meetings,
   hasNextPage,
   isFetchingNextPage,
   onLoadMore,
+  onOpen,
 }: {
   meetings: MeetingSummary[];
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   onLoadMore: () => void;
+  onOpen: (id: string) => void;
 }) {
-  const router = useRouter();
+  const recent = meetings.slice(0, RECENT);
+  const rest = meetings.slice(RECENT);
 
   return (
-    <>
-      {groupByDay(meetings).map((group) => (
-        <section key={group.key} className="mb-8 last:mb-0">
-          <DayHeading>{group.label}</DayHeading>
-          <div className="divide-y divide-rule-lo">
-            {group.meetings.map((m) => (
-              <MeetingRow
-                key={m.id}
-                meeting={toRow(m)}
-                onClick={() => router.push(`/m/${encodeURIComponent(m.id)}`)}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+    // `.rise` is already scoped to prefers-reduced-motion in globals.css, and it
+    // runs on the block rather than per row — §6 gives list rows colour change
+    // only, so a staggered cascade would argue with the rule on every visit.
+    <div className="rise">
+      <div className={CARD_GRID}>
+        {recent.map((m) => (
+          <MeetingCard
+            key={m.id}
+            meeting={toRow(m)}
+            onClick={() => onOpen(m.id)}
+          />
+        ))}
+      </div>
+
+      {rest.length > 0 && (
+        <div className="mt-10 border-t border-rule-lo pt-2">
+          {groupByDay(rest).map((group) => (
+            <section key={group.key} className="mb-8 last:mb-0">
+              <DayHeading>{group.label}</DayHeading>
+              <div className="divide-y divide-rule-lo">
+                {group.meetings.map((m) => (
+                  <MeetingRow
+                    key={m.id}
+                    meeting={toRow(m)}
+                    onClick={() => onOpen(m.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
       {hasNextPage && (
         <div className="mt-10 flex justify-center">
@@ -116,6 +188,30 @@ function MeetingList({
           </Button>
         </div>
       )}
-    </>
+    </div>
+  );
+}
+
+// Tracks, not a fixed column count: the column width shifts with the nav and
+// rail state, so a breakpoint guesses wrong at half the widths. Floor 232px is
+// where the meta line stops truncating to "Marco …"; cap 300px keeps the plate
+// from ballooning into a big grey box on a wide column (aspect-video means
+// width sets height). Extra width becomes a right-hand gap, not taller cards.
+const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(232px,300px))] gap-4";
+
+function Loading() {
+  return (
+    <div aria-busy="true" aria-label="Loading your meetings">
+      <div className={CARD_GRID}>
+        {[0, 1, 2].map((i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+      <div className="mt-10 border-t border-rule-lo pt-4">
+        {[0, 1, 2, 3].map((i) => (
+          <SkeletonRow key={i} />
+        ))}
+      </div>
+    </div>
   );
 }

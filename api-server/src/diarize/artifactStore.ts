@@ -6,8 +6,9 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createWriteStream } from "fs";
-import { unlink } from "fs/promises";
+import { access, mkdir, unlink, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import { pipeline } from "stream/promises";
@@ -28,6 +29,13 @@ export interface ArtifactStore {
   resolve(key: string): Promise<ResolvedArtifact>;
   write(key: string, data: string | Buffer): Promise<void>;
   exists(key: string): Promise<boolean>;
+  /**
+   * A URL a browser can play directly, or null when the store has no such
+   * concept and the caller must serve the bytes itself. Only playback needs
+   * this — resolve() downloads the whole object, which is right for ffmpeg and
+   * wrong for a video element that wants to seek an hour in.
+   */
+  playbackUrl(key: string): Promise<string | null>;
 }
 
 // Lets callers distinguish "artifact doesn't exist" (e.g. the memory worker's
@@ -42,6 +50,8 @@ export class ArtifactNotFoundError extends Error {
 function contentType(key: string): string {
   return key.endsWith(".jsonl") ? "application/x-ndjson" : "video/webm";
 }
+
+const PLAYBACK_URL_TTL_S = 6 * 60 * 60;
 
 class R2ArtifactStore implements ArtifactStore {
   private client: S3Client;
@@ -101,19 +111,66 @@ class R2ArtifactStore implements ArtifactStore {
       throw err;
     }
   }
+
+  // Presigned so video bytes go browser→R2 directly instead of through this
+  // process. The TTL outlives a long watch: the URL is minted once per page
+  // load, and a signature that expires mid-meeting breaks seeking silently.
+  async playbackUrl(key: string): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      { expiresIn: PLAYBACK_URL_TTL_S }
+    );
+  }
+}
+
+// The other half of the bot's local-disk fallback. storageSink.ts already drops
+// to LocalFileSink when R2 is unset, so without this the write side degrades
+// gracefully and the read side throws — capture succeeds, diarize dies, and the
+// meeting never reaches Postgres. Same directory the sink writes to, so a key is
+// a key whichever store is live.
+class LocalArtifactStore implements ArtifactStore {
+  private dir = systemConfig.RECORDINGS_DIR;
+
+  // No temp copy: the file is already a real path on disk, which is all callers
+  // want. cleanup is a no-op — unlinking here would delete the recording itself.
+  async resolve(key: string): Promise<ResolvedArtifact> {
+    const full = path.join(this.dir, key);
+    if (!(await this.exists(key))) throw new ArtifactNotFoundError(key);
+    return { path: full, cleanup: async () => undefined };
+  }
+
+  async write(key: string, data: string | Buffer): Promise<void> {
+    await mkdir(this.dir, { recursive: true });
+    await writeFile(path.join(this.dir, key), data);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      await access(path.join(this.dir, key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Nothing to sign — a path on this machine is not reachable from a browser,
+  // so the caller streams the file itself.
+  async playbackUrl(): Promise<null> {
+    return null;
+  }
 }
 
 let store: ArtifactStore | null = null;
 
 export function getArtifactStore(): ArtifactStore {
   if (store) return store;
-  if (
-    !systemConfig.R2_ENDPOINT ||
-    !systemConfig.R2_ACCESS_KEY_ID ||
-    !systemConfig.R2_SECRET_ACCESS_KEY
-  ) {
-    throw new Error("R2 not configured — set R2_ENDPOINT / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY");
-  }
-  store = new R2ArtifactStore();
+  const hasR2 =
+    systemConfig.R2_ENDPOINT &&
+    systemConfig.R2_ACCESS_KEY_ID &&
+    systemConfig.R2_SECRET_ACCESS_KEY;
+  // Mirrors createStorageSink()'s test exactly — the two sides have to agree on
+  // which store is live or they will read and write in different places.
+  store = hasR2 ? new R2ArtifactStore() : new LocalArtifactStore();
   return store;
 }

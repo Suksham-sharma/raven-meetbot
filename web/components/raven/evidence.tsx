@@ -63,18 +63,27 @@ export function EvidenceFootnote({
   return (
     <div>
       <div className="measure font-serif text-[16.5px] leading-[1.65] font-light">
-        {children}{" "}
-        {sources.map((s, i) => (
-          <CitationChip
-            key={i}
-            speaker={s.speaker}
-            at={s.at}
-            open={open === i}
-            onClick={() => setOpen(open === i ? null : i)}
-            className="mr-1"
-          />
-        ))}
+        {children}
       </div>
+
+      {/* Their own row rather than trailing the last line. Inline, the chips
+          ran on from the final sentence and then wrapped mid-run — at rail
+          width that happens almost every time, and it read as the prose
+          continuing into UI chrome. A footnote sits under the text; it does
+          not finish the paragraph. */}
+      {sources.length > 0 && (
+        <div className="measure mt-2.5 flex flex-wrap gap-1.5">
+          {sources.map((s, i) => (
+            <CitationChip
+              key={i}
+              speaker={s.speaker}
+              at={s.at}
+              open={open === i}
+              onClick={() => setOpen(open === i ? null : i)}
+            />
+          ))}
+        </div>
+      )}
 
       {current && (
         <div className="measure mt-3 border-l-2 border-accent-line pl-4">

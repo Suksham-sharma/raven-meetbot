@@ -13,6 +13,8 @@ export interface Meeting {
   participants: string[];
   state: MeetingState;
   stateDetail?: string;
+  /** One line of what happened. The card shows it; the row ignores it. */
+  summary?: string | null;
   poster?: string;
 }
 

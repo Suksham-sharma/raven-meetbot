@@ -54,6 +54,13 @@ export function shortDate(iso: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+/** "Priya, Marcus and 4 others" — a meeting's people as a sentence. */
+export function people(names: string[], max = 3): string {
+  return names.length > max
+    ? `${names.slice(0, max - 1).join(", ")} and ${names.length - (max - 1)} others`
+    : names.join(", ");
+}
+
 export function duration(seconds: number): string {
   const mins = Math.round(seconds / 60);
   if (mins < 60) return `${mins} min`;

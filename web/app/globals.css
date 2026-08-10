@@ -145,6 +145,23 @@ input:-webkit-autofill:focus {
   }
 }
 
+/* Palette entrance. Never scale(0) — DESIGN.md §6. */
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.97);
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

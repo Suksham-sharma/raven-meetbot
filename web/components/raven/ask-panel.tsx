@@ -35,10 +35,12 @@ export function AskPanel({ corpus }: { corpus: string }) {
   }
 
   return (
-    // Header and input anchor the top, openers anchor the bottom, and the gap
-    // between them is the answer slot. Centring the whole cluster left it
-    // floating against the page header; this fills the column on purpose.
-    <div className="flex h-full flex-col px-7 py-11">
+    // Everything stacks from the top; the rail scrolls as one column. This used
+    // to stretch to full height with the answer slot on flex-1 and the openers
+    // pinned to the bottom, which at rest opened a ~500px hole through the
+    // middle of the widest empty region on the page. Nothing here needs to
+    // reach the fold.
+    <div>
       <header className="mb-5">
         <h2 className="font-serif text-[23px] leading-tight tracking-[-0.014em]">
           Ask across everything
@@ -91,22 +93,26 @@ export function AskPanel({ corpus }: { corpus: string }) {
         </div>
       </form>
 
-      <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
-        {ask.isPending && <Thinking />}
-        {!ask.isPending && ask.error && <AskError error={ask.error} />}
-        {!ask.isPending && ask.data && (
-          <Result answer={ask.data} query={asked} corpus={corpus} />
-        )}
-      </div>
+      {!idle && (
+        <div className="mt-6">
+          {ask.isPending && <Thinking />}
+          {!ask.isPending && ask.error && <AskError error={ask.error} />}
+          {!ask.isPending && ask.data && (
+            <AnswerBlock answer={ask.data} query={asked} corpus={corpus} />
+          )}
+        </div>
+      )}
 
       {idle && <Openers onPick={submit} />}
     </div>
   );
 }
 
-function Openers({ onPick }: { onPick: (q: string) => void }) {
+export function Openers({ onPick }: { onPick: (q: string) => void }) {
   return (
-    <div className="flex flex-col items-start border-t border-rule-lo pt-4">
+    // Space, not a rule: the rail already carries one hairline above the
+    // commitments list, and two stacked inside 360px reads as a form.
+    <div className="mt-5 flex flex-col items-start">
       <p className="mb-1 px-2 text-[12.5px] text-ink-3">
         Or start with one of these
       </p>
@@ -141,8 +147,8 @@ const STEPS = [
   "Checking each claim against a quote",
 ];
 
-function Thinking() {
-  const [step, setStep] = React.useState(0);
+export function Thinking({ from = 0 }: { from?: number }) {
+  const [step, setStep] = React.useState(from);
 
   React.useEffect(() => {
     const id = setInterval(
@@ -176,7 +182,13 @@ function Thinking() {
   );
 }
 
-function Result({
+/**
+ * The answer, once it lands. Exported because the design gallery renders it
+ * from fixtures — /ask is a 3–40s billed round trip, which is not a loop you
+ * can iterate a layout in, and a hand-copied answer in the gallery would drift
+ * from this one within a week.
+ */
+export function AnswerBlock({
   answer,
   query,
   corpus,

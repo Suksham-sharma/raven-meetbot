@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { SidebarSimple, SignOut, VideoCamera } from "@phosphor-icons/react";
+import {
+  MagnifyingGlass,
+  SidebarSimple,
+  SignOut,
+  VideoCamera,
+} from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/queries";
+import { useCommandPalette } from "@/components/layout/app-shell";
 import { Mark, Wordmark } from "@/components/brand/wordmark";
 
 // Only routes that exist are listed. A nav full of links to unbuilt screens is
@@ -29,6 +35,7 @@ export function NavRail({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data } = useSession();
+  const openPalette = useCommandPalette();
 
   async function signOut() {
     await api.logout().catch(() => undefined);
@@ -92,6 +99,31 @@ export function NavRail({
             </Link>
           );
         })}
+
+        {/* Sits with the routes because it behaves like one — it is the way
+            you get to a meeting by name from anywhere. Not a route, so no
+            aria-current and no active state; the shortcut is spelled out
+            because a shortcut nobody can see is a shortcut nobody uses. */}
+        {openPalette && (
+          <button
+            type="button"
+            onClick={openPalette}
+            title={collapsed ? "Search everything" : undefined}
+            className={cn(
+              "flex items-center gap-2.5 rounded-sm text-[13.5px] text-ink-2",
+              "transition-colors duration-150 ease-out hover:bg-card hover:text-ink-1",
+              collapsed ? "justify-center p-2.5" : "px-3 py-2",
+            )}
+          >
+            <MagnifyingGlass />
+            {!collapsed && (
+              <>
+                Search
+                <kbd className="ml-auto font-sans text-[11px] text-ink-3">⌘K</kbd>
+              </>
+            )}
+          </button>
+        )}
       </nav>
 
       <div className={cn("mt-auto w-full", collapsed ? "" : "px-3")}>
@@ -106,26 +138,45 @@ export function NavRail({
           </button>
         )}
 
-        {!collapsed && data?.user && (
-          <p className="mb-1.5 truncate text-[12.5px] text-ink-3">
-            {data.user.name ?? data.user.email}
-          </p>
+        {/* One row, not a name stacked above a button — who is signed in and
+            the way out are one thing, and stacked they read as two orphans
+            left at the bottom of the column. The rule is the only one in the
+            rail and it earns itself: it separates the account from the routes,
+            which is a different kind of thing rather than a further item. */}
+        {collapsed ? (
+          <button
+            type="button"
+            onClick={signOut}
+            title="Sign out"
+            aria-label="Sign out"
+            className={cn(
+              "flex w-full justify-center rounded-sm p-2.5 text-ink-3",
+              "transition-colors duration-150 hover:bg-card hover:text-ink-1",
+            )}
+          >
+            <SignOut size={18} />
+          </button>
+        ) : (
+          <div className="-mx-1 flex items-center gap-1 border-t border-rule-lo px-1 pt-3">
+            {data?.user && (
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-2">
+                {data.user.name ?? data.user.email}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={signOut}
+              title="Sign out"
+              aria-label="Sign out"
+              className={cn(
+                "grid size-7 shrink-0 place-items-center rounded-sm text-ink-3",
+                "transition-colors duration-150 hover:bg-card hover:text-ink-1",
+              )}
+            >
+              <SignOut size={15} />
+            </button>
+          </div>
         )}
-
-        <button
-          type="button"
-          onClick={signOut}
-          title={collapsed ? "Sign out" : undefined}
-          aria-label="Sign out"
-          className={cn(
-            "flex items-center gap-2 rounded-sm text-[12.5px] text-ink-3",
-            "transition-colors duration-150 hover:bg-card hover:text-ink-1",
-            collapsed ? "w-full justify-center p-2.5" : "-mx-2 min-h-6 px-2 py-1",
-          )}
-        >
-          <SignOut size={collapsed ? 18 : 15} />
-          {!collapsed && "Sign out"}
-        </button>
       </div>
     </aside>
   );

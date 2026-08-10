@@ -2,6 +2,7 @@ import type {
   Answer,
   MeetingDetail,
   MeetingsPage,
+  OpenAction,
   Transcript,
   User,
 } from "./types";
@@ -81,6 +82,15 @@ export const api = {
 
   meeting: (id: string) =>
     request<MeetingDetail>(`/meetings/${encodeURIComponent(id)}`),
+
+  actionItems: (params: { limit?: number } = {}) =>
+    request<{ items: OpenAction[] }>(`/action-items${query(params)}`),
+
+  setActionItemCompleted: (id: number, completed: boolean) =>
+    request<{ id: number; completed_at: string | null }>(
+      `/action-items/${id}`,
+      { method: "PATCH", body: JSON.stringify({ completed }) },
+    ),
 
   transcript: (id: string) =>
     request<Transcript>(`/meetings/${encodeURIComponent(id)}/transcript`),

@@ -15,6 +15,10 @@ export interface MeetingSummary {
   participants: string[];
   status: string;
   has_recording: boolean;
+  /** Lowest-seq chapter title — the best name available when `title` is null. */
+  first_chapter: string | null;
+  /** One line of what happened, for the recent-meeting cards. Null until ingest. */
+  summary: string | null;
 }
 
 /** The whole archive, not the page — it states the boundary an answer spans. */
@@ -52,6 +56,8 @@ export interface MeetingActionItem extends Decision {
   owner: string | null;
   /** Free text as spoken ("end of week"). Not a date — never parse it. */
   due: string | null;
+  /** When it was ticked off. Null is open. */
+  completed_at: string | null;
 }
 
 export interface MeetingDetail extends MeetingSummary {
@@ -73,6 +79,24 @@ export interface Transcript {
   meeting_id: string;
   recording_offset_s: number;
   turns: TranscriptTurn[];
+}
+
+/** An action item lifted out of its meeting, for the cross-meeting list. */
+export interface OpenAction {
+  id: number;
+  text: string;
+  owner: string | null;
+  /** Free text as spoken ("end of week"). Not a date — never parse it. */
+  due: string | null;
+  evidence_quote: string;
+  speaker: string | null;
+  start_s: number;
+  end_s: number;
+  /** When it was ticked off. Null is open. */
+  completed_at: string | null;
+  meeting_id: string;
+  meeting_title: string | null;
+  meeting_started_at: string | null;
 }
 
 export interface Citation {

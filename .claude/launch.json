@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "web", "dev"],
       "port": 3000
+    },
+    {
+      "name": "raven-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "api-server", "dev"],
+      "port": 3001
     }
   ]
 }

@@ -1,5 +1,16 @@
 import { Request, Response } from "express";
-import { and, asc, count, desc, eq, lt, max, min } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  lt,
+  max,
+  min,
+  sql,
+} from "drizzle-orm";
 import systemConfig from "../config";
 import { db } from "../db/client";
 import { actionItems, chapters, decisions, meetings } from "../db/schema";
@@ -18,6 +29,8 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
+const ACTION_ITEMS_DEFAULT_LIMIT = 20;
+const ACTION_ITEMS_MAX_LIMIT = 100;
 
 function requireUserId(req: Request): string {
   const userId = req.userId;
@@ -34,13 +47,17 @@ async function requireOwnedMeeting(meetingId: string, userId: string) {
   return meeting;
 }
 
-function parseLimit(raw: unknown): number {
-  if (raw == null) return DEFAULT_LIMIT;
+function parseLimit(
+  raw: unknown,
+  fallback = DEFAULT_LIMIT,
+  max = MAX_LIMIT
+): number {
+  if (raw == null) return fallback;
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 1) {
     throw new BadRequestError("limit must be a positive integer");
   }
-  return Math.min(n, MAX_LIMIT);
+  return Math.min(n, max);
 }
 
 function parseBefore(raw: unknown): Date | null {
@@ -97,9 +114,35 @@ export const listMeetings = asyncHandler(async (req: Request, res: Response) => 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
   const last = page[page.length - 1];
+  // One grouped query for the page, not one per row: at limit=200 the per-row
+  // shape would be 200 round trips to name 200 rows.
+  const firstChapters = await db
+    .selectDistinctOn([chapters.meetingId], {
+      meetingId: chapters.meetingId,
+      title: chapters.title,
+    })
+    .from(chapters)
+    .where(
+      inArray(
+        chapters.meetingId,
+        page.map((m) => m.id)
+      )
+    )
+    .orderBy(chapters.meetingId, asc(chapters.seq));
+
+  const firstChapterBy = new Map(firstChapters.map((c) => [c.meetingId, c.title]));
 
   res.status(200).json({
-    meetings: page.map(summarize),
+    meetings: page.map((m) => ({
+      ...summarize(m),
+      // title is null for every real meeting, so the first chapter is what the
+      // row is actually named after.
+      first_chapter: firstChapterBy.get(m.id) ?? null,
+      // The recent-meeting cards on the home surface show a line of what
+      // happened; the archive rows below them do not. Sent on every row, used
+      // by the few the UI renders as cards.
+      summary: m.summary,
+    })),
     next_before: hasMore ? (last?.startedAt?.toISOString() ?? null) : null,
     corpus: {
       total: corpus?.total ?? 0,
@@ -108,6 +151,110 @@ export const listMeetings = asyncHandler(async (req: Request, res: Response) => 
     },
   });
 });
+
+// GET /api/v1/action-items?limit=
+export const listActionItems = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = requireUserId(req);
+    const limit = parseLimit(
+      req.query.limit,
+      ACTION_ITEMS_DEFAULT_LIMIT,
+      ACTION_ITEMS_MAX_LIMIT
+    );
+
+    // action_items has no owner column of its own; the join to meetings is the
+    // entire tenancy boundary for this route.
+    const rows = await db
+      .select({
+        id: actionItems.id,
+        text: actionItems.text,
+        owner: actionItems.owner,
+        due: actionItems.due,
+        evidenceQuote: actionItems.evidenceQuote,
+        speaker: actionItems.speaker,
+        startS: actionItems.startS,
+        endS: actionItems.endS,
+        completedAt: actionItems.completedAt,
+        meetingId: actionItems.meetingId,
+        meetingTitle: meetings.title,
+        meetingStartedAt: meetings.startedAt,
+      })
+      .from(actionItems)
+      .innerJoin(meetings, eq(meetings.id, actionItems.meetingId))
+      .where(eq(meetings.ownerId, userId))
+      // Open first: a settled item is no longer a follow-up, and without this
+      // the list a user actually acts on drifts under the ones they finished.
+      .orderBy(
+        asc(sql`(${actionItems.completedAt} is not null)`),
+        desc(meetings.startedAt),
+        asc(actionItems.seq)
+      )
+      .limit(limit);
+
+    res.status(200).json({
+      items: rows.map((r) => ({
+        id: r.id,
+        text: r.text,
+        owner: r.owner,
+        due: r.due,
+        evidence_quote: r.evidenceQuote,
+        speaker: r.speaker,
+        start_s: r.startS,
+        end_s: r.endS,
+        completed_at: r.completedAt?.toISOString() ?? null,
+        meeting_id: r.meetingId,
+        meeting_title: r.meetingTitle,
+        meeting_started_at: r.meetingStartedAt?.toISOString() ?? null,
+      })),
+    });
+  }
+);
+
+// PATCH /api/v1/action-items/:id  { completed: boolean }
+export const setActionItemCompleted = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = requireUserId(req);
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) {
+      throw new BadRequestError("id must be a positive integer");
+    }
+
+    const { completed } = req.body ?? {};
+    if (typeof completed !== "boolean") {
+      throw new BadRequestError("completed must be a boolean");
+    }
+
+    // Ownership is checked in the same statement that writes, so there is no
+    // window between the two. 404 rather than 403 on someone else's row, so an
+    // id cannot be probed for existence — the rule the rest of this file follows.
+    const [updated] = await db
+      .update(actionItems)
+      .set({ completedAt: completed ? new Date() : null })
+      .where(
+        and(
+          eq(actionItems.id, id),
+          inArray(
+            actionItems.meetingId,
+            db
+              .select({ id: meetings.id })
+              .from(meetings)
+              .where(eq(meetings.ownerId, userId))
+          )
+        )
+      )
+      .returning({
+        id: actionItems.id,
+        completedAt: actionItems.completedAt,
+      });
+
+    if (!updated) throw new NotFoundError("action item not found");
+
+    res.status(200).json({
+      id: updated.id,
+      completed_at: updated.completedAt?.toISOString() ?? null,
+    });
+  }
+);
 
 export const getMeeting = asyncHandler(async (req: Request, res: Response) => {
   const userId = requireUserId(req);

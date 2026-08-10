@@ -87,6 +87,20 @@ export function SkeletonRow() {
   );
 }
 
+/** Mirrors MeetingCard: plate, title, a summary line, then meta. */
+export function SkeletonCard() {
+  return (
+    <div className="overflow-hidden rounded-lg border border-rule-lo">
+      <div className="aspect-video w-full animate-pulse bg-sunk" />
+      <div className="flex flex-col gap-2 px-3.5 pt-3 pb-3.5">
+        <Bar className="h-[15px] w-[58%]" />
+        <Bar className="h-[13px] w-full" />
+        <Bar className="h-[13px] w-[42%]" />
+      </div>
+    </div>
+  );
+}
+
 function Bar({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-xs bg-sunk", className)} />;
 }
