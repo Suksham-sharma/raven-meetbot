@@ -10,7 +10,9 @@ import {
 import {
   getMeeting,
   getMeetingTranscript,
+  listActionItems,
   listMeetings,
+  setActionItemCompleted,
 } from "../controllers/meetings.controller";
 import { login, logout, me, register } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth";
@@ -35,6 +37,8 @@ apiRouter.get("/meetings", listMeetings);
 apiRouter.get("/meetings/:id", getMeeting);
 apiRouter.get("/meetings/:id/transcript", getMeetingTranscript);
 apiRouter.get("/meetings/:id/actions", listMeetingActions);
+apiRouter.get("/action-items", listActionItems);
+apiRouter.patch("/action-items/:id", setActionItemCompleted);
 apiRouter.post("/actions/:id/approve", approveAction);
 apiRouter.post("/actions/:id/reject", rejectAction);
 

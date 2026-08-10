@@ -60,6 +60,13 @@ const systemConfig = {
   R2_BUCKET: process.env.R2_BUCKET || "meeting-recordings",
   R2_REGION: process.env.R2_REGION || "auto",
 
+  // Where artifacts live when R2 is unset. Default resolves to the repo-root
+  // `recordings/` that docker-compose binds into each bot container, so the
+  // diarize worker reads exactly what the bot's LocalFileSink wrote.
+  RECORDINGS_DIR:
+    process.env.RECORDINGS_DIR ||
+    path.resolve(process.cwd(), "..", "recordings"),
+
   JOB_ATTEMPTS: Number(process.env.JOB_ATTEMPTS) || 3,
   JOB_BACKOFF_MS: Number(process.env.JOB_BACKOFF_MS) || 5000,
 };

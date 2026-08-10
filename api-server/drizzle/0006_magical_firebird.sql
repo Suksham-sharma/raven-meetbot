@@ -1,0 +1,1 @@
+ALTER TABLE "action_items" ADD COLUMN "completed_at" timestamp with time zone;

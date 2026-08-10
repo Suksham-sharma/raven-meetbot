@@ -14,10 +14,10 @@
   --font-*: initial;
 
   /* Neutrals — warm-biased. A pure grey reads as unconsidered. */
-  --color-paper: #fdfcf9;
-  --color-rail: #f8f6f1;
-  --color-card: #f4f2ec;
-  --color-sunk: #eae7de;
+  --color-paper: #f8f6f1;
+  --color-rail: #f3f0e9;
+  --color-card: #efece4;
+  --color-sunk: #e5e1d6;
   --color-white: #ffffff;
 
   /* Contrast on paper. ink-4 is NOT a text colour — see DESIGN.md §3. */
@@ -26,8 +26,8 @@
   --color-ink-3: #6c675f; /*  5.44:1 */
   --color-ink-4: #ada79b; /*  2.33:1 — disabled, rules, decorative marks only */
 
-  --color-rule: #e4e0d6;
-  --color-rule-lo: #edeae2;
+  --color-rule: #dfdace;
+  --color-rule-lo: #e8e4da;
 
   /* Input borders only — 3.30:1, the 1.4.11 floor. Dividers keep `rule`. */
   --color-field: #8e8b85;
@@ -110,9 +110,56 @@ select:focus-visible {
   outline: none;
 }
 
+/* Chrome ignores background-color on autofill; the inset shadow is the only
+   thing that covers it. Two rules, not one list — an unknown selector would
+   void the whole list. */
+input:autofill {
+  -webkit-text-fill-color: var(--color-ink-1);
+  box-shadow: inset 0 0 0 100px var(--color-paper);
+  caret-color: var(--color-ink-1);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-ink-1);
+  -webkit-box-shadow: inset 0 0 0 100px var(--color-paper);
+  caret-color: var(--color-ink-1);
+}
+
 /* Reading measure. A wider column grows the gutter, not the line. */
 .measure {
   max-width: 700px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    animation: rise 520ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Palette entrance. Never scale(0) — DESIGN.md §6. */
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.97);
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

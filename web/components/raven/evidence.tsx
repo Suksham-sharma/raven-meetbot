@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Play } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { timecode } from "@/lib/speaker";
 
@@ -32,7 +33,8 @@ export function CitationChip({
       aria-expanded={open}
       aria-label={`${speaker}, ${timecode(at)}, show what they said`}
       className={cn(
-        "inline-flex h-[22px] items-center gap-1.5 rounded-[999px] px-2",
+        "relative inline-flex h-[22px] items-center gap-1.5 rounded-[999px] px-2",
+        "before:absolute before:-inset-y-[3px] before:inset-x-0 before:content-['']",
         "align-[1px] text-[12px] font-medium transition-colors duration-150 ease-out",
         open
           ? "bg-accent text-accent-ink"
@@ -61,18 +63,27 @@ export function EvidenceFootnote({
   return (
     <div>
       <div className="measure font-serif text-[16.5px] leading-[1.65] font-light">
-        {children}{" "}
-        {sources.map((s, i) => (
-          <CitationChip
-            key={i}
-            speaker={s.speaker}
-            at={s.at}
-            open={open === i}
-            onClick={() => setOpen(open === i ? null : i)}
-            className="mr-1"
-          />
-        ))}
+        {children}
       </div>
+
+      {/* Their own row rather than trailing the last line. Inline, the chips
+          ran on from the final sentence and then wrapped mid-run — at rail
+          width that happens almost every time, and it read as the prose
+          continuing into UI chrome. A footnote sits under the text; it does
+          not finish the paragraph. */}
+      {sources.length > 0 && (
+        <div className="measure mt-2.5 flex flex-wrap gap-1.5">
+          {sources.map((s, i) => (
+            <CitationChip
+              key={i}
+              speaker={s.speaker}
+              at={s.at}
+              open={open === i}
+              onClick={() => setOpen(open === i ? null : i)}
+            />
+          ))}
+        </div>
+      )}
 
       {current && (
         <div className="measure mt-3 border-l-2 border-accent-line pl-4">
@@ -85,14 +96,7 @@ export function EvidenceFootnote({
             aria-label={`Play ${current.speaker} at ${timecode(current.at)}`}
             className="-my-1 inline-flex min-h-6 items-center gap-1.5 py-1 text-[12px] text-ink-3 transition-colors hover:text-accent"
           >
-            <svg
-              viewBox="0 0 9 10"
-              className="size-2"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M.5.5 8.5 5 .5 9.5z" />
-            </svg>
+            <Play size={11} weight="fill" />
             Play
             {current.clipLength != null && ` ${timecode(current.clipLength)}`}
           </button>

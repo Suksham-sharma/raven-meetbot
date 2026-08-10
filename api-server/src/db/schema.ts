@@ -210,6 +210,13 @@ export const actionItems = pgTable(
     speaker: text("speaker"),
     startS: doublePrecision("start_s").notNull(),
     endS: doublePrecision("end_s").notNull(),
+    // When it was ticked off, not whether — same cost, and it lets a settled
+    // list sort or age out what is already done. Null is open.
+    //
+    // The only user-authored column in this table: everything else is derived
+    // and is rewritten wholesale on re-ingest. ingestMeeting carries it across
+    // that rewrite keyed on the evidence quote.
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

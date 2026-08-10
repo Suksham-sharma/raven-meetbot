@@ -15,6 +15,14 @@ import {
 } from "@/components/raven/meeting-row";
 import { ProposalCard, type Proposal } from "@/components/raven/proposal";
 import { TaskRow, type ActionItem } from "@/components/raven/task-row";
+import { FollowUps } from "@/components/raven/follow-ups";
+import {
+  AnswerBlock,
+  Openers,
+  Thinking,
+} from "@/components/raven/ask-panel";
+import { cn } from "@/lib/cn";
+import type { Answer, Citation, OpenAction } from "@/lib/types";
 import {
   EmptyState,
   Processing,
@@ -33,6 +41,7 @@ const SECTIONS = [
   { id: "pills", label: "Pills & status" },
   { id: "people", label: "Speakers" },
   { id: "evidence", label: "Evidence" },
+  { id: "ask", label: "Ask & answer" },
   { id: "meetings", label: "Rows & cards" },
   { id: "proposals", label: "Proposals" },
   { id: "tasks", label: "Action items" },
@@ -68,6 +77,7 @@ export default function DesignSystem() {
         <Pills />
         <People />
         <Evidence />
+        <Ask />
         <Meetings />
         <Proposals />
         <Tasks />
@@ -149,17 +159,17 @@ function Code({ children }: { children: React.ReactNode }) {
 /* ─────────────────────────── sections ─────────────────────────── */
 
 const NEUTRALS = [
-  ["paper", "bg-paper", "#FDFCF9", "app ground"],
-  ["rail", "bg-rail", "#F8F6F1", "nav, side rail"],
-  ["card", "bg-card", "#F4F2EC", "raised blocks"],
-  ["sunk", "bg-sunk", "#EAE7DE", "tracks, wells"],
+  ["paper", "bg-paper", "#F8F6F1", "app ground"],
+  ["rail", "bg-rail", "#F3F0E9", "nav, side rail"],
+  ["card", "bg-card", "#EFECE4", "raised blocks"],
+  ["sunk", "bg-sunk", "#E5E1D6", "tracks, wells"],
   ["white", "bg-white", "#FFFFFF", "quote cards only"],
 ];
 
 const INKS = [
   ["ink-1", "bg-ink-1", "#23211D", "primary text"],
   ["ink-2", "bg-ink-2", "#5C574F", "secondary"],
-  ["ink-3", "bg-ink-3", "#8B857A", "tertiary"],
+  ["ink-3", "bg-ink-3", "#6C675F", "tertiary"],
   ["ink-4", "bg-ink-4", "#ADA79B", "NOT text — disabled, rules"],
 ];
 
@@ -643,6 +653,172 @@ function Evidence() {
   );
 }
 
+/* ─────────────────────────── ask ─────────────────────────── */
+
+const CORPUS = "34 meetings · 3 Jan – 3 Aug";
+
+// Same four moments as the Evidence section above, in the shape the API
+// actually returns them — AnswerBlock maps them to Sources itself.
+const CITATIONS: Citation[] = SOURCES.slice(0, 3).map((s) => ({
+  meetingId: "acme_2026-08-03_15-00-00",
+  start_s: s.at,
+  end_s: s.at + (s.clipLength ?? 10),
+  speaker: s.speaker,
+  text: s.quote,
+  recordingUrl: `acme_2026-08-03_15-00-00.webm#t=${s.at}`,
+}));
+
+const ANSWERED: Answer = {
+  answer:
+    "You held at $48k rather than dropping to $42k, and traded the discount for a longer term — fourteen months instead of twelve, which pushes the next negotiation past the pricing change. Onboarding support was folded into the package as the condition for holding the number.",
+  citations: CITATIONS,
+  grounded: true,
+  refused: false,
+  retrieved_meetings: ["acme_2026-08-03_15-00-00"],
+  iterations: 3,
+};
+
+// No chips, because that is what ungrounded means: nothing resolved to a
+// moment. An answer that hedges and then offers three sources is telling the
+// user two different things.
+const HEDGED: Answer = {
+  ...ANSWERED,
+  answer:
+    "The team seemed broadly aligned on holding the price, though the exact term length was still being debated when the call ended.",
+  citations: [],
+  grounded: false,
+};
+
+const REFUSED: Answer = {
+  ...ANSWERED,
+  answer: "I couldn't find that in your meetings.",
+  citations: [],
+  retrieved_meetings: [],
+  refused: true,
+};
+
+/**
+ * The rail at 360px, which is the only width this is ever seen at. Rendering it
+ * wide would flatter it — the answer has to hold up in a column narrower than
+ * the document it sits beside, and the citation chips have to wrap without
+ * shredding the last line.
+ */
+function Rail({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <div className="w-[360px] rounded-lg border border-rule-lo bg-rail px-7 py-8">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Ask() {
+  return (
+    <Section
+      id="ask"
+      title="Ask & answer"
+      note="One question, one answer, no thread — /ask is stateless, so this must never look like a chat. The answer is prose in serif because it is built from what people said; the chips under it are the only way to check it, and they unfold in place rather than navigating away."
+    >
+      <div className="flex flex-wrap items-start gap-8">
+        <Rail label="At rest">
+          <AskHeader />
+          <AskBox />
+          <Openers onPick={() => {}} />
+        </Rail>
+
+        <Rail label="Working — 3 to 40 seconds">
+          <AskHeader />
+          <AskBox value="What did we settle on for Acme's pricing?" />
+          <div className="mt-6">
+            <Thinking from={1} />
+          </div>
+        </Rail>
+
+        <Rail label="Answered">
+          <AskHeader />
+          <AskBox value="What did we settle on for Acme's pricing?" />
+          <div className="mt-6">
+            <AnswerBlock
+              answer={ANSWERED}
+              query="What did we settle on for Acme's pricing?"
+              corpus={CORPUS}
+            />
+          </div>
+        </Rail>
+
+        <Rail label="Answered, but nothing to cite">
+          <AskHeader />
+          <AskBox value="How did the room feel about the number?" />
+          <div className="mt-6">
+            <AnswerBlock
+              answer={HEDGED}
+              query="How did the room feel about the number?"
+              corpus={CORPUS}
+            />
+          </div>
+        </Rail>
+
+        <Rail label="Nothing matched — still a 200">
+          <AskHeader />
+          <AskBox value="Acme's renewal date" />
+          <div className="mt-6">
+            <AnswerBlock
+              answer={REFUSED}
+              query="Acme's renewal date"
+              corpus={CORPUS}
+            />
+          </div>
+        </Rail>
+      </div>
+
+      <p className="mt-8 max-w-[620px] text-[12.5px] text-ink-3">
+        Citations carry no position in the response — the server strips the
+        <Code>[[meeting@sec]]</Code> markers before it returns — so inline
+        numbered chips are impossible without a server change. They sit at the
+        end of the answer instead, naming a person and a moment rather than a
+        number.
+      </p>
+    </Section>
+  );
+}
+
+/* Chrome copied from AskPanel's own header and box, because those two are
+   welded to the live mutation and there is nothing to fixture them with. Kept
+   deliberately thin — everything below the box is the real component. */
+function AskHeader() {
+  return (
+    <header className="mb-5">
+      <h2 className="font-serif text-[23px] leading-tight tracking-[-0.014em]">
+        Ask across everything
+      </h2>
+      <p className="mt-1 text-[12.5px] text-ink-3">{CORPUS}</p>
+    </header>
+  );
+}
+
+function AskBox({ value }: { value?: string }) {
+  return (
+    <div className="rounded-lg border border-field bg-paper px-4 pt-3.5 pb-3">
+      <p
+        className={cn(
+          "font-serif text-[17px] leading-[1.5] font-light",
+          value ? "text-ink-1" : "text-ink-3",
+        )}
+      >
+        {value ?? "Ask about anything that was said…"}
+      </p>
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-[11.5px] text-ink-3">Enter to ask</span>
+        <Button variant="primary" size="sm">
+          Ask
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────── domain ─────────────────────────── */
 
 const MEETINGS: Meeting[] = [
@@ -805,13 +981,15 @@ const TASKS: ActionItem[] = [
 
 function Tasks() {
   const [items, setItems] = React.useState(TASKS);
+  const [commitments, setCommitments] = React.useState(COMMITMENTS);
   return (
     <Section
       id="tasks"
       title="Action items"
       note="`due` is free text as spoken — 'before the paperwork goes out', not a date. Never parse it. Note the backend has no completed column, so the checkbox currently has nowhere to persist."
     >
-      <div className="max-w-[620px]">
+      <div className="mb-12 max-w-[620px]">
+        <Label>In a meeting — checkable</Label>
         {items.map((t) => (
           <TaskRow
             key={t.id}
@@ -824,9 +1002,143 @@ function Tasks() {
           />
         ))}
       </div>
+
+      <div className="max-w-[360px] bg-rail p-6">
+        <Label>Across every meeting — the home rail</Label>
+        <FollowUps
+          items={commitments}
+          me="Marco Reyes"
+          onOpen={() => {}}
+          onToggle={(item, completed) =>
+            setCommitments((prev) =>
+              prev.map((c) =>
+                c.id === item.id
+                  ? {
+                      ...c,
+                      completed_at: completed ? new Date().toISOString() : null,
+                    }
+                  : c,
+              ),
+            )
+          }
+        />
+        <p className="mt-5 text-[12.5px] text-ink-3">
+          Split on the owner, because &ldquo;what do I have to do&rdquo; and
+          &ldquo;what did the team commit to&rdquo; are different questions and
+          only the first is a task list — so the second one starts shut. A row
+          is one line and, when there is one, the date as it was spoken; the
+          meeting, the speaker and the quote sit one click under it, because an
+          action item with no visible provenance is just a to-do and the claim
+          of this product is that every one traces to a person saying it at a
+          time. One open at a time, same as a citation. The checkbox persists
+          now — <Code>action_items.completed_at</Code>, carried across
+          re-ingest on the evidence quote so a re-run cannot untick your work.
+        </p>
+      </div>
     </Section>
   );
 }
+
+const COMMITMENTS: OpenAction[] = [
+  {
+    id: 1,
+    text: "send over the annual contract",
+    owner: "Marco",
+    due: "by Thursday",
+    evidence_quote: "I can send over the annual contract for you guys to sign.",
+    speaker: "Marco",
+    start_s: 462.1,
+    end_s: 470,
+    meeting_id: "acme_2026-08-03_15-00-00",
+    meeting_title: "Acme — renewal & pricing",
+    meeting_started_at: "2026-08-03T15:00:00",
+    completed_at: null,
+  },
+  {
+    id: 2,
+    text: "schedule the kickoff for SSO/SAML integration",
+    owner: "Dana",
+    due: "next week",
+    evidence_quote: "I can schedule the kickoff for next week.",
+    speaker: "Dana",
+    start_s: 486.7,
+    end_s: 491.7,
+    meeting_id: "acme_2026-08-03_15-00-00",
+    meeting_title: "Acme — renewal & pricing",
+    meeting_started_at: "2026-08-03T15:00:00",
+    completed_at: null,
+  },
+  {
+    id: 3,
+    text: "check whether the ingest worker is dropping recordings over 90 minutes",
+    owner: "Aditi",
+    due: null,
+    evidence_quote: "Anything over ninety minutes just never shows up.",
+    speaker: "Lena",
+    start_s: 1204.5,
+    end_s: 1209.2,
+    meeting_id: "eng_2026-08-03_10-00-00",
+    meeting_title: "Weekly eng sync",
+    meeting_started_at: "2026-08-03T10:00:00",
+    completed_at: null,
+  },
+  {
+    id: 4,
+    text: "write up the SOC 2 answers for procurement",
+    owner: "Marco",
+    due: "before the paperwork goes out",
+    evidence_quote: "I'll write up the SOC 2 answers before the paperwork goes out.",
+    speaker: "Marco",
+    start_s: 1712.4,
+    end_s: 1718.9,
+    meeting_id: "acme_2026-08-03_15-00-00",
+    meeting_title: "Acme — renewal & pricing",
+    meeting_started_at: "2026-08-03T15:00:00",
+    completed_at: null,
+  },
+  {
+    id: 5,
+    text: "pull the churn numbers for the board deck",
+    owner: "Priya",
+    due: "Monday",
+    evidence_quote: "I can pull the churn numbers for the board deck by Monday.",
+    speaker: "Priya",
+    start_s: 288.2,
+    end_s: 294.6,
+    meeting_id: "eng_2026-08-03_10-00-00",
+    meeting_title: "Weekly eng sync",
+    meeting_started_at: "2026-08-03T10:00:00",
+    completed_at: null,
+  },
+  {
+    id: 6,
+    text: "get the revised quote in front of legal",
+    owner: "Dana",
+    due: null,
+    evidence_quote: "Let me get the revised quote in front of legal.",
+    speaker: "Dana",
+    start_s: 2203.7,
+    end_s: 2208.1,
+    meeting_id: "acme_2026-08-03_15-00-00",
+    meeting_title: "Acme — renewal & pricing",
+    meeting_started_at: "2026-08-03T15:00:00",
+    completed_at: null,
+  },
+  {
+    id: 7,
+    text: "confirm the Okta tenant is on the enterprise plan",
+    owner: "Raj",
+    due: "this week",
+    evidence_quote: "I'll confirm the Okta tenant is on the enterprise plan.",
+    speaker: "Raj",
+    start_s: 934.8,
+    end_s: 940.2,
+    meeting_id: "acme_2026-08-03_15-00-00",
+    meeting_title: "Acme — renewal & pricing",
+    meeting_started_at: "2026-08-03T15:00:00",
+    completed_at: null,
+  },
+];
 
 function States() {
   return (

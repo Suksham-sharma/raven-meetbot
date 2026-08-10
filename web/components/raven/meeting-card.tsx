@@ -35,6 +35,7 @@ export function MeetingCard({
     <button
       type="button"
       onClick={onClick}
+      aria-label={cardLabel(meeting, title)}
       className={cn(
         "group flex w-full flex-col overflow-hidden rounded-lg text-left",
         "border border-rule-lo bg-paper",
@@ -79,7 +80,7 @@ export function MeetingCard({
         ) : null}
       </span>
 
-      <span className="flex flex-col gap-1.5 px-3.5 py-3">
+      <span className="flex flex-col gap-1.5 px-3.5 pt-3 pb-3.5">
         <span
           className={cn(
             "truncate text-[15px] tracking-[-0.011em]",
@@ -89,10 +90,19 @@ export function MeetingCard({
           {title}
         </span>
 
-        {/* A card is narrow. When something is wrong with the meeting that
-            outranks who was in it, so participants yield rather than truncate
-            to "Priya, Marcus and 2 o…". */}
-        <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-ink-3">
+        {/* The line the card exists for, and the one the row omits — what was
+            said, so it is set in serif like every other stretch of speech
+            (§4). Two lines, then it yields; the card decides a click, it does
+            not reproduce the summary. */}
+        {meeting.summary && (
+          <span className="line-clamp-2 font-serif text-[14px] leading-[1.5] font-light text-ink-2">
+            {meeting.summary}
+          </span>
+        )}
+
+        {/* A card is narrow. A wrong state outranks who was in it, so
+            participants yield rather than truncate to "Priya, Marcus and 2 o…". */}
+        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12.5px] text-ink-3">
           {meeting.state !== "ok" ? (
             <>
               <StatusFlag state={meeting.state} detail={meeting.stateDetail} />
@@ -115,4 +125,18 @@ export function MeetingCard({
 function fallbackTitle(startedAt: string, id: string): string {
   const label = longDate(startedAt);
   return label ? `Untitled — ${label}` : id;
+}
+
+// The duration badge is painted over the plate, so it comes first in content
+// order and the computed name reads "10:31sales acme20:30". Same trap
+// MeetingRow spells its way out of.
+function cardLabel(m: Meeting, title: string): string {
+  return [
+    title,
+    m.state !== "ok" ? (m.stateDetail ?? m.state) : null,
+    clockTime(m.startedAt),
+    m.durationS ? duration(m.durationS) : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }

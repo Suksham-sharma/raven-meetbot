@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { people } from "@/lib/speaker";
 
 /**
  * A speaker is their name. That is the whole component.
@@ -50,11 +51,5 @@ export function Participants({
   className?: string;
 }) {
   if (names.length === 0) return null;
-
-  const label =
-    names.length > max
-      ? `${names.slice(0, max - 1).join(", ")} and ${names.length - (max - 1)} others`
-      : names.join(", ");
-
-  return <span className={className}>{label}</span>;
+  return <span className={className}>{people(names, max)}</span>;
 }

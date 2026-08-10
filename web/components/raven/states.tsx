@@ -77,11 +77,25 @@ export function Processing({
 
 export function SkeletonRow() {
   return (
-    <div className="flex items-center gap-3.5 border-b border-rule-lo p-2.5">
-      <div className="aspect-video w-[76px] shrink-0 animate-pulse rounded-sm bg-sunk" />
+    <div className="flex items-center gap-4 border-b border-rule-lo p-3">
+      <div className="aspect-video w-[92px] shrink-0 animate-pulse rounded-md bg-sunk" />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <Bar className="h-[15px] w-[46%]" />
         <Bar className="h-[13px] w-[64%]" />
+      </div>
+    </div>
+  );
+}
+
+/** Mirrors MeetingCard: plate, title, a summary line, then meta. */
+export function SkeletonCard() {
+  return (
+    <div className="overflow-hidden rounded-lg border border-rule-lo">
+      <div className="aspect-video w-full animate-pulse bg-sunk" />
+      <div className="flex flex-col gap-2 px-3.5 pt-3 pb-3.5">
+        <Bar className="h-[15px] w-[58%]" />
+        <Bar className="h-[13px] w-full" />
+        <Bar className="h-[13px] w-[42%]" />
       </div>
     </div>
   );
