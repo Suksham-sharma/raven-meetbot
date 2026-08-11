@@ -132,6 +132,46 @@ input:-webkit-autofill:focus {
   max-width: 700px;
 }
 
+/* Scrollbars.
+   The default is a cool grey slab on a warm ground, and it sits down the edge
+   of every region we spent the palette on — the one piece of chrome that never
+   got looked at. It takes the rule colour, rides on nothing, and thins to a
+   hairline until pointed at, so a long transcript reads as paper with an edge
+   rather than a pane in a frame.
+
+   Firefox gets the two properties it supports; WebKit gets the rest. The thumb
+   is drawn with background-clip so the transparent border reads as inset
+   padding, which is what keeps it off the text. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-rule);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-ink-4);
+}
+
+/* Where the two meet, neither wins by default. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .rise {
     animation: rise 520ms cubic-bezier(0.23, 1, 0.32, 1) both;
