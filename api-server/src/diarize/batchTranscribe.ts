@@ -9,10 +9,19 @@ import type { DiarizedUtterance } from "./nameMerge";
 
 // The recording is already a mono composite mix (Meet SFU constraint), so
 // downmixing loses nothing and a small wav uploads far faster than the video.
+//
+// aresample=async=1 is load-bearing, not tuning. A MediaRecorder WebM has gaps
+// wherever the browser stalled, and raw PCM has nowhere to put a gap — so a
+// plain extraction silently splices them out and every utterance after one
+// lands early, drifting further with each gap. The transcript is what every
+// citation timestamp is measured in, and the player is on the mp4's
+// gap-preserving timeline, so the two have to agree. Measured on the reference
+// recording: 698.6s spliced vs 766.9s here, against a 766.9s mp4.
 export function extractAudio(webmPath: string, outWavPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     ffmpeg(webmPath)
       .noVideo()
+      .audioFilters("aresample=async=1:first_pts=0")
       .audioChannels(1)
       .audioFrequency(16000)
       .audioCodec("pcm_s16le")
