@@ -165,13 +165,29 @@ function resolveCitations(
 // ownerId scopes every tool call to the caller's meetings (the tenancy boundary).
 // Pass a real user id from the HTTP layer; pass null only for trusted internal
 // callers (eval / CLI) that run unscoped over the whole corpus.
+export interface AskOptions {
+  /**
+   * Confine the whole loop to one meeting. Enforced by rewriting every tool
+   * call's meeting_id below, not by asking the model nicely — a scope the model
+   * can talk its way out of is not a scope.
+   */
+  meetingId?: string | null;
+  provider?: ChatProvider;
+}
+
 export async function ask(
   question: string,
   ownerId: string | null,
-  provider: ChatProvider = openaiProvider
+  options: AskOptions = {}
 ): Promise<AskResult> {
+  const { meetingId: scope = null, provider = openaiProvider } = options;
   const messages: ChatMessage[] = [
-    { role: "system", content: SYSTEM },
+    {
+      role: "system",
+      content: scope
+        ? `${SYSTEM}\n\nSCOPE: answer only from meeting ${scope}. Every tool call is confined to it, so do not call list_meetings and do not ask which meeting is meant — it is this one. If this meeting does not answer the question, refuse.`
+        : SYSTEM,
+    },
     { role: "user", content: question },
   ];
   const registry = new Map<string, RegistryEntry>();
@@ -190,9 +206,11 @@ export async function ask(
     // from the toolset so the model physically cannot re-list (a nudge alone didn't
     // stop the same-title thrash); it must pick a meeting_id from what it already
     // saw and search. Last iteration: drop all tools to force a final answer.
-    const offered = listedOnce
-      ? TOOL_SPECS.filter((t) => t.name !== "list_meetings")
-      : TOOL_SPECS;
+    // Scoped: there is nothing to discover, the meeting is already chosen.
+    const offered =
+      scope || listedOnce
+        ? TOOL_SPECS.filter((t) => t.name !== "list_meetings")
+        : TOOL_SPECS;
     const turn = await provider.chat({
       messages,
       tools: i < MAX_ITERS - 1 ? offered : undefined,
@@ -228,6 +246,12 @@ export async function ask(
           parsed = tc.arguments ? JSON.parse(tc.arguments) : {};
         } catch {
           parsed = {};
+        }
+        // Overwrite rather than default: the model will happily pass a
+        // different meeting_id, and under a scope that is exactly the call that
+        // must not reach the database.
+        if (scope && parsed && typeof parsed === "object") {
+          (parsed as { meeting_id?: string }).meeting_id = scope;
         }
         result = await runTool(tc.name, parsed, ownerId);
         harvest(registry, result);
