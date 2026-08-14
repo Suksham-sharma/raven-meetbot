@@ -3,6 +3,7 @@ import type {
   MeetingDetail,
   MeetingsPage,
   OpenAction,
+  Recording,
   Transcript,
   User,
 } from "./types";
@@ -95,11 +96,17 @@ export const api = {
   transcript: (id: string) =>
     request<Transcript>(`/meetings/${encodeURIComponent(id)}/transcript`),
 
+  // 409 until transcode finishes, which is the normal state for a few minutes
+  // after every call — the caller renders that as processing, not as an error.
+  recording: (id: string) =>
+    request<Recording>(`/meetings/${encodeURIComponent(id)}/recording`),
+
   // Blocking, 3–40s, up to 8 sequential LLM round-trips. No streaming exists.
-  ask: (q: string) =>
+  // `meetingId` confines the agent to one meeting; omit it to search everything.
+  ask: (q: string, meetingId?: string) =>
     request<Answer>("/ask", {
       method: "POST",
-      body: JSON.stringify({ q }),
+      body: JSON.stringify({ q, meeting_id: meetingId }),
       timeoutMs: 60_000,
     }),
 };

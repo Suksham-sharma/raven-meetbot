@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowRight } from "@phosphor-icons/react";
 import { api, ApiError } from "@/lib/api";
@@ -16,12 +17,32 @@ const OPENERS = [
   "What came up more than once this month?",
 ];
 
-export function AskPanel({ corpus }: { corpus: string }) {
+// The cross-meeting openers make no sense against a single call — "what came up
+// more than once this month" has one meeting to look at.
+const SCOPED_OPENERS = [
+  "What was decided here?",
+  "What did I agree to do?",
+  "What was left unresolved?",
+];
+
+/**
+ * `scope` confines the answer to one meeting. On a meeting page that is the
+ * only honest behaviour: asking "what did we decide?" while looking at one call
+ * and getting decisions from four others reads as the product ignoring you.
+ * The heading and the boundary line say which of the two you are getting.
+ */
+export function AskPanel({
+  corpus,
+  scope,
+}: {
+  corpus: string;
+  scope?: { meetingId: string; title: string };
+}) {
   const [q, setQ] = React.useState("");
   const [asked, setAsked] = React.useState("");
 
   const ask = useMutation({
-    mutationFn: (question: string) => api.ask(question),
+    mutationFn: (question: string) => api.ask(question, scope?.meetingId),
     onMutate: (question) => setAsked(question),
   });
 
@@ -43,9 +64,11 @@ export function AskPanel({ corpus }: { corpus: string }) {
     <div>
       <header className="mb-5">
         <h2 className="font-serif text-[23px] leading-tight tracking-[-0.014em]">
-          Ask across everything
+          {scope ? "Ask about this meeting" : "Ask across everything"}
         </h2>
-        <p className="mt-1 text-[12.5px] text-ink-3">{corpus}</p>
+        <p className="mt-1 text-[12.5px] text-ink-3">
+          {scope ? scope.title : corpus}
+        </p>
       </header>
 
       <form
@@ -74,7 +97,9 @@ export function AskPanel({ corpus }: { corpus: string }) {
             }}
             rows={2}
             placeholder="Ask about anything that was said…"
-            aria-label="Ask across all your meetings"
+            aria-label={
+              scope ? "Ask about this meeting" : "Ask across all your meetings"
+            }
             className="w-full resize-none bg-transparent font-serif text-[17px] leading-[1.5] font-light text-ink-1 placeholder:text-ink-3 focus:outline-none"
           />
           <div className="mt-2 flex items-center justify-between">
@@ -98,17 +123,27 @@ export function AskPanel({ corpus }: { corpus: string }) {
           {ask.isPending && <Thinking />}
           {!ask.isPending && ask.error && <AskError error={ask.error} />}
           {!ask.isPending && ask.data && (
-            <AnswerBlock answer={ask.data} query={asked} corpus={corpus} />
+            <AnswerBlock
+              answer={ask.data}
+              query={asked}
+              corpus={scope ? scope.title : corpus}
+            />
           )}
         </div>
       )}
 
-      {idle && <Openers onPick={submit} />}
+      {idle && <Openers onPick={submit} scoped={Boolean(scope)} />}
     </div>
   );
 }
 
-export function Openers({ onPick }: { onPick: (q: string) => void }) {
+export function Openers({
+  onPick,
+  scoped,
+}: {
+  onPick: (q: string) => void;
+  scoped?: boolean;
+}) {
   return (
     // Space, not a rule: the rail already carries one hairline above the
     // commitments list, and two stacked inside 360px reads as a form.
@@ -116,7 +151,7 @@ export function Openers({ onPick }: { onPick: (q: string) => void }) {
       <p className="mb-1 px-2 text-[12.5px] text-ink-3">
         Or start with one of these
       </p>
-      {OPENERS.map((o) => (
+      {(scoped ? SCOPED_OPENERS : OPENERS).map((o) => (
         <button
           key={o}
           type="button"
@@ -197,6 +232,8 @@ export function AnswerBlock({
   query: string;
   corpus: string;
 }) {
+  const router = useRouter();
+
   if (answer.refused)
     return <Refusal query={query} searched={`Searched ${corpus}`} />;
 
@@ -205,7 +242,18 @@ export function AnswerBlock({
       <p className="mb-4 font-serif text-[15px] leading-snug font-light text-ink-3 italic">
         {query}
       </p>
-      <EvidenceFootnote sources={answer.citations.map(toSource)}>
+      <EvidenceFootnote
+        sources={answer.citations.map(toSource)}
+        // The one move the whole product is built around: an answer resolves to
+        // a person saying a thing at a time, and this is how you get there.
+        // `?t=` is transcript-relative; the meeting page adds its own offset.
+        onPlay={(s) =>
+          s.where &&
+          router.push(
+            `/m/${encodeURIComponent(s.where)}?t=${Math.floor(s.at)}`,
+          )
+        }
+      >
         {answer.answer}
       </EvidenceFootnote>
       {!answer.grounded && <UngroundedNotice />}

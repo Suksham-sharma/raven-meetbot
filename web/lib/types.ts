@@ -68,6 +68,22 @@ export interface MeetingDetail extends MeetingSummary {
   action_items: MeetingActionItem[];
 }
 
+export interface Recording {
+  meeting_id: string;
+  /** Presigned when the store can sign, else a same-origin streaming path. */
+  url: string;
+  poster_url: string | null;
+  mime: string;
+  /**
+   * False when only the raw capture exists. A live-written WebM has no duration
+   * and no cues, so it plays but cannot seek — and every citation is a seek.
+   */
+  seekable: boolean;
+  duration_s: number | null;
+  /** Citations land at `start_s + this`. */
+  recording_offset_s: number;
+}
+
 export interface TranscriptTurn {
   speaker: string;
   start_s: number;

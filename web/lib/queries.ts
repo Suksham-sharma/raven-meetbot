@@ -6,7 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import type { OpenAction } from "./types";
 
 export const keys = {
@@ -15,6 +15,7 @@ export const keys = {
   actionItems: ["action-items"] as const,
   meeting: (id: string) => ["meeting", id] as const,
   transcript: (id: string) => ["transcript", id] as const,
+  recording: (id: string) => ["recording", id] as const,
 };
 
 export function useSession() {
@@ -115,5 +116,26 @@ export function useTranscript(id: string, enabled = true) {
     queryFn: () => api.transcript(id),
     enabled: enabled && Boolean(id),
     staleTime: Infinity,
+  });
+}
+
+/**
+ * Polls while the media is still being made, so a meeting opened straight off a
+ * call turns into a player on its own instead of needing a reload. A 409 is the
+ * expected answer for the first minutes and must not be retried as a fault —
+ * retry would burn the attempts and then surface it as an error.
+ */
+export function useRecording(id: string) {
+  return useQuery({
+    queryKey: keys.recording(id),
+    queryFn: () => api.recording(id),
+    enabled: Boolean(id),
+    retry: (count, error) =>
+      !(error instanceof ApiError && error.status < 500) && count < 2,
+    refetchInterval: (q) =>
+      q.state.error instanceof ApiError && q.state.error.status === 409
+        ? 20_000
+        : false,
+    staleTime: 5 * 60_000,
   });
 }
