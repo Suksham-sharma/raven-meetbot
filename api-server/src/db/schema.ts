@@ -55,6 +55,10 @@ export const meetings = pgTable(
     participants: jsonb("participants").notNull().default([]),
     summary: text("summary"),
     recordingUrl: text("recording_url"),
+    // Written by the transcode worker. The raw webm is not seekable, so mp4Key
+    // is what the player loads; null means transcode has not finished.
+    mp4Key: text("mp4_key"),
+    posterKey: text("poster_key"),
     // Recording t=0 minus transcript t=0, in seconds. Citations land at
     // chunk.start_s + recording_offset_s, so a Deepgram/recording clock skew
     // (the CRITICAL gap in PLAN.md) is corrected per-meeting instead of silently

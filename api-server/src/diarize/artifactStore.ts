@@ -7,8 +7,8 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createWriteStream } from "fs";
-import { access, mkdir, unlink, writeFile } from "fs/promises";
+import { createReadStream, createWriteStream } from "fs";
+import { access, copyFile, mkdir, stat, unlink, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import { pipeline } from "stream/promises";
@@ -28,6 +28,11 @@ export interface ResolvedArtifact {
 export interface ArtifactStore {
   resolve(key: string): Promise<ResolvedArtifact>;
   write(key: string, data: string | Buffer): Promise<void>;
+  /**
+   * Store a file already on disk, streamed. write() takes the whole body in
+   * memory, which is right for a transcript and wrong for a 116MB mp4.
+   */
+  writeFile(key: string, localPath: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   /**
    * A URL a browser can play directly, or null when the store has no such
@@ -47,8 +52,13 @@ export class ArtifactNotFoundError extends Error {
   }
 }
 
+// Wrong here is not cosmetic: a browser handed an mp4 labelled video/webm may
+// refuse to play it, and the label is baked into the object at upload time.
 function contentType(key: string): string {
-  return key.endsWith(".jsonl") ? "application/x-ndjson" : "video/webm";
+  if (key.endsWith(".jsonl")) return "application/x-ndjson";
+  if (key.endsWith(".mp4")) return "video/mp4";
+  if (key.endsWith(".jpg")) return "image/jpeg";
+  return "video/webm";
 }
 
 const PLAYBACK_URL_TTL_S = 6 * 60 * 60;
@@ -102,6 +112,21 @@ class R2ArtifactStore implements ArtifactStore {
     );
   }
 
+  // ContentLength is required because a stream has no inherent length and the
+  // SDK will not buffer it to find one.
+  async writeFile(key: string, localPath: string): Promise<void> {
+    const { size } = await stat(localPath);
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: createReadStream(localPath),
+        ContentLength: size,
+        ContentType: contentType(key),
+      })
+    );
+  }
+
   async exists(key: string): Promise<boolean> {
     try {
       await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
@@ -143,6 +168,15 @@ class LocalArtifactStore implements ArtifactStore {
   async write(key: string, data: string | Buffer): Promise<void> {
     await mkdir(this.dir, { recursive: true });
     await writeFile(path.join(this.dir, key), data);
+  }
+
+  // copyFile, not rename: the source is a temp file the caller still owns and
+  // may sit on a different device, where rename() fails with EXDEV.
+  async writeFile(key: string, localPath: string): Promise<void> {
+    const dest = path.join(this.dir, key);
+    if (path.resolve(dest) === path.resolve(localPath)) return;
+    await mkdir(this.dir, { recursive: true });
+    await copyFile(localPath, dest);
   }
 
   async exists(key: string): Promise<boolean> {

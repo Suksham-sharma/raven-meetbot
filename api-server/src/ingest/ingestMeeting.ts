@@ -7,6 +7,7 @@ import {
   decisions,
   meetings,
 } from "../db/schema";
+import { getArtifactStore } from "../diarize/artifactStore";
 import { openaiProvider } from "../llm/openai";
 import type { EmbeddingProvider, LLMProvider } from "../llm/provider";
 import { chunkTranscript, type TranscriptSegment } from "./chunker";
@@ -68,6 +69,11 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
     );
   }
 
+  // The other half of the transcode race: that worker runs in parallel and
+  // updates the meeting row when it finishes, but if it finished first there
+  // was no row to update. Two HEADs settle it either way.
+  const media = await findTranscodedMedia(meetingId);
+
   // 4. UPSERT everything in one transaction. Meeting row is upserted; all child
   //    rows are delete-then-insert so shrinking counts never leave stale rows.
   await db.transaction(async (tx) => {
@@ -85,6 +91,8 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
         summary: extraction.summary,
         recordingUrl: meta.recordingUrl,
         recordingOffsetS: meta.recordingOffsetS,
+        mp4Key: media.mp4Key,
+        posterKey: media.posterKey,
         status: "ingested",
       })
       .onConflictDoUpdate({
@@ -102,6 +110,9 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
           summary: extraction.summary,
           recordingUrl: meta.recordingUrl,
           recordingOffsetS: meta.recordingOffsetS,
+          // coalesce so a re-ingest never clears keys the transcode worker set.
+          mp4Key: sql`coalesce(${meetings.mp4Key}, ${media.mp4Key})`,
+          posterKey: sql`coalesce(${meetings.posterKey}, ${media.posterKey})`,
           status: "ingested",
         },
       });
@@ -210,4 +221,22 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
     },
     dropped: extraction.dropped,
   };
+}
+
+async function findTranscodedMedia(
+  meetingId: string
+): Promise<{ mp4Key: string | null; posterKey: string | null }> {
+  const store = getArtifactStore();
+  const mp4Key = `${meetingId}.mp4`;
+  const posterKey = `${meetingId}.poster.jpg`;
+  try {
+    const [mp4, poster] = await Promise.all([
+      store.exists(mp4Key),
+      store.exists(posterKey),
+    ]);
+    return { mp4Key: mp4 ? mp4Key : null, posterKey: poster ? posterKey : null };
+  } catch {
+    // Never fail an ingest over a missing derived asset.
+    return { mp4Key: null, posterKey: null };
+  }
 }

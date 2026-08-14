@@ -27,6 +27,9 @@ const systemConfig = {
 
   // Diarize worker: ffmpeg + a Deepgram call per job → keep concurrency low.
   DIARIZE_WORKER_CONCURRENCY: Number(process.env.DIARIZE_WORKER_CONCURRENCY) || 1,
+  // 1 by default: ffmpeg already saturates several cores per encode.
+  TRANSCODE_WORKER_CONCURRENCY: Number(process.env.TRANSCODE_WORKER_CONCURRENCY) || 1,
+  TRANSCODE_LOCK_MS: Number(process.env.TRANSCODE_LOCK_MS) || 30 * 60_000,
   // Auto-enqueue memory ingest when the named-transcript is ready.
   INGEST_AFTER_DIARIZE: process.env.INGEST_AFTER_DIARIZE !== "false",
 

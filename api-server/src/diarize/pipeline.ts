@@ -31,7 +31,7 @@ export async function diarizeRecording(
 
   const wav = path.join(os.tmpdir(), `${path.basename(webmPath, ".webm")}.diarize.wav`);
   log("extracting audio…");
-  extractAudio(webmPath, wav);
+  await extractAudio(webmPath, wav);
 
   try {
     log("transcribing (Deepgram batch nova-3, diarize + keyterms)…");

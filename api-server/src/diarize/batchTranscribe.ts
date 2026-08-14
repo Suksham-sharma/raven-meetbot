@@ -1,31 +1,25 @@
-import { execFileSync } from "child_process";
-import { readFileSync } from "fs";
+import { DeepgramClient } from "@deepgram/sdk";
+import { createReadStream } from "fs";
+import ffmpeg from "fluent-ffmpeg";
 import type { DiarizedUtterance } from "./nameMerge";
 
-// Deepgram batch (prerecorded) transcription + diarization. Batch — not live — is
-// the v4 path: it runs on the finalized recording, so it can diarize the whole
-// file at once and accept keyterms derived from the participant names (live can't —
-// the WS keyterms are fixed at connect time, before any name is known).
+// Batch, not live: it runs on the finalized recording, so it can diarize the
+// whole file at once and take keyterms derived from participant names. Live
+// can't — WS keyterms are fixed at connect time, before any name is known.
 
-// Extract audio-only, mono 16kHz PCM from the recording. The recording is already a
-// mono composite mix (Meet SFU constraint), so downmixing loses nothing, and a small
-// wav uploads far faster than the 100MB+ video webm.
-export function extractAudio(webmPath: string, outWavPath: string): void {
-  execFileSync(
-    "ffmpeg",
-    ["-y", "-i", webmPath, "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", outWavPath],
-    { stdio: ["ignore", "ignore", "inherit"] }
-  );
-}
-
-interface DgUtterance {
-  start: number;
-  end: number;
-  transcript: string;
-  speaker?: number;
-}
-interface DgResponse {
-  results?: { utterances?: DgUtterance[] };
+// The recording is already a mono composite mix (Meet SFU constraint), so
+// downmixing loses nothing and a small wav uploads far faster than the video.
+export function extractAudio(webmPath: string, outWavPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    ffmpeg(webmPath)
+      .noVideo()
+      .audioChannels(1)
+      .audioFrequency(16000)
+      .audioCodec("pcm_s16le")
+      .on("error", reject)
+      .on("end", () => resolve())
+      .save(outWavPath);
+  });
 }
 
 export interface TranscribeOptions {
@@ -38,31 +32,30 @@ export async function transcribeBatch(
   audioPath: string,
   opts: TranscribeOptions
 ): Promise<DiarizedUtterance[]> {
-  const params = new URLSearchParams({
-    model: opts.model ?? "nova-3",
-    diarize: "true",
-    punctuate: "true",
-    utterances: "true",
-    smart_format: "true",
-  });
-  // nova-3 keyterm boosting — repeatable param, one per term.
-  for (const k of opts.keyterms ?? []) params.append("keyterm", k);
+  const client = new DeepgramClient({ apiKey: opts.apiKey });
 
-  const res = await fetch(`https://api.deepgram.com/v1/listen?${params}`, {
-    method: "POST",
-    headers: { Authorization: `Token ${opts.apiKey}`, "Content-Type": "audio/wav" },
-    body: readFileSync(audioPath),
-  });
-  if (!res.ok) {
-    throw new Error(`Deepgram batch failed ${res.status}: ${await res.text()}`);
+  const res = await client.listen.v1.media.transcribeFile(
+    createReadStream(audioPath),
+    {
+      model: opts.model ?? "nova-3",
+      diarize: true,
+      punctuate: true,
+      utterances: true,
+      smart_format: true,
+      keyterm: opts.keyterms,
+    }
+  );
+
+  // The response is a union: passing a callback URL returns only a request_id
+  // instead of a transcript. We never do, but the narrowing keeps that honest.
+  if (!("results" in res)) {
+    throw new Error(`Deepgram returned an async job (${res.request_id}), not a transcript`);
   }
 
-  const json = (await res.json()) as DgResponse;
-  const utts = json.results?.utterances ?? [];
-  return utts.map((u) => ({
-    start: u.start,
-    end: u.end,
-    transcript: u.transcript,
+  return (res.results?.utterances ?? []).map((u) => ({
+    start: u.start ?? 0,
+    end: u.end ?? 0,
+    transcript: u.transcript ?? "",
     speaker: u.speaker ?? 0,
   }));
 }

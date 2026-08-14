@@ -88,20 +88,26 @@ const processJob = async (job: Job<MeetBotJob>) => {
 
     console.log(`[Worker] Job ${job.id} completed successfully`);
 
-    // Post-processing hand-off — needs both the recording and the speaker timeline.
-    if (recording && speakers) {
+    // Transcode needs only the recording, so it is gated separately from
+    // diarize — a lost speaker timeline should still leave a playable meeting.
+    if (recording) {
       const meetingId = recording.replace(/\.webm$/, "");
-      await redisManager.enqueueDiarize({
-        meetingId,
-        recordingKey: recording,
-        speakersKey: speakers,
-        ownerId,
-      });
+      await redisManager.enqueueTranscode({ meetingId, recordingKey: recording });
+
+      if (speakers) {
+        await redisManager.enqueueDiarize({
+          meetingId,
+          recordingKey: recording,
+          speakersKey: speakers,
+          ownerId,
+        });
+      } else {
+        console.warn(
+          `[Worker] Job ${job.id}: skipping diarize hand-off (speakers=none)`
+        );
+      }
     } else {
-      console.warn(
-        `[Worker] Job ${job.id}: skipping diarize hand-off ` +
-          `(recording=${recording ?? "none"}, speakers=${speakers ?? "none"})`
-      );
+      console.warn(`[Worker] Job ${job.id}: no recording — skipping post-processing`);
     }
   } catch (err) {
     // Only pre-join failures are retryable; rejoining a recorded meeting would duplicate it.
