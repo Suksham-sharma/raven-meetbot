@@ -181,7 +181,9 @@ merged-but-dead code.*
 - [x] Virtuoso + in-transcript find (⌘F intercepted); `aria-setsize` on a
       `listitem`, since it is ignored on `role="button"`.
 - [x] Ask in the rail **scoped to the meeting** (`1dfcd01`).
-- [ ] Theater/expand mode — fullscreen covers it for now.
+- [x] Theater mode (`ed40ea0`) — video takes the column, summary beneath,
+      sticky, remembered. Companion stays the default.
+- [x] Player: speed, ±10s skips, buffered range, auto-hiding chrome.
 - [ ] Proposals ("Raven would like to") — Phase 5, not built here.
 
 ### 0.4 Local-disk transcript — **done** (`3cdaf7f`)
@@ -192,8 +194,10 @@ merged-but-dead code.*
       product was inert. Wired to navigate to `/m/<id>?t=<s>`.
 - [x] The deep-link guard is keyed on the value, not latched once, so a citation
       pointing at the meeting already open still seeks.
-- [ ] **Blocked on data:** the loop is only as accurate as the transcript clock.
-      See the re-transcribe item in Phase 2.
+- [x] **Verified against ground truth**: the Hire100x meeting was re-transcribed
+      on the fixed clock, and a slice pulled from the mp4 at 564.2s — where the
+      old drift was ~62s — transcribes word-for-word to what the transcript
+      claims is there.
 
 ---
 
@@ -259,11 +263,13 @@ without it.*
       PCM extraction was splicing out the WebM's stall gaps, so transcript time
       ran ahead of media time and the error accumulated. `recording_offset_s`
       stays 0 and correct.
-- [ ] **Re-transcribe meetings recorded before `7a7eba5`.** The fix is forward
-      only — existing transcripts are on the spliced clock and cannot be
-      remapped, because the gap positions are not recoverable from the
-      transcript. Re-run diarize + ingest per affected meeting. Billed
-      (Deepgram + OpenAI); ~$0.10 for a 13-minute call.
+- [x] Re-transcribed the one affected real meeting (Hire100x). Side effect
+      worth knowing: speaker-attribution confidence rose 86%→94% and 61%→86%,
+      because the interval-vote join finally compares the transcript against a
+      timeline on the same clock. The name merge was quietly degraded too.
+- [ ] Any future recording made before `7a7eba5` needs the same treatment — the
+      fix is forward-only, since gap positions are not recoverable from a
+      transcript already on the spliced clock.
 - [ ] Add a cheap guard: compare extracted-audio duration against the mp4 after
       transcode and warn when they disagree by more than a second. This class of
       bug is silent by construction and cost a full session to find.
@@ -532,6 +538,7 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
+| 2026-08-14 | Theater mode + player pass (speed, skips, buffered, auto-hide chrome); ask scoped to a meeting; audio clock fixed and the real meeting re-transcribed + verified against mp4 audio. | `1dfcd01` `7a7eba5` `ed40ea0` |
 | 2026-08-14 | **Phase 0 closed.** Transcode slice verified + landed; playback endpoints; `/m/[id]` with pinned player, chapters, virtualized transcript, captions; citation loop wired (every citation was inert); ask scoped to a meeting. Found and fixed: audio/video clock splice, `"null"` owners, dead `onPlay`. | `7417818` `3cdaf7f` `7a7eba5` `7a70036` `1dfcd01` `d0387d9` |
 | 2026-08-11 | Wrote this plan; dropped stale `TODO.md`. | `2a693ca` |
 | 2026-08-10 | Web dashboard: follow-up completion, global palette, answer states. PR #3 merged. | `81b9a99` |
