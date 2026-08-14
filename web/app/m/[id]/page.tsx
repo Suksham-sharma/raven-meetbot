@@ -16,6 +16,7 @@ import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { corpusLabel } from "@/lib/meetings";
 import { usePlayer } from "@/lib/player";
+import { useTheater } from "@/lib/use-theater";
 import {
   keys,
   useMeeting,
@@ -53,6 +54,7 @@ function MeetingView() {
   const params = useSearchParams();
 
   const [tab, setTab] = React.useState<Tab>("happened");
+  const [theater, toggleTheater] = useTheater();
   const { data: session } = useSession();
   const meeting = useMeeting(meetingId);
   const recording = useRecording(meetingId);
@@ -105,11 +107,14 @@ function MeetingView() {
     <AppShell
       rail={
         <div className="flex flex-col gap-7 px-7 py-8">
-          <RecordingPane
-            state={recording}
-            meeting={m}
-            turns={transcript.data?.turns}
-          />
+          {!theater && (
+            <RecordingPane
+              state={recording}
+              meeting={m}
+              turns={transcript.data?.turns}
+              onToggleTheater={toggleTheater}
+            />
+          )}
           {m && m.chapters.length > 0 && (
             <Chapters
               meeting={m}
@@ -137,6 +142,23 @@ function MeetingView() {
 
         {m && (
           <>
+            {/* Theater: the video takes the column and the document runs
+                beneath it. Sticky rather than a plain hero, because the reason
+                DESIGN.md kept it out of the top spot was that a hero scrolls
+                away exactly when you start clicking quotes — sticky keeps the
+                size without giving that up. */}
+            {theater && (
+              <div className="sticky top-0 z-10 -mx-12 -mt-11 mb-8 bg-paper px-12 pt-6 pb-4">
+                <RecordingPane
+                  state={recording}
+                  meeting={m}
+                  turns={transcript.data?.turns}
+                  theater
+                  onToggleTheater={toggleTheater}
+                />
+              </div>
+            )}
+
             <header>
               <h1 className="font-serif text-[34px] leading-[1.1] font-normal tracking-[-0.018em] text-balance">
                 {title(m)}
@@ -442,23 +464,32 @@ function RecordingPane({
   state,
   meeting,
   turns,
+  theater,
+  onToggleTheater,
 }: {
   state: ReturnType<typeof useRecording>;
   meeting?: MeetingDetail;
   turns?: { speaker: string; start_s: number; end_s: number; text: string }[];
+  theater?: boolean;
+  onToggleTheater?: () => void;
 }) {
   if (state.data && meeting) {
-    return (
-      // Sticky so it stays seekable while the column is read — the whole reason
-      // it is in the rail and not at the top of the page (§5).
-      <div className="sticky top-0 -mx-1 px-1 pt-1">
-        <Player
-          recording={state.data}
-          chapters={meeting.chapters}
-          turns={turns}
-          title={title(meeting)}
-        />
-      </div>
+    const player = (
+      <Player
+        recording={state.data}
+        chapters={meeting.chapters}
+        turns={turns}
+        title={title(meeting)}
+        theater={theater}
+        onToggleTheater={onToggleTheater}
+      />
+    );
+    // In theater the column wrapper already pins it; in the rail it pins itself,
+    // so it stays seekable while the document is read (§5).
+    return theater ? (
+      player
+    ) : (
+      <div className="sticky top-0 -mx-1 px-1 pt-1">{player}</div>
     );
   }
 
