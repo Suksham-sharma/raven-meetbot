@@ -6,10 +6,9 @@ import {
   ArrowArcRight,
   ArrowsIn,
   ArrowsOut,
-  CornersIn,
-  CornersOut,
   Pause,
   Play,
+  SidebarSimple,
   SpeakerHigh,
   SpeakerSlash,
 } from "@phosphor-icons/react";
@@ -311,8 +310,15 @@ export function Player({
                 onClick={onToggleTheater}
                 label={theater ? "Shrink to the side" : "Expand the video"}
                 pressed={theater}
+                // A sidebar, not another pair of expand arrows: it sat beside
+                // Fullscreen and the two were indistinguishable. This one says
+                // where the video goes, which is the actual difference.
                 icon={
-                  theater ? <CornersIn size={14} /> : <CornersOut size={14} />
+                  <SidebarSimple
+                    size={14}
+                    weight={theater ? "regular" : "fill"}
+                    className="scale-x-[-1]"
+                  />
                 }
               />
             )}

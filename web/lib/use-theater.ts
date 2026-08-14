@@ -5,13 +5,15 @@ import * as React from "react";
 const KEY = "raven:theater";
 
 /**
- * Companion (pinned in the rail) vs theater (full column width, sticky above
- * the document). DESIGN.md §5 keeps companion as the default on purpose — a
- * video hero scrolls away exactly when quote-clicking starts — but it also asks
- * for theater on demand, because 420px cannot render a shared slide or code.
+ * Theater (video across the column, title and detail beneath it) vs companion
+ * (pinned in the rail). Theater is the default: 420px is a thumbnail, and the
+ * recording is what people open a meeting for.
  *
- * Remembered, so someone who always wants it large pays for that choice once
- * rather than on every meeting they open.
+ * This departs from DESIGN.md §5, which kept the video out of the top spot
+ * because a hero scrolls away exactly when quote-clicking starts. That
+ * objection was right and is answered rather than ignored — the player docks to
+ * a corner once it leaves the viewport, so a citation still plays somewhere you
+ * can see. Companion remains one click away and is remembered.
  *
  * Read through useSyncExternalStore rather than an effect that calls setState:
  * localStorage cannot be touched while rendering on the server, and this is the
@@ -23,19 +25,20 @@ const listeners = new Set<() => void>();
 let cached: boolean | null = null;
 
 function clientSnapshot(): boolean {
-  if (cached === null) cached = localStorage.getItem(KEY) === "1";
+  // Absent means never chosen, which is theater — only an explicit "0" opts out.
+  if (cached === null) cached = localStorage.getItem(KEY) !== "0";
   return cached;
 }
 
 function serverSnapshot(): boolean {
-  return false;
+  return true;
 }
 
 function subscribe(onChange: () => void): () => void {
   listeners.add(onChange);
   const fromOtherTab = (e: StorageEvent) => {
     if (e.key !== KEY) return;
-    cached = e.newValue === "1";
+    cached = e.newValue !== "0";
     listeners.forEach((l) => l());
   };
   window.addEventListener("storage", fromOtherTab);

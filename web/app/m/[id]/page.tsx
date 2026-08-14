@@ -142,13 +142,13 @@ function MeetingView() {
 
         {m && (
           <>
-            {/* Theater: the video takes the column and the document runs
-                beneath it. Sticky rather than a plain hero, because the reason
-                DESIGN.md kept it out of the top spot was that a hero scrolls
-                away exactly when you start clicking quotes — sticky keeps the
-                size without giving that up. */}
+            {/* Theater: the video takes the column, and the title and detail
+                sit under it. It docks to a corner once scrolled past — the
+                objection to a video hero was that it scrolls away exactly when
+                quote-clicking starts, and this answers that rather than
+                accepting it. */}
             {theater && (
-              <div className="sticky top-0 z-10 -mx-12 -mt-11 mb-8 bg-paper px-12 pt-6 pb-4">
+              <TheaterSlot>
                 <RecordingPane
                   state={recording}
                   meeting={m}
@@ -156,7 +156,7 @@ function MeetingView() {
                   theater
                   onToggleTheater={toggleTheater}
                 />
-              </div>
+              </TheaterSlot>
             )}
 
             <header>
@@ -209,6 +209,24 @@ function MeetingView() {
 
 function title(m: MeetingDetail): string {
   return m.title ?? m.chapters[0]?.title ?? m.id;
+}
+
+/**
+ * The theater player sits above the document rather than scrolling with it: the
+ * column pins the video, title, detail and tabs, and only the section beneath
+ * scrolls. So the objection to a video hero — that it scrolls away exactly when
+ * quote-clicking starts — does not apply here. It never leaves.
+ *
+ * Height is capped instead. 16:9 across a wide column is tall enough to leave a
+ * short viewport with a video and nothing to read, and since the document
+ * scrolls *under* the player there would be no way to scroll the rest of it
+ * into view. Capping the width by the height the aspect ratio implies keeps the
+ * frame intact and always leaves the document room.
+ */
+function TheaterSlot({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-7 w-full max-w-[calc(46vh*16/9)] shrink-0">{children}</div>
+  );
 }
 
 function TabChip({
