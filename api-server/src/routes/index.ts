@@ -9,10 +9,13 @@ import {
 } from "../controllers/actions.controller";
 import {
   getMeeting,
+  getMeetingRecording,
   getMeetingTranscript,
   listActionItems,
   listMeetings,
   setActionItemCompleted,
+  streamMeetingPoster,
+  streamMeetingRecording,
 } from "../controllers/meetings.controller";
 import { login, logout, me, register } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth";
@@ -36,6 +39,9 @@ apiRouter.post("/ask", askQuestion);
 apiRouter.get("/meetings", listMeetings);
 apiRouter.get("/meetings/:id", getMeeting);
 apiRouter.get("/meetings/:id/transcript", getMeetingTranscript);
+apiRouter.get("/meetings/:id/recording", getMeetingRecording);
+apiRouter.get("/meetings/:id/recording/stream", streamMeetingRecording);
+apiRouter.get("/meetings/:id/recording/poster", streamMeetingPoster);
 apiRouter.get("/meetings/:id/actions", listMeetingActions);
 apiRouter.get("/action-items", listActionItems);
 apiRouter.patch("/action-items/:id", setActionItemCompleted);

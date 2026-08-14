@@ -11,7 +11,8 @@ import {
   min,
   sql,
 } from "drizzle-orm";
-import systemConfig from "../config";
+import { createReadStream } from "fs";
+import { stat } from "fs/promises";
 import { db } from "../db/client";
 import { actionItems, chapters, decisions, meetings } from "../db/schema";
 import {
@@ -319,12 +320,6 @@ export const getMeetingTranscript = asyncHandler(
     const meetingId = String(req.params.id);
     const meeting = await requireOwnedMeeting(meetingId, userId);
 
-    // Not delegated to getArtifactStore(): its message names the env vars and
-    // asyncHandler forwards non-AppError messages to the client verbatim.
-    if (!systemConfig.R2_ENDPOINT) {
-      throw new ConflictError("transcripts are not available on this server");
-    }
-
     let artifact;
     try {
       artifact = await getArtifactStore().resolve(
@@ -355,5 +350,148 @@ export const getMeetingTranscript = asyncHandler(
     } finally {
       await artifact.cleanup();
     }
+  }
+);
+
+// The transcoded mp4 if it exists, else the raw capture. The raw webm has no
+// duration and no cues, so it plays but cannot seek — and every citation is a
+// seek. `seekable` says which one the player got so the UI can be honest about
+// it rather than looking broken.
+async function resolvePlayable(meeting: typeof meetings.$inferSelect) {
+  const store = getArtifactStore();
+  const candidates = [
+    // Fall back to the conventional key when the column is null: transcode may
+    // have finished while no meeting row existed yet to write it to.
+    { key: meeting.mp4Key ?? `${meeting.id}.mp4`, mime: "video/mp4", seekable: true },
+    { key: `${meeting.id}.webm`, mime: "video/webm", seekable: false },
+  ];
+  for (const c of candidates) {
+    // A key in the column is not proof of an object; an mp4 deleted underneath
+    // us should fall back to the webm rather than hand the player a 404.
+    if (await store.exists(c.key)) return c;
+  }
+  return null;
+}
+
+// GET /api/v1/meetings/:id/recording
+export const getMeetingRecording = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = requireUserId(req);
+    const meetingId = String(req.params.id);
+    const meeting = await requireOwnedMeeting(meetingId, userId);
+
+    const playable = await resolvePlayable(meeting);
+    if (!playable) {
+      // 409 not 404 — the meeting exists, the media is still being made.
+      throw new ConflictError(
+        `recording for ${meetingId} is still being prepared`
+      );
+    }
+
+    const store = getArtifactStore();
+    const posterKey = meeting.posterKey ?? `${meetingId}.poster.jpg`;
+    const [signed, signedPoster, hasPoster] = await Promise.all([
+      store.playbackUrl(playable.key),
+      store.playbackUrl(posterKey),
+      store.exists(posterKey),
+    ]);
+
+    const base = `/api/v1/meetings/${encodeURIComponent(meetingId)}/recording`;
+    res.status(200).json({
+      meeting_id: meetingId,
+      // Presigned when the store can sign, so video bytes go browser→R2 direct.
+      // Local disk cannot, so the browser streams back through this process.
+      url: signed ?? `${base}/stream`,
+      poster_url: hasPoster ? (signedPoster ?? `${base}/poster`) : null,
+      mime: playable.mime,
+      seekable: playable.seekable,
+      duration_s: meeting.durationS,
+      // The player seeks to citation start_s + this. Sent with the media so a
+      // caller cannot build a deep link without it.
+      recording_offset_s: meeting.recordingOffsetS,
+    });
+  }
+);
+
+// Streams a local artifact honouring Range. Only reachable in local-disk mode:
+// when the store can presign, /recording hands the browser that URL instead and
+// nothing routes here.
+async function streamLocalArtifact(
+  res: Response,
+  req: Request,
+  key: string,
+  mime: string
+): Promise<void> {
+  const store = getArtifactStore();
+  if (await store.playbackUrl(key)) {
+    throw new ConflictError("this artifact is served by signed URL");
+  }
+
+  let artifact;
+  try {
+    artifact = await store.resolve(key);
+  } catch (err) {
+    if (err instanceof ArtifactNotFoundError) {
+      throw new ConflictError(`${key} is still being prepared`);
+    }
+    throw err;
+  }
+
+  const { size } = await stat(artifact.path);
+  res.setHeader("Content-Type", mime);
+  // Without this the browser will not seek at all — it assumes one long stream.
+  res.setHeader("Accept-Ranges", "bytes");
+
+  const range = req.headers.range;
+  const match = range ? /^bytes=(\d*)-(\d*)$/.exec(range.trim()) : null;
+  if (!match) {
+    res.setHeader("Content-Length", size);
+    createReadStream(artifact.path).pipe(res);
+    return;
+  }
+
+  // An open-ended suffix range ("bytes=-500") counts back from the end.
+  const [, rawStart, rawEnd] = match;
+  const start = rawStart ? Number(rawStart) : size - Number(rawEnd);
+  const end = rawStart ? (rawEnd ? Number(rawEnd) : size - 1) : size - 1;
+
+  if (!Number.isFinite(start) || start < 0 || start > end || end >= size) {
+    res.setHeader("Content-Range", `bytes */${size}`);
+    res.status(416).end();
+    return;
+  }
+
+  res.status(206);
+  res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+  res.setHeader("Content-Length", end - start + 1);
+  createReadStream(artifact.path, { start, end }).pipe(res);
+}
+
+// GET /api/v1/meetings/:id/recording/stream
+export const streamMeetingRecording = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = requireUserId(req);
+    const meetingId = String(req.params.id);
+    const meeting = await requireOwnedMeeting(meetingId, userId);
+
+    const playable = await resolvePlayable(meeting);
+    if (!playable) {
+      throw new ConflictError(
+        `recording for ${meetingId} is still being prepared`
+      );
+    }
+    await streamLocalArtifact(res, req, playable.key, playable.mime);
+  }
+);
+
+// GET /api/v1/meetings/:id/recording/poster
+export const streamMeetingPoster = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = requireUserId(req);
+    const meetingId = String(req.params.id);
+    const meeting = await requireOwnedMeeting(meetingId, userId);
+
+    const key = meeting.posterKey ?? `${meetingId}.poster.jpg`;
+    await streamLocalArtifact(res, req, key, "image/jpeg");
   }
 );
