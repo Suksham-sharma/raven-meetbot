@@ -151,13 +151,14 @@ export async function extractMeeting(
   const decisions = raw.decisions.filter(grounded);
   const actionItems = raw.action_items.filter(grounded);
 
+
   return {
     meetingType: raw.meeting_type,
     decisions: decisions.map((d) => ({ text: d.text, ...toProvenance(d) })),
     actionItems: actionItems.map((a) => ({
       text: a.text,
-      owner: a.owner,
-      due: a.due,
+      owner: absent(a.owner),
+      due: absent(a.due),
       ...toProvenance(a),
     })),
     chapters: raw.chapters.map((c) => ({
@@ -172,4 +173,18 @@ export async function extractMeeting(
       actionItems: raw.action_items.length - actionItems.length,
     },
   };
+}
+
+/**
+ * `owner` and `due` are declared nullable in the schema, and the model still
+ * answers "nobody said" by writing the word — 4 of 22 action items in the dev
+ * corpus arrived as the string "null" and reached the UI as `null` printed
+ * beside someone's task. Absence gets one representation on this side of the
+ * boundary, whatever the model spelled it as.
+ */
+function absent(value: string | null): string | null {
+  if (value == null) return null;
+  const s = value.trim();
+  if (!s) return null;
+  return /^(null|none|n\/a|na|unknown|unspecified|tbd)$/i.test(s) ? null : s;
 }
