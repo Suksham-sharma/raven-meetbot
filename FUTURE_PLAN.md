@@ -181,8 +181,10 @@ merged-but-dead code.*
 - [x] Virtuoso + in-transcript find (⌘F intercepted); `aria-setsize` on a
       `listitem`, since it is ignored on `role="button"`.
 - [x] Ask in the rail **scoped to the meeting** (`1dfcd01`).
-- [x] Theater mode (`ed40ea0`) — video takes the column, summary beneath,
-      sticky, remembered. Companion stays the default.
+- [x] Theater mode (`ed40ea0`, `b36bb7a`) — video across the column, title and
+      detail beneath, **now the default**; companion one click away and
+      remembered. Height capped against the viewport so a short screen still
+      has room to read.
 - [x] Player: speed, ±10s skips, buffered range, auto-hiding chrome.
 - [ ] Proposals ("Raven would like to") — Phase 5, not built here.
 
@@ -538,6 +540,7 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
+| 2026-08-14 | Theater made the default; expand control disambiguated from fullscreen. | `b36bb7a` |
 | 2026-08-14 | Theater mode + player pass (speed, skips, buffered, auto-hide chrome); ask scoped to a meeting; audio clock fixed and the real meeting re-transcribed + verified against mp4 audio. | `1dfcd01` `7a7eba5` `ed40ea0` |
 | 2026-08-14 | **Phase 0 closed.** Transcode slice verified + landed; playback endpoints; `/m/[id]` with pinned player, chapters, virtualized transcript, captions; citation loop wired (every citation was inert); ask scoped to a meeting. Found and fixed: audio/video clock splice, `"null"` owners, dead `onPlay`. | `7417818` `3cdaf7f` `7a7eba5` `7a70036` `1dfcd01` `d0387d9` |
 | 2026-08-11 | Wrote this plan; dropped stale `TODO.md`. | `2a693ca` |
