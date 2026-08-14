@@ -44,24 +44,29 @@ corpus to compound, and pointless to deploy if it isn't built.
 | `API-SURFACE.md` | Live reference | Endpoint contracts |
 | `PLAN.md` | Historical | v2 architecture decisions + rationale (still the "why") |
 | `ROADMAP.md` | **Superseded by this doc** | Keep for the risk register and non-goals |
-| `TODO.md` | **Stale — do not trust** | Delete once §2 is confirmed complete |
 
 ---
 
 ## 1. Position
 
-**Branch:** `main` = `81b9a99`, in sync with origin.
+**Branch:** `main` = `d0387d9`, ahead of origin — **not pushed**.
 
-**What works end to end today:** bot joins a real Google Meet → records → uploads
-to R2 → batch diarization with real speaker names → memory ingest → agentic `/ask`
-with cited clips → action proposals gated behind human approval. All per-user
-isolated. Verified on a synthetic corpus *and* one real meeting.
+**What works end to end today:** bot joins a real Google Meet → records →
+transcode to a seekable mp4 → batch diarization with real speaker names → memory
+ingest → agentic `/ask` with cited clips → action proposals gated behind human
+approval → **a meeting page you can watch, read and seek**. Per-user isolated.
 
-**What doesn't:** you cannot look at any of it. There is no meeting detail page.
-Every route into `/m/[id]` 404s.
+**Phase 0 is closed.** The citation loop is wired end to end: an answer's
+footnote navigates to the meeting at the cited second, the transcript follows
+playback, and chapters seek.
 
-**The one-line summary:** the backend is a complete product; the frontend is a
-list that links to nothing. Phase 0 is the whole story right now.
+**The one thing standing between that and "correct":** transcripts produced
+before `7a7eba5` are on a spliced audio clock and drift from the video by up to
+68s. The code is fixed; the *data* is not. Until affected meetings are
+re-transcribed, seeks land in the wrong place — see Phase 2.
+
+**The one-line summary:** the loop is closed and the timings are wrong. Fix the
+data, then Phase 1.
 
 ---
 
@@ -151,39 +156,44 @@ evidence recall ~0.72 with high per-question variance. That variance is a
 merged-but-dead code.*
 
 ### 0.1 Land the transcode slice — **uncommitted on `main` right now**
-- [ ] Run `pnpm transcode <recording.webm>` on the real Hire100x recording —
-      confirm the mp4 probes with a real duration and seeks.
-- [ ] Worker end to end over R2: bot exit → `transcode` queue → mp4 + poster →
-      `meetings.mp4_key` set.
-- [ ] Verify the **transcode↔ingest race both ways**: transcode first (ingest
-      HEADs the store) and ingest first (worker updates the row).
-- [ ] Apply migration `0007` — mind the wrong-postgres trap in §13.
-- [ ] Commit, backdated, no AI attribution.
+- [x] mp4 probes 766.9s with `moov` at byte 36 against an unseekable `N/A` webm.
+- [x] Worker end to end: enqueue → mp4 + poster written → `meetings.mp4_key` set.
+- [x] **Race verified both ways** — row present logged "meeting row updated";
+      row absent logged "no meeting row yet — ingest will pick it up".
+- [x] Migration `0007` applied (8 total). `7417818`
+- [ ] R2 mode is still unexercised — R2 creds are blank, so all of the above ran
+      against `LocalArtifactStore`.
 
-### 0.2 `GET /meetings/:id/recording`
-`ArtifactStore.playbackUrl()` and the presigner are merged and **dead**.
-- [ ] R2 → presigned URL (6h TTL); local → stream with Range support.
-- [ ] Serve `mp4_key` when present, fall back to raw webm, typed 409 when neither.
-- [ ] Owner-scope it — 404, not 403, so ids can't be probed.
-- [ ] Poster URL alongside, for the meeting card.
+### 0.2 `GET /meetings/:id/recording` — **done** (`3cdaf7f`)
+- [x] Presigned where the store can sign; same-origin stream where it cannot.
+- [x] mp4 first, webm fallback, `seekable` reported, typed 409 when neither.
+- [x] Owner-scoped, 404 not 403 — verified with a second user across all routes.
+- [x] Range verified: 200, 206, suffix ranges, 416.
+- [x] Poster route.
 
-### 0.3 `/m/[id]` — the meeting detail page
-- [ ] Route + data fetch (summary, chapters, decisions, action items).
-- [ ] `<video>` on the mp4. **No HLS yet** — one `+faststart` mp4 is enough for a
-      single-viewer dashboard; hls.js is a whole phase.
-- [ ] `?t=` deep link seeks on load — how every citation lands.
-- [ ] Chapters as seek targets.
-- [ ] Transcript panel: click a line → seek; playback highlights the current line.
-- [ ] Loading / still-processing / failed states per `DESIGN.md` §8 —
-      **status is exception-only**, render nothing for the normal case.
+### 0.3 `/m/[id]` — the meeting detail page — **done** (`d0387d9`)
+- [x] Route, tabs ("What happened" / "Everything said"), pinned rail player.
+- [x] Custom chrome, chapter marks on the scrubber, full keyboard set,
+      WebVTT captions generated from the transcript.
+- [x] `?t=` seeks on load — verified landing at exactly 300s, paused.
+- [x] Chapters and transcript turns both seek; active row and chapter track
+      playback; auto-follow yields on manual scroll.
+- [x] Virtuoso + in-transcript find (⌘F intercepted); `aria-setsize` on a
+      `listitem`, since it is ignored on `role="button"`.
+- [x] Ask in the rail **scoped to the meeting** (`1dfcd01`).
+- [ ] Theater/expand mode — fullscreen covers it for now.
+- [ ] Proposals ("Raven would like to") — Phase 5, not built here.
 
-### 0.4 Local-disk transcript
-- [ ] `getMeetingTranscript` hard-gates on `R2_ENDPOINT` and 409s even though
-      `LocalArtifactStore` exists. Route through the store interface.
+### 0.4 Local-disk transcript — **done** (`3cdaf7f`)
+- [x] Gate removed; returns 114 turns in local-disk mode.
 
-### 0.5 Close the loop
-- [ ] Click a citation in the ask panel → land on the right second of the right
-      meeting. **The product's wow moment**, and the first time it will have worked.
+### 0.5 Close the loop — **done** (`d0387d9`)
+- [x] `EvidenceFootnote` was rendered with no `onPlay`, so every citation in the
+      product was inert. Wired to navigate to `/m/<id>?t=<s>`.
+- [x] The deep-link guard is keyed on the value, not latched once, so a citation
+      pointing at the meeting already open still seeks.
+- [ ] **Blocked on data:** the loop is only as accurate as the transcript clock.
+      See the re-transcribe item in Phase 2.
 
 ---
 
@@ -244,10 +254,19 @@ without it.*
 - [ ] Sturdier login-wall / anti-bot detection; auth-session refresh path.
 - [ ] Concurrent meetings — orchestrator container-per-meeting under real load.
 - [ ] Time-based flush for long meetings.
-- [ ] **Clock skew** (deferred twice; findings in `PLAN.md`): capture the Deepgram
-      open epoch + MediaRecorder start epoch → sidecar → ingest computes
-      `recording_offset_s`. Batch transcripts are correctly `0`; this only ever
-      affected the live path. Land before recording demo material.
+- [x] **Clock skew — root-caused and fixed** (`7a7eba5`), though not where
+      `PLAN.md` predicted. It was never the live-stream-vs-recorder offset: raw
+      PCM extraction was splicing out the WebM's stall gaps, so transcript time
+      ran ahead of media time and the error accumulated. `recording_offset_s`
+      stays 0 and correct.
+- [ ] **Re-transcribe meetings recorded before `7a7eba5`.** The fix is forward
+      only — existing transcripts are on the spliced clock and cannot be
+      remapped, because the gap positions are not recoverable from the
+      transcript. Re-run diarize + ingest per affected meeting. Billed
+      (Deepgram + OpenAI); ~$0.10 for a 13-minute call.
+- [ ] Add a cheap guard: compare extracted-audio duration against the mp4 after
+      transcode and warn when they disagree by more than a second. This class of
+      bug is silent by construction and cost a full session to find.
 
 ---
 
@@ -493,7 +512,8 @@ cheaper and nothing consumes it live — revisit only if in-meeting Q&A ships).
 
 | Trap | Reality |
 |---|---|
-| **Wrong Postgres** | A *different project's* container holds host `:5432` and the api-server uses it. `docker compose exec postgres psql` talks to another DB and will report missing columns that exist. |
+| **Postgres port roulette** | Two *other* projects hold `:5432` (crashpad) and `:5433` (xeliport), and they change. Raven's own compose postgres is now on **`:5434`** with its data in the `meet-bot-ai_pgdata` volume; `docker-compose.override.yml` and `api-server/.env` must agree, and both are gitignored. If the corpus looks empty or a column is "missing", you are talking to someone else's database. |
+| **`web/node_modules`** | Can be empty even though the repo looks complete — `tsc` then resolves React from a parent directory and emits hundreds of phantom errors. `pnpm install` in `web/`. |
 | **Port 3000** | Taken by your other Next.js app. Run api-server on `PORT=3100`. |
 | **Node version** | Shell default is v16 — no global `fetch`, so the OpenAI SDK crashes. `export PATH="$HOME/.nvm/versions/node/v20.17.0/bin:$PATH"`. |
 | **pnpm in api-server** | `pnpm add`/`update` prunes rolldown's native binding and breaks vitest → `pnpm install --force`. Corepack shim broken on node 20 → `npx -y pnpm@10.17.0`. |
@@ -512,7 +532,8 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
-| 2026-08-11 | Wrote this plan. Transcode slice still uncommitted and unverified on `main`. | — |
+| 2026-08-14 | **Phase 0 closed.** Transcode slice verified + landed; playback endpoints; `/m/[id]` with pinned player, chapters, virtualized transcript, captions; citation loop wired (every citation was inert); ask scoped to a meeting. Found and fixed: audio/video clock splice, `"null"` owners, dead `onPlay`. | `7417818` `3cdaf7f` `7a7eba5` `7a70036` `1dfcd01` `d0387d9` |
+| 2026-08-11 | Wrote this plan; dropped stale `TODO.md`. | `2a693ca` |
 | 2026-08-10 | Web dashboard: follow-up completion, global palette, answer states. PR #3 merged. | `81b9a99` |
 | 2026-07-21 | Auth + per-user isolation; cross-tenant IDOR found and fixed in review. | `e7d7bf4` |
 | 2026-07-18 | v3 action proposer with human-gated Linear/Slack execution. | `412f987` |
