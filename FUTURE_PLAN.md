@@ -49,7 +49,7 @@ corpus to compound, and pointless to deploy if it isn't built.
 
 ## 1. Position
 
-**Branch:** `main` = `d0387d9`, ahead of origin — **not pushed**.
+**Branch:** `main` = `7e48aa7`, ahead of origin — **not pushed**.
 
 **What works end to end today:** bot joins a real Google Meet → records →
 transcode to a seekable mp4 → batch diarization with real speaker names → memory
@@ -60,13 +60,12 @@ approval → **a meeting page you can watch, read and seek**. Per-user isolated.
 footnote navigates to the meeting at the cited second, the transcript follows
 playback, and chapters seek.
 
-**The one thing standing between that and "correct":** transcripts produced
-before `7a7eba5` are on a spliced audio clock and drift from the video by up to
-68s. The code is fixed; the *data* is not. Until affected meetings are
-re-transcribed, seeks land in the wrong place — see Phase 2.
+**The clock is now correct too.** The spliced-audio drift (up to 68s) was fixed
+in `7a7eba5` and the one affected real meeting was re-transcribed and verified
+against the mp4's own audio, so a cited second is the second you land on.
 
-**The one-line summary:** the loop is closed and the timings are wrong. Fix the
-data, then Phase 1.
+**The one-line summary:** Phase 0 is done and honest. Phase 1 is next — real
+pipeline status, delete/export, and plain search.
 
 ---
 
@@ -432,9 +431,11 @@ story in this document.
       currently spend unbounded OpenAI budget. This is the one open door in an
       otherwise well-defended system.
 - [ ] Error tracking (Sentry) + alerting.
-- [ ] **Storage lifecycle.** Raw webm is ~120MB/meeting and is dead weight once the
-      mp4 exists. Tier or expire it; keep the mp4. Costs compound silently and
-      this is the only unbounded resource in the system.
+- [ ] **Storage lifecycle.** Raw webm is ~120MB/meeting and is dead weight once
+      the mp4 exists. Tier or expire it; keep the mp4. Not hypothetical: on
+      2026-08-14 the dev machine hit 100% disk with `recordings/` at 165MB for
+      *two* real meetings, and a write failed mid-session. Costs and bytes both
+      compound silently, and this is the only unbounded resource in the system.
 - [ ] **Retention policy** — configurable auto-delete after N days. Pairs with
       delete (Phase 1) and is what a self-hosting org will ask for first.
 - [ ] **Access audit log** — who read which meeting. Table stakes for any buyer
@@ -540,11 +541,10 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
-| 2026-08-14 | Theater made the default; expand control disambiguated from fullscreen. | `b36bb7a` |
-| 2026-08-14 | Theater mode + player pass (speed, skips, buffered, auto-hide chrome); ask scoped to a meeting; audio clock fixed and the real meeting re-transcribed + verified against mp4 audio. | `1dfcd01` `7a7eba5` `ed40ea0` |
-| 2026-08-14 | **Phase 0 closed.** Transcode slice verified + landed; playback endpoints; `/m/[id]` with pinned player, chapters, virtualized transcript, captions; citation loop wired (every citation was inert); ask scoped to a meeting. Found and fixed: audio/video clock splice, `"null"` owners, dead `onPlay`. | `7417818` `3cdaf7f` `7a7eba5` `7a70036` `1dfcd01` `d0387d9` |
-| 2026-08-11 | Wrote this plan; dropped stale `TODO.md`. | `2a693ca` |
+| 2026-08-14 | **Phase 0 closed.** Transcode slice verified + landed; playback endpoints with Range; `/m/[id]` with player, chapters, virtualized transcript, captions; citation loop wired (every citation in the product was inert); ask scoped to one meeting. Root-caused the audio/video clock splice, re-transcribed the real meeting and verified it against the mp4's own audio. Also fixed `"null"` owners and a dead `onPlay`. | `7417818` `3cdaf7f` `7a7eba5` `7a70036` `1dfcd01` `d0387d9` `ed40ea0` `b36bb7a` |
+| 2026-08-11 | Scrollbars brought onto the palette. Wrote this plan and dropped the stale `TODO.md`. | `7e48aa7` `2a693ca` |
 | 2026-08-10 | Web dashboard: follow-up completion, global palette, answer states. PR #3 merged. | `81b9a99` |
+| 2026-08-09 | Cut to two player modes and let the tab pick between them; title and detail first, with room. | `05d6517` |
 | 2026-07-21 | Auth + per-user isolation; cross-tenant IDOR found and fixed in review. | `e7d7bf4` |
 | 2026-07-18 | v3 action proposer with human-gated Linear/Slack execution. | `412f987` |
 | 2026-07-08 | v4 diarize worker wired to bot completion over R2. | `56b1902` |
