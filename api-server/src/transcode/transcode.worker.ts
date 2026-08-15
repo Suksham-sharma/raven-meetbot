@@ -30,6 +30,11 @@ const worker = new Worker<TranscodeJob>(
     const log = (m: string) => console.log(`[transcode] ${meetingId}: ${m}`);
     log(`start (job ${job.id})`);
 
+    await db
+      .update(meetings)
+      .set({ status: "transcoding", statusError: null })
+      .where(eq(meetings.id, meetingId));
+
     const store = getArtifactStore();
     const src = await store.resolve(recordingKey);
     const mp4Path = path.join(os.tmpdir(), `${meetingId}.mp4`);
@@ -56,10 +61,6 @@ const worker = new Worker<TranscodeJob>(
       await store.writeFile(posterKey, jpgPath);
       log(`wrote ${mp4Key} (${duration.toFixed(0)}s) + ${posterKey}`);
 
-      // Best-effort: transcode runs in parallel with diarize, so the meeting
-      // row may not exist yet — ingest creates it. Zero rows here is the normal
-      // early-finish case, not a failure; ingest picks the keys up itself by
-      // checking the store.
       const updated = await db
         .update(meetings)
         .set({ mp4Key, posterKey })
@@ -69,6 +70,13 @@ const worker = new Worker<TranscodeJob>(
       log(updated.length ? "meeting row updated" : "no meeting row yet — ingest will pick it up");
 
       return { meetingId, mp4Key, posterKey, durationS: duration };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await db
+        .update(meetings)
+        .set({ status: "failed", statusError: `transcode: ${msg}` })
+        .where(eq(meetings.id, meetingId));
+      throw err;
     } finally {
       await src.cleanup();
       rmSync(mp4Path, { force: true });

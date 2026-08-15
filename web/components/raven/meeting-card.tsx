@@ -23,9 +23,11 @@ import type { Meeting } from "./meeting-row";
 export function MeetingCard({
   meeting,
   onClick,
+  onRetry,
 }: {
   meeting: Meeting;
   onClick?: () => void;
+  onRetry?: () => void;
 }) {
   const title = meeting.title ?? fallbackTitle(meeting.startedAt, meeting.id);
   const untitled = meeting.title == null;
@@ -100,8 +102,6 @@ export function MeetingCard({
           </span>
         )}
 
-        {/* A card is narrow. A wrong state outranks who was in it, so
-            participants yield rather than truncate to "Priya, Marcus and 2 o…". */}
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12.5px] text-ink-3">
           {meeting.state !== "ok" ? (
             <>
@@ -117,6 +117,20 @@ export function MeetingCard({
             </span>
           )}
         </span>
+        {meeting.state === "failed" && onRetry && (
+          <span className="px-3.5 pb-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRetry();
+              }}
+              className="rounded-md border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-ink-2 hover:bg-card"
+            >
+              Retry
+            </button>
+          </span>
+        )}
       </span>
     </button>
   );

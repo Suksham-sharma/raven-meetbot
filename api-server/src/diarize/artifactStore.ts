@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   NoSuchKey,
@@ -28,19 +29,10 @@ export interface ResolvedArtifact {
 export interface ArtifactStore {
   resolve(key: string): Promise<ResolvedArtifact>;
   write(key: string, data: string | Buffer): Promise<void>;
-  /**
-   * Store a file already on disk, streamed. write() takes the whole body in
-   * memory, which is right for a transcript and wrong for a 116MB mp4.
-   */
   writeFile(key: string, localPath: string): Promise<void>;
   exists(key: string): Promise<boolean>;
-  /**
-   * A URL a browser can play directly, or null when the store has no such
-   * concept and the caller must serve the bytes itself. Only playback needs
-   * this — resolve() downloads the whole object, which is right for ffmpeg and
-   * wrong for a video element that wants to seek an hour in.
-   */
   playbackUrl(key: string): Promise<string | null>;
+  delete(key: string): Promise<void>;
 }
 
 // Lets callers distinguish "artifact doesn't exist" (e.g. the memory worker's
@@ -137,15 +129,18 @@ class R2ArtifactStore implements ArtifactStore {
     }
   }
 
-  // Presigned so video bytes go browser→R2 directly instead of through this
-  // process. The TTL outlives a long watch: the URL is minted once per page
-  // load, and a signature that expires mid-meeting breaks seeking silently.
   async playbackUrl(key: string): Promise<string> {
     return getSignedUrl(
       this.client,
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       { expiresIn: PLAYBACK_URL_TTL_S }
     );
+  }
+
+  async delete(key: string): Promise<void> {
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    } catch {}
   }
 }
 
@@ -188,10 +183,14 @@ class LocalArtifactStore implements ArtifactStore {
     }
   }
 
-  // Nothing to sign — a path on this machine is not reachable from a browser,
-  // so the caller streams the file itself.
   async playbackUrl(): Promise<null> {
     return null;
+  }
+
+  async delete(key: string): Promise<void> {
+    try {
+      await unlink(path.join(this.dir, key));
+    } catch {}
   }
 }
 

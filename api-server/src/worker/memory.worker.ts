@@ -48,8 +48,25 @@ const worker = new Worker<MemoryJob>(
     const { meetingId, ownerId } = job.data;
     console.log(`[memory] ingest start: ${meetingId} (job ${job.id})`);
 
-    const { segments, meta } = await resolveMeeting(meetingId);
-    const result = await ingestMeeting({ meetingId, segments, meta, ownerId: ownerId ?? null });
+    const { eq } = await import("drizzle-orm");
+    const { meetings } = await import("../db/schema");
+    await db
+      .update(meetings)
+      .set({ status: "ingesting", statusError: null })
+      .where(eq(meetings.id, meetingId));
+
+    let result;
+    try {
+      const { segments, meta } = await resolveMeeting(meetingId);
+      result = await ingestMeeting({ meetingId, segments, meta, ownerId: ownerId ?? null });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await db
+        .update(meetings)
+        .set({ status: "failed", statusError: `ingest: ${msg}` })
+        .where(eq(meetings.id, meetingId));
+      throw err;
+    }
 
     const { counts, dropped } = result;
     console.log(
@@ -59,7 +76,6 @@ const worker = new Worker<MemoryJob>(
         `dropped=${dropped.decisions + dropped.actionItems}`
     );
 
-    // Chain to the v3 proposer (idempotent; jobId dedupes re-ingests).
     if (systemConfig.AGENT_AFTER_INGEST) {
       await agentQueue.add("propose", { meetingId }, { jobId: meetingId });
       console.log(`[memory] enqueued agent propose for ${meetingId}`);

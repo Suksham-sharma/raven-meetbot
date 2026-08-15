@@ -79,9 +79,96 @@ function summarize(m: typeof meetings.$inferSelect) {
     ended_at: m.endedAt?.toISOString() ?? null,
     duration_s: m.durationS,
     participants: (m.participants as string[] | null) ?? [],
-    status: m.status,
+    status: m.status === "ingested" ? "ready" : m.status,
+    status_error: (m as unknown as { statusError?: string | null }).statusError ?? null,
     has_recording: m.recordingUrl != null,
   };
+}
+
+export const deleteMeeting = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const meetingId = String(req.params.id);
+  await requireOwnedMeeting(meetingId, userId);
+  await db.delete(meetings).where(and(eq(meetings.id, meetingId), eq(meetings.ownerId, userId)));
+  const store = getArtifactStore();
+  const keys = [
+    `${meetingId}.webm`,
+    `${meetingId}.mp4`,
+    `${meetingId}.poster.jpg`,
+    `${meetingId}.speakers.jsonl`,
+    `${meetingId}.named-transcript.jsonl`,
+    `${meetingId}.transcript.jsonl`,
+  ];
+  await Promise.all(keys.map((k) => store.delete(k)));
+  res.status(204).end();
+});
+
+export const updateMeeting = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const meetingId = String(req.params.id);
+  await requireOwnedMeeting(meetingId, userId);
+  const title = req.body?.title;
+  if (typeof title !== "string" || !title.trim()) throw new BadRequestError("title must be a non-empty string");
+  if (title.length > 200) throw new BadRequestError("title too long");
+  const [updated] = await db.update(meetings).set({ title: title.trim() }).where(and(eq(meetings.id, meetingId), eq(meetings.ownerId, userId))).returning();
+  res.status(200).json(summarize(updated));
+});
+
+export const exportMeeting = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const meetingId = String(req.params.id);
+  const meeting = await requireOwnedMeeting(meetingId, userId);
+  const fmt = String(req.query.format ?? "json");
+  const [chs, decs, items] = await Promise.all([
+    db.select().from(chapters).where(eq(chapters.meetingId, meetingId)).orderBy(asc(chapters.seq)),
+    db.select().from(decisions).where(eq(decisions.meetingId, meetingId)).orderBy(asc(decisions.seq)),
+    db.select().from(actionItems).where(eq(actionItems.meetingId, meetingId)).orderBy(asc(actionItems.seq)),
+  ]);
+  let turns: { speaker: string; start_s: number; end_s: number; text: string }[] = [];
+  try {
+    const artifact = await getArtifactStore().resolve(`${meetingId}.named-transcript.jsonl`);
+    try {
+      const segs = loadNamedTranscript(artifact.path);
+      turns = segs.map((s) => ({ speaker: s.speaker, start_s: s.start, end_s: s.end, text: s.text }));
+    } finally {
+      await artifact.cleanup();
+    }
+  } catch {}
+  if (fmt === "md" || fmt === "markdown") {
+    const md = buildExportMarkdown(meeting, chs, decs, items, turns);
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${meetingId}.md"`);
+    res.status(200).send(md);
+    return;
+  }
+  res.status(200).json({
+    meeting: summarize(meeting),
+    summary: meeting.summary,
+    chapters: chs.map((c) => ({ seq: c.seq, title: c.title, gist: c.gist, start_s: c.startS, end_s: c.endS })),
+    decisions: decs.map((d) => ({ id: d.id, seq: d.seq, text: d.text, evidence_quote: d.evidenceQuote, speaker: d.speaker, start_s: d.startS, end_s: d.endS })),
+    action_items: items.map((a) => ({ id: a.id, seq: a.seq, text: a.text, owner: a.owner, due: a.due, evidence_quote: a.evidenceQuote, speaker: a.speaker, start_s: a.startS, end_s: a.endS, completed_at: a.completedAt?.toISOString() ?? null })),
+    transcript: turns,
+  });
+});
+
+function buildExportMarkdown(
+  meeting: typeof meetings.$inferSelect,
+  chs: (typeof chapters.$inferSelect)[],
+  decs: (typeof decisions.$inferSelect)[],
+  items: (typeof actionItems.$inferSelect)[],
+  turns: { speaker: string; start_s: number; end_s: number; text: string }[]
+): string {
+  const lines: string[] = [];
+  lines.push(`# ${meeting.title ?? chs[0]?.title ?? meeting.id}`);
+  lines.push("");
+  if (meeting.startedAt) lines.push(`Date: ${meeting.startedAt.toISOString()}`);
+  if (meeting.participants) lines.push(`Participants: ${(meeting.participants as string[]).join(", ")}`);
+  if (meeting.summary) { lines.push(""); lines.push("## Summary"); lines.push(meeting.summary); }
+  if (chs.length) { lines.push(""); lines.push("## Chapters"); chs.forEach((c) => lines.push(`- ${c.title} (${c.startS}s–${c.endS}s)${c.gist ? `: ${c.gist}` : ""}`)); }
+  if (decs.length) { lines.push(""); lines.push("## Decisions"); decs.forEach((d) => lines.push(`- ${d.text} [${d.speaker ?? "?"} @ ${d.startS}s] — "${d.evidenceQuote}"`)); }
+  if (items.length) { lines.push(""); lines.push("## Action Items"); items.forEach((a) => lines.push(`- [${a.completedAt ? "x" : " "}] ${a.text}${a.owner ? ` (${a.owner})` : ""}${a.due ? ` due ${a.due}` : ""} — "${a.evidenceQuote}"`)); }
+  if (turns.length) { lines.push(""); lines.push("## Transcript"); turns.forEach((t) => lines.push(`**${t.speaker}** [${t.start_s}s]: ${t.text}`)); }
+  return lines.join("\n");
 }
 
 // GET /api/v1/meetings?limit=&before=
@@ -89,9 +176,19 @@ export const listMeetings = asyncHandler(async (req: Request, res: Response) => 
   const userId = requireUserId(req);
   const limit = parseLimit(req.query.limit);
   const before = parseBefore(req.query.before);
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const type = typeof req.query.type === "string" ? req.query.type.trim() : "";
+  const participant = typeof req.query.participant === "string" ? req.query.participant.trim() : "";
+  const from = parseBefore(req.query.from);
+  const to = parseBefore(req.query.to);
 
   const conds = [eq(meetings.ownerId, userId)];
   if (before) conds.push(lt(meetings.startedAt, before));
+  if (type) conds.push(eq(meetings.type, type));
+  if (participant) conds.push(sql`${meetings.participants} @> ${JSON.stringify([participant])}::jsonb`);
+  if (q) conds.push(sql`(${meetings.title} ILIKE ${`%${q}%`} OR ${meetings.summary} ILIKE ${`%${q}%`})`);
+  if (from) conds.push(sql`${meetings.startedAt} >= ${from.toISOString()}::timestamptz`);
+  if (to) conds.push(sql`${meetings.startedAt} <= ${to.toISOString()}::timestamptz`);
 
   const [rows, [corpus]] = await Promise.all([
     db
@@ -483,6 +580,43 @@ export const streamMeetingRecording = asyncHandler(
     await streamLocalArtifact(res, req, playable.key, playable.mime);
   }
 );
+
+export const retryMeeting = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const meetingId = String(req.params.id);
+  const meeting = await requireOwnedMeeting(meetingId, userId);
+
+  if (meeting.status !== "failed") {
+    throw new ConflictError(`meeting ${meetingId} is not in failed state (status=${meeting.status})`);
+  }
+
+  const err = (meeting as unknown as { statusError?: string | null }).statusError ?? "";
+  const { diarizeQueue, memoryQueue, transcodeQueue } = await import("../lib/queueManager");
+
+  let enqueued: string;
+  if (err.startsWith("transcode:")) {
+    await transcodeQueue.add(
+      "transcode",
+      { meetingId, recordingKey: `${meetingId}.webm` },
+      { jobId: `${meetingId}-retry-${Date.now()}` }
+    );
+    enqueued = "transcode";
+  } else if (err.startsWith("diarize:")) {
+    await diarizeQueue.add(
+      "diarize",
+      { meetingId, recordingKey: `${meetingId}.webm`, speakersKey: `${meetingId}.speakers.jsonl`, ownerId: userId },
+      { jobId: `${meetingId}-retry-${Date.now()}` }
+    );
+    enqueued = "diarize";
+  } else {
+    await memoryQueue.add("ingest", { meetingId, ownerId: userId }, { jobId: `${meetingId}-retry-${Date.now()}` });
+    enqueued = "ingest";
+  }
+
+  await db.update(meetings).set({ status: "pending", statusError: null }).where(eq(meetings.id, meetingId));
+
+  res.status(202).json({ meeting_id: meetingId, enqueued });
+});
 
 // GET /api/v1/meetings/:id/recording/poster
 export const streamMeetingPoster = asyncHandler(

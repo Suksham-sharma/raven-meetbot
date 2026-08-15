@@ -29,12 +29,12 @@ export function useSession() {
 // Gated on the session rather than on where it is mounted: relying on the
 // component tree to hold it back 401s on the way to the login redirect, and
 // caches that error. This has regressed once already.
-export function useMeetings() {
+export function useMeetings(filters: { q?: string; type?: string; participant?: string } = {}) {
   const { data: session } = useSession();
-
+  const f = { q: filters.q || undefined, type: filters.type || undefined, participant: filters.participant || undefined };
   return useInfiniteQuery({
-    queryKey: keys.meetings,
-    queryFn: ({ pageParam }) => api.meetings({ before: pageParam }),
+    queryKey: [...keys.meetings, f],
+    queryFn: ({ pageParam }) => api.meetings({ before: pageParam, ...f }),
     enabled: Boolean(session),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next_before ?? undefined,
@@ -137,5 +137,43 @@ export function useRecording(id: string) {
         ? 20_000
         : false,
     staleTime: 5 * 60_000,
+  });
+}
+
+export function useRetryMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.retryMeeting(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: keys.meeting(id) });
+      qc.invalidateQueries({ queryKey: keys.meetings });
+    },
+  });
+}
+
+export function useDeleteMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteMeeting(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.meetings }),
+  });
+}
+
+export function useUpdateMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => api.updateMeeting(id, title),
+    onSuccess: (_data, v) => {
+      qc.invalidateQueries({ queryKey: keys.meeting(v.id) });
+      qc.invalidateQueries({ queryKey: keys.meetings });
+    },
+  });
+}
+
+export function usePlainSearch(q: string, opts: { speaker?: string; enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: ["plain-search", q, opts.speaker],
+    queryFn: () => api.search({ q, speaker: opts.speaker }),
+    enabled: Boolean(q) && (opts.enabled ?? true),
   });
 }

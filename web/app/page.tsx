@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import {
   useActionItems,
   useMeetings,
+  usePlainSearch,
+  useRetryMeeting,
   useSession,
   useToggleActionItem,
 } from "@/lib/queries";
@@ -39,6 +41,12 @@ export default function MeetingsPage() {
   const { data: session } = useSession();
   const actions = useActionItems();
   const toggle = useToggleActionItem();
+  const [q, setQ] = React.useState("");
+  const [type, setType] = React.useState("");
+  const [participant, setParticipant] = React.useState("");
+  const [plainQ, setPlainQ] = React.useState("");
+  const [speaker, setSpeaker] = React.useState("");
+  const plain = usePlainSearch(plainQ, { speaker: speaker || undefined, enabled: Boolean(plainQ) });
   const {
     data,
     error,
@@ -47,7 +55,7 @@ export default function MeetingsPage() {
     isFetchingNextPage,
     fetchNextPage,
     refetch,
-  } = useMeetings();
+  } = useMeetings({ q, type, participant });
 
   const meetings = data?.meetings ?? [];
 
@@ -79,9 +87,6 @@ export default function MeetingsPage() {
       }
     >
       <div className="px-12 py-11">
-        {/* The search affordance moved to the nav, where it is reachable from
-            every route rather than only this one. Two entry points to the same
-            palette in one viewport was chrome, not discoverability. */}
         <header className="mb-9">
           <h1 className="font-serif text-[34px] leading-[1.1] font-normal tracking-[-0.018em] text-balance">
             Everything you&rsquo;ve been in
@@ -92,6 +97,28 @@ export default function MeetingsPage() {
             </p>
           )}
         </header>
+        <div className="mb-6 flex flex-wrap gap-2">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search meetings…" className="h-8 w-48 rounded-md border border-rule bg-paper px-2 text-sm" />
+          <input value={type} onChange={(e) => setType(e.target.value)} placeholder="Type" className="h-8 w-28 rounded-md border border-rule bg-paper px-2 text-sm" />
+          <input value={participant} onChange={(e) => setParticipant(e.target.value)} placeholder="Participant" className="h-8 w-32 rounded-md border border-rule bg-paper px-2 text-sm" />
+        </div>
+        <div className="mb-6 rounded-md border border-rule bg-sunk p-3">
+          <div className="flex flex-wrap gap-2">
+            <input value={plainQ} onChange={(e) => setPlainQ(e.target.value)} placeholder="Plain search (no LLM) — find where we said X" className="h-8 flex-1 min-w-48 rounded-md border border-rule bg-paper px-2 text-sm" />
+            <input value={speaker} onChange={(e) => setSpeaker(e.target.value)} placeholder="Speaker (e.g. Ankur)" className="h-8 w-32 rounded-md border border-rule bg-paper px-2 text-sm" />
+          </div>
+          {plain.data && plain.data.hits.length > 0 && (
+            <div className="mt-3 divide-y divide-rule">
+              {plain.data.hits.slice(0, 8).map((h) => (
+                <button key={h.chunk_id} onClick={() => open(h.meeting_id, h.start_s)} className="block w-full py-2 text-left">
+                  <span className="text-xs text-ink-3">{h.speaker ?? "?"} · {h.meeting_id} · {Math.floor(h.start_s)}s</span>
+                  <span className="line-clamp-2 text-sm">{h.text}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {plain.data && plain.data.hits.length === 0 && <p className="mt-2 text-xs text-ink-3">No matches</p>}
+        </div>
 
         {isPending && <Loading />}
 
@@ -139,6 +166,7 @@ function Archive({
   onLoadMore: () => void;
   onOpen: (id: string) => void;
 }) {
+  const retry = useRetryMeeting();
   const recent = meetings.slice(0, RECENT);
   const rest = meetings.slice(RECENT);
 
@@ -153,6 +181,7 @@ function Archive({
             key={m.id}
             meeting={toRow(m)}
             onClick={() => onOpen(m.id)}
+            onRetry={() => retry.mutate(m.id)}
           />
         ))}
       </div>
@@ -168,6 +197,7 @@ function Archive({
                     key={m.id}
                     meeting={toRow(m)}
                     onClick={() => onOpen(m.id)}
+                    onRetry={() => retry.mutate(m.id)}
                   />
                 ))}
               </div>

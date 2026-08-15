@@ -66,6 +66,7 @@ export const meetings = pgTable(
     // the transcript and recording share an origin (always true for synthetic seeds).
     recordingOffsetS: doublePrecision("recording_offset_s").notNull().default(0),
     status: text("status").notNull().default("pending"),
+    statusError: text("status_error"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

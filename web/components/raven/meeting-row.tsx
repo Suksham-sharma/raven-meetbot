@@ -22,10 +22,12 @@ export function MeetingRow({
   meeting,
   selected,
   onClick,
+  onRetry,
 }: {
   meeting: Meeting;
   selected?: boolean;
   onClick?: () => void;
+  onRetry?: () => void;
 }) {
   const title = meeting.title ?? fallbackTitle(meeting);
   const untitled = meeting.title == null;
@@ -66,6 +68,18 @@ export function MeetingRow({
           <span className="truncate">{secondary(meeting)}</span>
         </span>
       </span>
+      {meeting.state === "failed" && onRetry && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRetry();
+          }}
+          className="shrink-0 rounded-md border border-rule bg-paper px-2.5 py-1 text-xs font-medium text-ink-2 hover:bg-card"
+        >
+          Retry
+        </button>
+      )}
     </button>
   );
 }

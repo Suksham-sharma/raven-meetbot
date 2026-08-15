@@ -57,6 +57,13 @@
       "when": 1786362480586,
       "tag": "0007_rainy_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786362480587,
+      "tag": "0008_moist_bride",
+      "breakpoints": true
     }
   ]
 }

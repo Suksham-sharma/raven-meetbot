@@ -93,13 +93,12 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
         recordingOffsetS: meta.recordingOffsetS,
         mp4Key: media.mp4Key,
         posterKey: media.posterKey,
-        status: "ingested",
+        status: "ready",
+        statusError: null,
       })
       .onConflictDoUpdate({
         target: meetings.id,
         set: {
-          // Ownership is sticky: an existing owner is never changed; an ownerless
-          // (seed) row can still be claimed. Never orphans, never hijacks.
           ownerId: sql`coalesce(${meetings.ownerId}, ${input.ownerId ?? null}::uuid)`,
           title: meta.title,
           type: extraction.meetingType,
@@ -110,10 +109,10 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
           summary: extraction.summary,
           recordingUrl: meta.recordingUrl,
           recordingOffsetS: meta.recordingOffsetS,
-          // coalesce so a re-ingest never clears keys the transcode worker set.
           mp4Key: sql`coalesce(${meetings.mp4Key}, ${media.mp4Key})`,
           posterKey: sql`coalesce(${meetings.posterKey}, ${media.posterKey})`,
-          status: "ingested",
+          status: "ready",
+          statusError: null,
         },
       });
 

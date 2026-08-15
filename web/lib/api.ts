@@ -20,6 +20,19 @@ export class ApiError extends Error {
 
 const SERVER_FAULT = "Something went wrong on our end. Try again in a moment.";
 
+/** Frames stopped arriving but the socket never closed. Not a timeout: the far end died. */
+export class StreamStalledError extends Error {
+  constructor() {
+    super("The connection to Raven dropped.");
+    this.name = "StreamStalledError";
+  }
+}
+
+// No total deadline: an agent run can legitimately take minutes. IDLE measures
+// gaps between frames instead, and must stay above the server's 15s heartbeat.
+const STREAM_CONNECT_MS = 20_000;
+const STREAM_IDLE_MS = 40_000;
+
 async function errorMessage(res: Response): Promise<string> {
   let raw = "";
   try {
@@ -78,11 +91,31 @@ export const api = {
 
   logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
-  meetings: (params: { limit?: number; before?: string } = {}) =>
-    request<MeetingsPage>(`/meetings${query(params)}`),
+  meetings: (params: { limit?: number; before?: string; q?: string; type?: string; participant?: string; from?: string; to?: string } = {}) =>
+    request<MeetingsPage>(`/meetings${query(params as Record<string, string | number | undefined>)}`),
 
   meeting: (id: string) =>
     request<MeetingDetail>(`/meetings/${encodeURIComponent(id)}`),
+
+  updateMeeting: (id: string, title: string) =>
+    request<MeetingDetail>(`/meetings/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ title }) }),
+
+  deleteMeeting: (id: string) =>
+    request<void>(`/meetings/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  exportMeeting: (id: string, format: "json" | "md" = "json") =>
+    fetch(`/api/v1/meetings/${encodeURIComponent(id)}/export?format=${format}`, { credentials: "same-origin" }).then((r) => {
+      if (!r.ok) throw new Error("export failed");
+      return r;
+    }),
+
+  retryMeeting: (id: string) =>
+    request<{ meeting_id: string; enqueued: string }>(`/meetings/${encodeURIComponent(id)}/retry`, {
+      method: "POST",
+    }),
+
+  search: (params: { q: string; k?: number; speaker?: string; meeting_id?: string; type?: string; participant?: string; from?: string; to?: string }) =>
+    request<{ query: string; hits: import("./types").SearchHit[] }>(`/search${query(params as Record<string, string | number | undefined>)}`),
 
   actionItems: (params: { limit?: number } = {}) =>
     request<{ items: OpenAction[] }>(`/action-items${query(params)}`),
@@ -116,55 +149,81 @@ export const api = {
     onEvent: (event: import("./types").AskStreamEvent) => void,
     opts?: { meetingId?: string; signal?: AbortSignal },
   ): Promise<void> => {
-    const res = await fetch(`/api/v1/ask/stream`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json", accept: "text/event-stream" },
-      body: JSON.stringify({ q, meeting_id: opts?.meetingId }),
-      signal: opts?.signal,
-    });
-    if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
-    if (!res.body) throw new Error("No response body for stream");
+    const control = new AbortController();
+    const relay = () => control.abort();
+    if (opts?.signal?.aborted) control.abort();
+    opts?.signal?.addEventListener("abort", relay, { once: true });
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
+    let stalled = false;
+    let clock: ReturnType<typeof setTimeout> | undefined;
+    const arm = (ms: number) => {
+      clearTimeout(clock);
+      clock = setTimeout(() => {
+        stalled = true;
+        control.abort();
+      }, ms);
+    };
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      arm(STREAM_CONNECT_MS);
+      const res = await fetch(`/api/v1/ask/stream`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json", accept: "text/event-stream" },
+        body: JSON.stringify({ q, meeting_id: opts?.meetingId }),
+        signal: control.signal,
+      });
+      if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
+      if (!res.body) throw new Error("No response body for stream");
 
-      // SSE frames are `data: {...}\n\n` — split on double newline and parse complete frames
-      let sep: number;
-      while ((sep = buffer.indexOf("\n\n")) !== -1) {
-        const frame = buffer.slice(0, sep);
-        buffer = buffer.slice(sep + 2);
-        const dataLines = frame
-          .split("\n")
-          .filter((l) => l.startsWith("data:"))
-          .map((l) => l.slice(5).trim());
-        if (!dataLines.length) continue;
-        const raw = dataLines.join("\n");
-        try {
-          const event = JSON.parse(raw) as import("./types").AskStreamEvent;
-          onEvent(event);
-        } catch {
-          // ignore malformed frame
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        arm(STREAM_IDLE_MS);
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE frames are `data: {...}\n\n` — split on double newline and parse complete frames
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          const dataLines = frame
+            .split("\n")
+            .filter((l) => l.startsWith("data:"))
+            .map((l) => l.slice(5).trim());
+          if (!dataLines.length) continue;
+          const raw = dataLines.join("\n");
+          try {
+            const event = JSON.parse(raw) as import("./types").AskStreamEvent;
+            onEvent(event);
+          } catch {
+            // ignore malformed frame
+          }
         }
       }
-    }
 
-    // Flush trailing frame if server ended without double newline
-    if (buffer.trim().startsWith("data:")) {
-      const raw = buffer.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("\n");
-      if (raw) {
-        try {
-          onEvent(JSON.parse(raw) as import("./types").AskStreamEvent);
-        } catch {
-          // ignore
+      // Flush trailing frame if server ended without double newline
+      if (buffer.trim().startsWith("data:")) {
+        const raw = buffer.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("\n");
+        if (raw) {
+          try {
+            onEvent(JSON.parse(raw) as import("./types").AskStreamEvent);
+          } catch {
+            // ignore
+          }
         }
       }
+    } catch (err) {
+      // Our own abort, not the caller's — the two need different handling upstream.
+      if (stalled) throw new StreamStalledError();
+      throw err;
+    } finally {
+      clearTimeout(clock);
+      opts?.signal?.removeEventListener("abort", relay);
     }
   },
 };

@@ -73,7 +73,15 @@ Citing — REQUIRED:
 Before you answer, verify the retrieved results actually address the SPECIFIC thing asked. A weak, tangential, or loosely-related match is NOT an answer. Adjacent information is NOT the thing asked: if the exact topic/metric/decision asked about was never discussed (e.g. "pricing tiers" when only budgets and per-seat counts were mentioned), refuse — do NOT stretch related material into an answer. If nothing in your meetings directly addresses the question, reply with EXACTLY this and nothing else:
 ${REFUSAL}
 
-Be concise and direct.`;
+Be concise and direct. Answer in plain prose — no markdown syntax, no **bold**, no numbered or bulleted list markers. The answer renders as a reading surface, not a document, so asterisks and hashes reach the user literally.`;
+
+// Per call, not a module const: the process runs for days and a date frozen at
+// boot rots. Without a date the model resolves "this month" against its cutoff.
+function systemPrompt(): string {
+  return `${SYSTEM}
+
+TODAY'S DATE is ${new Date().toISOString().slice(0, 10)}. Resolve every relative date cue — "this month", "last week", "recently", "today", "this quarter" — against THAT date, never against your own prior. When a cue is relative, prefer letting list_meetings resolve it (title/recency cues) over building a from/to range by hand.`;
+}
 
 interface RegistryEntry {
   meetingId: string;
@@ -178,17 +186,22 @@ export interface AskOptions {
 export type AskStreamEvent =
   | { type: "thinking"; message: string }
   | { type: "tool_call"; name: string; arguments: string; parsedArgs: unknown }
-  | { type: "tool_result"; name: string; arguments: string; result: unknown; summary: string }
+  | { type: "tool_result"; name: string; arguments: string; result: unknown; summary: string; empty: boolean }
   | { type: "answer"; answer: string }
   | { type: "done"; result: AskResult }
   | { type: "error"; message: string };
 
-function summarizeToolResult(name: string, result: unknown): string {
+function summarizeToolResult(
+  name: string,
+  result: unknown
+): { summary: string; empty: boolean } {
   if (Array.isArray(result)) {
-    if (result.length === 0) return "no matches";
-    if (name === "search_transcript") return `found ${result.length} passage${result.length === 1 ? "" : "s"}`;
-    if (name === "search_structured") return `found ${result.length} record${result.length === 1 ? "" : "s"}`;
-    return `found ${result.length}`;
+    if (result.length === 0) return { summary: "no matches", empty: true };
+    if (name === "search_transcript")
+      return { summary: `found ${result.length} passage${result.length === 1 ? "" : "s"}`, empty: false };
+    if (name === "search_structured")
+      return { summary: `found ${result.length} record${result.length === 1 ? "" : "s"}`, empty: false };
+    return { summary: `found ${result.length}`, empty: false };
   }
   if (result && typeof result === "object") {
     const r = result as Record<string, unknown>;
@@ -196,15 +209,21 @@ function summarizeToolResult(name: string, result: unknown): string {
       const rows = r.rows as unknown[];
       const total = typeof r.total_matched === "number" ? r.total_matched : rows.length;
       const truncated = r.truncated === true ? ` (of ${total})` : "";
-      return `found ${rows.length}${truncated}`;
+      return {
+        summary: rows.length ? `found ${rows.length}${truncated}` : "no matches",
+        empty: rows.length === 0,
+      };
     }
     if (Array.isArray(r.meetings)) {
       const ms = r.meetings as unknown[];
-      return `found ${ms.length} meeting${ms.length === 1 ? "" : "s"}`;
+      return {
+        summary: ms.length ? `found ${ms.length} meeting${ms.length === 1 ? "" : "s"}` : "no matches",
+        empty: ms.length === 0,
+      };
     }
-    if (typeof r.note === "string") return r.note.slice(0, 80);
+    if (typeof r.note === "string") return { summary: r.note.slice(0, 80), empty: true };
   }
-  return "done";
+  return { summary: "done", empty: false };
 }
 
 export async function ask(
@@ -218,7 +237,7 @@ export async function ask(
       role: "system",
       content: scope
         ? `${SYSTEM}\n\nSCOPE: answer only from meeting ${scope}. Every tool call is confined to it, so do not call list_meetings and do not ask which meeting is meant — it is this one. If this meeting does not answer the question, refuse.`
-        : SYSTEM,
+        : systemPrompt(),
     },
     { role: "user", content: question },
   ];
@@ -374,7 +393,7 @@ export async function* askStream(
       role: "system",
       content: scope
         ? `${SYSTEM}\n\nSCOPE: answer only from meeting ${scope}. Every tool call is confined to it, so do not call list_meetings and do not ask which meeting is meant — it is this one. If this meeting does not answer the question, refuse.`
-        : SYSTEM,
+        : systemPrompt(),
     },
     { role: "user", content: question },
   ];
@@ -394,7 +413,10 @@ export async function* askStream(
         ? TOOL_SPECS.filter((t) => t.name !== "list_meetings")
         : TOOL_SPECS;
 
-    yield { type: "thinking", message: i === 0 ? "Planning which meetings to check" : "Deciding next step" };
+    yield {
+      type: "thinking",
+      message: i === 0 ? "Planning which meetings to check" : "Reading what came back",
+    };
 
     const turn = await provider.chat({
       messages,
@@ -437,8 +459,8 @@ export async function* askStream(
         result = await runTool(tc.name, parsed, ownerId);
         harvest(registry, result);
       }
-      const summary = summarizeToolResult(tc.name, result);
-      yield { type: "tool_result", name: tc.name, arguments: tc.arguments, result, summary };
+      const { summary, empty } = summarizeToolResult(tc.name, result);
+      yield { type: "tool_result", name: tc.name, arguments: tc.arguments, result, summary, empty };
       messages.push({
         role: "tool",
         toolCallId: tc.id,

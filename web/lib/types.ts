@@ -6,7 +6,6 @@ export interface User {
 
 export interface MeetingSummary {
   id: string;
-  /** Null for every real meeting — the backend never sets one. */
   title: string | null;
   type: string | null;
   started_at: string | null;
@@ -14,10 +13,9 @@ export interface MeetingSummary {
   duration_s: number | null;
   participants: string[];
   status: string;
+  status_error: string | null;
   has_recording: boolean;
-  /** Lowest-seq chapter title — the best name available when `title` is null. */
   first_chapter: string | null;
-  /** One line of what happened, for the recent-meeting cards. Null until ingest. */
   summary: string | null;
 }
 
@@ -139,7 +137,7 @@ export interface Answer {
 export type AskStreamEvent =
   | { type: "thinking"; message: string }
   | { type: "tool_call"; name: string; arguments: string; parsedArgs: unknown }
-  | { type: "tool_result"; name: string; arguments: string; result: unknown; summary: string }
+  | { type: "tool_result"; name: string; arguments: string; result: unknown; summary: string; empty?: boolean }
   | { type: "answer"; answer: string }
   | {
       type: "done";
@@ -153,6 +151,21 @@ export type AskStreamEvent =
     }
   | { type: "error"; message: string };
 
+export interface SearchHit {
+  chunk_id: number;
+  meeting_id: string;
+  meeting_title: string | null;
+  meeting_type: string | null;
+  meeting_date: string | null;
+  seq: number;
+  speaker: string | null;
+  text: string;
+  start_s: number;
+  end_s: number;
+  recording_offset_s: number;
+  score: number;
+}
+
 export interface AskStep {
   id: string;
   name: string;
@@ -160,4 +173,5 @@ export interface AskStep {
   detail: string;
   status: "running" | "done" | "error";
   summary?: string;
+  empty?: boolean;
 }

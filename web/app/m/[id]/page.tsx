@@ -19,11 +19,14 @@ import { usePlayer } from "@/lib/player";
 import { useTheater } from "@/lib/use-theater";
 import {
   keys,
+  useDeleteMeeting,
   useMeeting,
   useMeetings,
   useRecording,
+  useRetryMeeting,
   useSession,
   useTranscript,
+  useUpdateMeeting,
 } from "@/lib/queries";
 import { duration, longDate, timecode } from "@/lib/speaker";
 import type { Decision, MeetingActionItem, MeetingDetail } from "@/lib/types";
@@ -91,6 +94,11 @@ function MeetingView() {
 
   const requestSeek = usePlayer((s) => s.requestSeek);
   const reset = usePlayer((s) => s.reset);
+  const retry = useRetryMeeting();
+  const del = useDeleteMeeting();
+  const upd = useUpdateMeeting();
+  const [editing, setEditing] = React.useState(false);
+  const [titleDraft, setTitleDraft] = React.useState("");
 
   // Position is per-meeting; carrying it across would highlight a turn in a
   // transcript that no longer exists.
@@ -179,9 +187,27 @@ function MeetingView() {
         {m && (
           <>
             <header className="mb-9">
-              <h1 className="font-serif text-[34px] leading-[1.15] font-normal tracking-[-0.018em] text-balance">
-                {title(m)}
-              </h1>
+              <div className="flex items-start justify-between gap-2">
+                {editing ? (
+                  <input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} className="flex-1 rounded-md border border-rule bg-paper px-2 py-1 font-serif text-[24px]" autoFocus />
+                ) : (
+                  <h1 className="font-serif text-[34px] leading-[1.15] font-normal tracking-[-0.018em] text-balance">
+                    {title(m)}
+                  </h1>
+                )}
+                <div className="flex shrink-0 gap-1">
+                  {editing ? (
+                    <>
+                      <button onClick={() => { upd.mutate({ id: m.id, title: titleDraft }); setEditing(false); }} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs">Save</button>
+                      <button onClick={() => setEditing(false)} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs">Cancel</button>
+                    </>
+                  ) : (
+                    <button onClick={() => { setTitleDraft(title(m)); setEditing(true); }} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs">Rename</button>
+                  )}
+                  <button onClick={async () => { const r = await fetch(`/api/v1/meetings/${encodeURIComponent(m.id)}/export?format=md`, { credentials: "same-origin" }); const blob = await r.blob(); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${m.id}.md`; a.click(); URL.revokeObjectURL(url); }} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs">Export</button>
+                  <button onClick={async () => { if (!confirm("Delete this meeting?")) return; await del.mutateAsync(m.id); window.location.href = "/"; }} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs text-warn">Delete</button>
+                </div>
+              </div>
               <p className="mt-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] leading-[1.5] text-ink-3">
                 <span>{longDate(m.started_at ?? "")}</span>
                 {m.duration_s ? <span>· {duration(m.duration_s)}</span> : null}
@@ -191,6 +217,26 @@ function MeetingView() {
                   </span>
                 )}
               </p>
+              {m.status === "failed" && (
+                <div className="mt-4 flex items-center gap-3 rounded-md border border-warn/20 bg-warn-tint px-3 py-2">
+                  <span className="text-xs text-warn">{m.status_error ?? "Processing failed"}</span>
+                  <button
+                    type="button"
+                    onClick={() => retry.mutate(m.id)}
+                    className="ml-auto rounded-md bg-paper px-2.5 py-1 text-xs font-medium text-ink-2 hover:bg-card"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {(m.status === "transcoding" || m.status === "diarizing" || m.status === "ingesting" || m.status === "pending") && (
+                <div className="mt-4 rounded-md border border-rule bg-sunk px-3 py-2 text-xs text-ink-3">
+                  {m.status === "transcoding" && "Transcoding recording…"}
+                  {m.status === "diarizing" && "Working out who said what…"}
+                  {m.status === "ingesting" && "Saving to memory…"}
+                  {m.status === "pending" && "Queued for processing…"}
+                </div>
+              )}
             </header>
 
             {/* Who and when first, then the recording. The title is what tells

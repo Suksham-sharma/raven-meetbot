@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Check, CircleNotch } from "@phosphor-icons/react";
+import { ArrowRight, Check, CircleNotch, Minus } from "@phosphor-icons/react";
 import { api, ApiError } from "@/lib/api";
 import type { Answer, AskStep, AskStreamEvent, Citation } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -42,8 +42,8 @@ function describeTool(name: string, parsed: unknown): { label: string; detail: s
     }
     case "search_transcript": {
       const q = typeof p.query === "string" ? p.query : "";
-      const where = typeof p.meeting_id === "string" ? ` in ${p.meeting_id.slice(0, 16)}…` : "";
-      return { label: "Searching what was said", detail: q ? `"${q.slice(0, 42)}"${where}` : where.trim() || "scanning transcripts" };
+      // No meeting_id: it's a slug, and the step above already named the meeting.
+      return { label: "Searching what was said", detail: q ? `"${q.slice(0, 42)}"` : "scanning transcripts" };
     }
     case "search_structured": {
       const kind = typeof p.kind === "string" ? p.kind : "records";
@@ -52,8 +52,10 @@ function describeTool(name: string, parsed: unknown): { label: string; detail: s
       return { label: "Checking decisions & tasks", detail: `${kind}${q}${owner}` };
     }
     case "fetch_meeting": {
-      const id = typeof p.meeting_id === "string" ? p.meeting_id : "";
-      return { label: "Reading meeting details", detail: id ? id.slice(0, 28) : "" };
+      return {
+        label: "Reading meeting details",
+        detail: p.mode === "full" ? "summary and full transcript" : "summary and chapters",
+      };
     }
     default:
       return { label: name, detail: "" };
@@ -70,6 +72,7 @@ export function AskPanel({
   const [q, setQ] = React.useState("");
   const [asked, setAsked] = React.useState("");
   const [steps, setSteps] = React.useState<AskStep[]>([]);
+  const [note, setNote] = React.useState("");
   const [answer, setAnswer] = React.useState<Answer | null>(null);
   const [error, setError] = React.useState<Error | null>(null);
   const [isPending, setIsPending] = React.useState(false);
@@ -81,6 +84,7 @@ export function AskPanel({
     abortRef.current?.abort();
     abortRef.current = null;
     setSteps([]);
+    setNote("");
     setAnswer(null);
     setError(null);
   }
@@ -96,13 +100,14 @@ export function AskPanel({
     const controller = new AbortController();
     abortRef.current = controller;
     let gotDone = false;
+    let gotError = false;
 
     const handleEvent = (event: AskStreamEvent) => {
       if (controller.signal.aborted) return;
       switch (event.type) {
         case "thinking":
-          // Keep a subtle current-thinking line by updating the last running step's detail,
-          // but don't create a separate step for every thinking tick — tool calls are the backbone.
+          // One trailing line, not a step — tool calls are the backbone.
+          setNote(event.message);
           break;
         case "tool_call": {
           const { label, detail } = describeTool(event.name, event.parsedArgs);
@@ -118,7 +123,12 @@ export function AskPanel({
             // mark the latest running step with this name as done (last occurrence)
             for (let i = next.length - 1; i >= 0; i--) {
               if (next[i].name === event.name && next[i].status === "running") {
-                next[i] = { ...next[i], status: "done", summary: event.summary };
+                next[i] = {
+                  ...next[i],
+                  status: "done",
+                  summary: event.summary,
+                  empty: event.empty,
+                };
                 break;
               }
             }
@@ -128,6 +138,8 @@ export function AskPanel({
         }
         case "done": {
           gotDone = true;
+          setNote("");
+          setError(null);
           setAnswer({
             answer: event.answer,
             citations: event.citations,
@@ -141,6 +153,9 @@ export function AskPanel({
           break;
         }
         case "error": {
+          gotError = true;
+          setNote("");
+          setAnswer(null);
           setError(new Error(event.message));
           break;
         }
@@ -149,35 +164,40 @@ export function AskPanel({
       }
     };
 
+    // Always as a pair, so a stale error can't survive beside a fresh answer.
+    const settle = (result: Answer | null, err: Error | null) => {
+      if (controller.signal.aborted) return;
+      setNote("");
+      setAnswer(result);
+      setError(err);
+    };
+
+    const runBlocking = async () => {
+      try {
+        settle(await api.ask(trimmed, scope?.meetingId), null);
+      } catch (e) {
+        settle(null, e instanceof Error ? e : new Error(String(e)));
+      }
+    };
+
     try {
       await api.askStream(trimmed, handleEvent, { meetingId: scope?.meetingId, signal: controller.signal });
-      // If stream ended without a done event (e.g. backend error without explicit done), treat as failure
-      if (!gotDone && !controller.signal.aborted) {
-        // Fallback to blocking call — SSE route may not be rebuilt yet
-        try {
-          const fallback = await api.ask(trimmed, scope?.meetingId);
-          setAnswer(fallback);
-        } catch (e) {
-          setError(e instanceof Error ? e : new Error(String(e)));
-        }
-      }
+      // Closed cleanly having said nothing: no answer, no error, nothing spent.
+      if (!gotDone && !gotError && !controller.signal.aborted) await runBlocking();
     } catch (e) {
-      if ((e as Error)?.name === "AbortError") return;
-      // Network or proxy error before any event — try blocking fallback once
-      if (!gotDone) {
-        try {
-          const fallback = await api.ask(trimmed, scope?.meetingId);
-          setAnswer(fallback);
-          setError(null);
-        } catch (fallbackErr) {
-          setError(fallbackErr instanceof Error ? fallbackErr : new Error(String(fallbackErr)));
-        }
-      } else {
-        setError(e instanceof Error ? e : new Error(String(e)));
-      }
+      if ((e as Error)?.name === "AbortError" || controller.signal.aborted) return;
+      // Only a missing route is worth retrying. Retrying a stall or a 500 buys
+      // the same failure twice at full agent cost.
+      const missingRoute = e instanceof ApiError && (e.status === 404 || e.status === 405);
+      if (missingRoute && !gotDone) await runBlocking();
+      else settle(null, e instanceof Error ? e : new Error(String(e)));
     } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-      setIsPending(false);
+      // Only the current request may clear the flag; a superseded one unwinding
+      // later would stop the spinner on the request that replaced it.
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setIsPending(false);
+      }
     }
   }
 
@@ -250,9 +270,7 @@ export function AskPanel({
 
       {!idle && (
         <div className="mt-6">
-          {isPending && <LiveSteps steps={steps} />}
-          {!isPending && error && <AskError error={error} />}
-          {!isPending && answer && (
+          {answer ? (
             <>
               {steps.length > 0 && <LiveSteps steps={steps} compact />}
               <div className={steps.length > 0 ? "mt-5" : ""}>
@@ -263,13 +281,10 @@ export function AskPanel({
                 />
               </div>
             </>
-          )}
-          {isPending && answer && (
-            <AnswerBlock
-              answer={answer}
-              query={asked}
-              corpus={scope ? scope.title : corpus}
-            />
+          ) : error ? (
+            <AskError error={error} />
+          ) : (
+            <LiveSteps steps={steps} note={note} />
           )}
         </div>
       )}
@@ -359,50 +374,79 @@ export function Thinking({ from = 0 }: { from?: number }) {
   );
 }
 
-export function LiveSteps({ steps, compact = false }: { steps: AskStep[]; compact?: boolean }) {
+export function LiveSteps({
+  steps,
+  note = "",
+  compact = false,
+}: {
+  steps: AskStep[];
+  note?: string;
+  compact?: boolean;
+}) {
+  const shell = cn("flex flex-col", compact ? "gap-1.5" : "gap-2.5");
+
   if (steps.length === 0) {
     return (
-      <div aria-live="polite" className="flex flex-col gap-2.5">
+      <div role="log" aria-live="polite" className={shell}>
         <p className="flex items-center gap-2 text-[13px] text-ink-1">
           <span className="size-1.5 shrink-0 rounded-full bg-accent motion-safe:animate-pulse" />
-          Understanding your question
-        </p>
-        <p className="flex items-center gap-2 text-[13px] text-ink-3">
-          <span className="size-1.5 shrink-0 rounded-full bg-ink-4" />
-          Planning which meetings to check
+          {note || "Understanding your question"}
         </p>
       </div>
     );
   }
 
   return (
-    <div aria-live="polite" className={cn("flex flex-col", compact ? "gap-1.5" : "gap-2.5")}>
-      {steps.map((s) => (
-        <div key={s.id} className="flex items-start gap-2.5">
+    <div role="log" aria-live="polite" className={shell}>
+      {steps.map((s) => {
+        const done = s.status === "done";
+        // Neutral, not green: DESIGN §7, a check on "no matches" claims a result.
+        const blank = done && s.empty;
+        return (
+          <div key={s.id} className="flex items-start gap-2.5">
+            <span
+              className={cn(
+                "mt-[5px] flex size-[16px] shrink-0 items-center justify-center rounded-full border transition-colors duration-200",
+                blank
+                  ? "border-ink-4 bg-paper text-ink-3"
+                  : done
+                    ? "border-accent bg-accent text-white"
+                    : "border-ink-4 bg-paper text-ink-4",
+              )}
+              aria-hidden
+            >
+              {blank ? (
+                <Minus size={10} weight="bold" />
+              ) : done ? (
+                <Check size={10} weight="bold" />
+              ) : (
+                <CircleNotch size={10} className="motion-safe:animate-spin" />
+              )}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={cn("text-[13px] leading-tight", done ? "text-ink-2" : "text-ink-1")}>
+                {s.label}
+                {s.summary && done ? (
+                  <span className="font-normal text-ink-3"> — {s.summary}</span>
+                ) : null}
+              </p>
+              {s.detail ? <p className="mt-0.5 truncate text-[11.5px] leading-tight text-ink-3">{s.detail}</p> : null}
+            </div>
+          </div>
+        );
+      })}
+
+      {note ? (
+        <div className="flex items-start gap-2.5">
           <span
-            className={cn(
-              "mt-[5px] flex size-[16px] shrink-0 items-center justify-center rounded-full border transition-colors duration-200",
-              s.status === "done" ? "border-accent bg-accent text-white" : "border-ink-4 bg-paper text-ink-4",
-            )}
+            className="mt-[5px] flex size-[16px] shrink-0 items-center justify-center rounded-full border border-ink-4 bg-paper text-ink-4"
             aria-hidden
           >
-            {s.status === "done" ? (
-              <Check size={10} weight="bold" />
-            ) : (
-              <CircleNotch size={10} className="motion-safe:animate-spin" />
-            )}
+            <CircleNotch size={10} className="motion-safe:animate-spin" />
           </span>
-          <div className="min-w-0 flex-1">
-            <p className={cn("text-[13px] leading-tight", s.status === "done" ? "text-ink-2" : "text-ink-1")}>
-              {s.label}
-              {s.summary && s.status === "done" ? (
-                <span className="font-normal text-ink-3"> — {s.summary}</span>
-              ) : null}
-            </p>
-            {s.detail ? <p className="mt-0.5 truncate text-[11.5px] leading-tight text-ink-3">{s.detail}</p> : null}
-          </div>
+          <p className="min-w-0 flex-1 text-[13px] leading-tight text-ink-1">{note}</p>
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }
@@ -452,16 +496,15 @@ export function AnswerBlock({
 }
 
 function AskError({ error }: { error: Error }) {
-  const timedOut = error.name === "TimeoutError";
-  return (
-    <p className="text-[13.5px] leading-relaxed text-ink-2">
-      {timedOut
+  const message =
+    error.name === "StreamStalledError"
+      ? "The connection dropped before Raven finished. Ask again."
+      : error.name === "TimeoutError"
         ? "That took longer than a minute, so Raven stopped waiting. Try a narrower question."
         : error instanceof ApiError
           ? error.message
-          : "Something went wrong asking that."}
-    </p>
-  );
+          : "Something went wrong asking that.";
+  return <p className="text-[13.5px] leading-relaxed text-ink-2">{message}</p>;
 }
 
 function toSource(c: Citation): Source {

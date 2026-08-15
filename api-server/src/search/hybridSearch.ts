@@ -14,12 +14,13 @@ import type { EmbeddingProvider } from "../llm/provider";
 // reason about recency / superseded decisions (D3).
 
 export interface SearchFilters {
-  ownerId?: string; // restrict to one user's meetings (the tenancy boundary)
+  ownerId?: string;
   meetingId?: string;
   meetingType?: string;
   participant?: string;
-  from?: Date; // meeting started_at >= from
-  to?: Date; //   meeting started_at <= to
+  speaker?: string;
+  from?: Date;
+  to?: Date;
 }
 
 export interface SearchHit {
@@ -58,6 +59,9 @@ function buildFilterConds(filters?: SearchFilters): SQL[] {
   if (filters.to) conds.push(sql`m.started_at <= ${filters.to.toISOString()}`);
   if (filters.participant) {
     conds.push(sql`m.participants @> ${JSON.stringify([filters.participant])}::jsonb`);
+  }
+  if (filters.speaker) {
+    conds.push(sql`c.speaker ILIKE ${`%${filters.speaker}%`}`);
   }
   return conds;
 }

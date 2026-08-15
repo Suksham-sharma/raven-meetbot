@@ -66,12 +66,26 @@ export async function askStreamHandler(req: Request, res: Response): Promise<voi
     "X-Accel-Buffering": "no",
   });
 
+  // Paired with the client's 40s idle timeout: silence longer than this means
+  // dead, not slow. Keep the two in step.
+  let closed = false;
+  const heartbeat = setInterval(() => {
+    if (!closed) res.write(": ping\n\n");
+  }, 15_000);
+
+  // Stop the generator when nobody is listening; it bills per model turn.
+  res.on("close", () => {
+    closed = true;
+    clearInterval(heartbeat);
+  });
+
   const write = (event: unknown) => {
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
+    if (!closed) res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
   try {
     for await (const event of askStream(q, userId, { meetingId })) {
+      if (closed) break;
       if (event.type === "done") {
         const r = event.result;
         write({
@@ -98,14 +112,16 @@ export async function askStreamHandler(req: Request, res: Response): Promise<voi
       const maybeFlush = (res as unknown as { flush?: () => void }).flush;
       if (typeof maybeFlush === "function") maybeFlush.call(res);
     }
-    res.end();
   } catch (err) {
+    console.error("[ask/stream]", err);
     const message = err instanceof Error ? err.message : "Stream failed";
     try {
       write({ type: "error", message });
     } catch {
       // client already gone
     }
-    res.end();
+  } finally {
+    clearInterval(heartbeat);
+    if (!closed) res.end();
   }
 }

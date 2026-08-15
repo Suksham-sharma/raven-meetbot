@@ -12,25 +12,28 @@ export function corpusLabel(c: Corpus): string {
   return from === to ? `${count} · ${from}` : `${count} · ${from} – ${to}`;
 }
 
-// meetings.status only ever holds pending or ingested, and ingest creates the
-// row — so anything that isn't pending is simply done, and unknown values fall
-// through to no badge rather than crashing.
 export function meetingState(m: MeetingSummary): MeetingState {
-  return m.status === "pending" ? "processing" : "ok";
+  if (m.status === "failed") return "failed";
+  if (m.status === "recording") return "recording";
+  if (
+    m.status === "pending" ||
+    m.status === "transcoding" ||
+    m.status === "diarizing" ||
+    m.status === "ingesting"
+  )
+    return "processing";
+  return "ok";
 }
 
 export function toRow(m: MeetingSummary): Meeting {
   return {
     id: m.id,
-    // The backend leaves `title` null for every real meeting, so without this
-    // the whole archive falls through to the participant list and every row is
-    // named after who was in it. The first chapter is what a person would have
-    // called the meeting — "Pilot Feedback" beats "Marco, Lena and 2 others".
     title: m.title ?? m.first_chapter,
     startedAt: m.started_at ?? "",
     durationS: m.duration_s,
     participants: m.participants,
     state: meetingState(m),
+    stateDetail: m.status_error ?? undefined,
     summary: m.summary,
   };
 }

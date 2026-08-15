@@ -1,6 +1,8 @@
 import { Worker } from "bullmq";
+import { eq } from "drizzle-orm";
 import systemConfig from "../config";
-import { pool } from "../db/client";
+import { db, pool } from "../db/client";
+import { meetings } from "../db/schema";
 import { diarizeQueue, memoryQueue, type DiarizeJob } from "../lib/queueManager";
 import { getArtifactStore } from "./artifactStore";
 import { diarizeRecording, serializeNamedTranscript } from "./pipeline";
@@ -18,6 +20,11 @@ const worker = new Worker<DiarizeJob>(
     const { meetingId, recordingKey, speakersKey, ownerId } = job.data;
     const log = (m: string) => console.log(`[diarize] ${meetingId}: ${m}`);
     log(`start (job ${job.id})`);
+
+    await db
+      .update(meetings)
+      .set({ status: "diarizing", statusError: null })
+      .where(eq(meetings.id, meetingId));
 
     const apiKey = systemConfig.DEEPGRAM_API_KEY;
     if (!apiKey) throw new Error("DEEPGRAM_API_KEY not set");
@@ -42,6 +49,13 @@ const worker = new Worker<DiarizeJob>(
       namedKey = `${meetingId}.named-transcript.jsonl`;
       await store.write(namedKey, serializeNamedTranscript(result));
       log(`wrote ${result.named.length} named utterances → ${namedKey}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await db
+        .update(meetings)
+        .set({ status: "failed", statusError: `diarize: ${msg}` })
+        .where(eq(meetings.id, meetingId));
+      throw err;
     } finally {
       await webm.cleanup();
       await speakers.cleanup();
