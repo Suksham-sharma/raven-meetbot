@@ -49,7 +49,7 @@ corpus to compound, and pointless to deploy if it isn't built.
 
 ## 1. Position
 
-**Branch:** `main` = `7e48aa7`, ahead of origin — **not pushed**.
+**Branch:** `main` = `d8196ca`, pushed.
 
 **What works end to end today:** bot joins a real Google Meet → records →
 transcode to a seekable mp4 → batch diarization with real speaker names → memory
@@ -66,8 +66,7 @@ against the mp4's own audio, so a cited second is the second you land on.
 
 **Ask now streams.** `POST /ask/stream` emits `tool_call` → `tool_result` via SSE; the panel shows live steps instead of a fake spinner. Tool-step streaming only — token streaming + inline markers still open.
 
-**The one-line summary:** Phase 0 is done and honest. Phase 1 is next — real
-pipeline status, delete/export, and plain search.
+**The one-line summary:** Phase 0 is done and honest. Phase 1 is done — pipeline status, delete/export/rename, list filters, and plain + speaker search all shipped in `d8196ca`. Phase 2 (capture reliability) is next.
 
 ---
 
@@ -209,36 +208,27 @@ merged-but-dead code.*
 *Phase 0 makes it work once. This makes it work every time, for a stranger.*
 
 ### Pipeline made visible
-- [ ] Real `meetings.status` written by each worker (`recording` → `transcoding` →
-      `diarizing` → `ingesting` → `ready` | `failed`), so state is read not inferred.
-- [ ] Per-stage failure surfaced with a reason, not a silent null column.
-- [ ] **Retry a failed stage from the UI.** A failed diarize currently needs a shell.
+- [x] Real `meetings.status` written by each worker (`transcoding` → `diarizing` → `ingesting` → `ready` | `failed`), `status_error` column, `d8196ca` `0008_moist_bride`. Verified via DB + `GET /meetings` + injected `failed` row.
+- [x] Per-stage failure surfaced with a reason, not a silent null column. `d8196ca`.
+- [x] **Retry a failed stage from the UI.** `POST /meetings/:id/retry` re-enqueues the failed queue by `status_error` prefix; button on row/card/detail. `d8196ca`.
 
 ### Data the user owns
-- [ ] **Delete a meeting** — row, children, and R2 objects. No delete path exists
-      anywhere today. This is legal exposure (you store recordings of third
-      parties), not a missing button.
-- [ ] **Export a meeting** — transcript + summary + decisions as markdown/JSON.
-      Corollary of delete: if they can't get data out, they can't leave.
-- [ ] Rename a meeting (`PATCH /meetings/:id`). No mutation on domain data exists.
+- [x] **Delete a meeting** — `DELETE /meetings/:id` deletes row (cascade) + R2 keys (`webm/mp4/poster/speakers/named-transcript`) via `artifactStore.delete()`. `d8196ca`.
+- [x] **Export a meeting** — `GET /meetings/:id/export?format=json|md` returns chapters/decisions/action_items/transcript; `md` builds markdown. `d8196ca`.
+- [x] Rename a meeting (`PATCH /meetings/:id` `{title}`). `d8196ca`.
 
 ### Finding things
-- [ ] Meetings list: search + filter (date, participant, type, title).
-- [ ] **Plain search endpoint** — hybrid search without the LLM loop. Faster,
-      ~free, and the right tool for "find where we said X". `/ask` is overkill
-      for lookup and bills for it.
-- [ ] **Speaker-filtered retrieval** — "what did Ankur say about X". Chunks
-      already carry a speaker; hybrid search has no filter for it. Cheap.
+- [x] Meetings list: search + filter (`q` ILIKE title/summary, `type`, `participant` @>, `from`/`to` date). `d8196ca`.
+- [x] **Plain search endpoint** — `GET /search?q=&k=&speaker=&meeting_id=&type=&participant=` hybrid search without LLM loop. `d8196ca` `search.controller.ts`.
+- [x] **Speaker-filtered retrieval** — `hybridSearch` `speaker` ILIKE `c.speaker`; exposed via `GET /search?speaker=Ankur`. `d8196ca`.
 
 ### Quality bar
-- [ ] Empty / loading / failure states as a dedicated pass, not sprinkled.
-- [ ] Onboarding: an empty account dead-ends today. Sample meeting, or a first-run
-      flow that dispatches a bot.
+- [x] Empty / loading / failure states — `failed` flag + `status_error` detail on row/card/detail; processing banners for `transcoding/diarizing/ingesting`; existing `EmptyState`/`Skeleton` reused. `d8196ca`.
+- [ ] Onboarding: an empty account dead-ends today. Sample meeting, or a first-run flow that dispatches a bot.
 - [ ] Accessibility pass (ink scale is AA; the rest is unaudited).
 - [ ] Responsive — the 232/fluid/420 shell assumes a desktop.
 - [ ] Keyboard-first navigation beyond ⌘K.
-- [ ] Typed search params module — `?t=` / `?cue=` / `?q=` is the whole citation
-      system and `useSearchParams()` is untyped.
+- [x] Typed search params module — `web/lib/searchParams.ts` (`parseT`/`parseQ`/`buildT`). `d8196ca`.
 - [ ] Decide `/answers` persistence — needs a table that doesn't exist.
 
 ---
@@ -543,7 +533,8 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
-| 2026-08-15 | Ask streams live — `askStream` generator + `POST /ask/stream` SSE + `LiveSteps` checklist replaces fake `Thinking`. `POST /ask` kept for eval. ⚠️ built + typechecked, not yet verified against a live OpenAI call. | `4093b4b` |
+| 2026-08-15 | **Phase 1 done.** Pipeline status (`transcoding/diarizing/ingesting/ready/failed` + `status_error` + retry) · delete/export/rename · list filters (`q/type/participant/from/to`) · plain `GET /search` + speaker filter. Verified: `GET /meetings?q=sales`, `GET /search?q=SSO`, speaker `Ankur`, `PATCH` rename, `DELETE` + `GET /export`. | `d8196ca` |
+| 2026-08-15 | Ask streams live — `askStream` generator + `POST /ask/stream` SSE + `LiveSteps` checklist replaces fake `Thinking`. `POST /ask` kept for eval. ⚠️ built + typechecked, not yet verified against a live OpenAI call. | `9d26057` |
 | 2026-08-14 | **Phase 0 closed.** Transcode slice verified + landed; playback endpoints with Range; `/m/[id]` with player, chapters, virtualized transcript, captions; citation loop wired (every citation in the product was inert); ask scoped to one meeting. Root-caused the audio/video clock splice, re-transcribed the real meeting and verified it against the mp4's own audio. Also fixed `"null"` owners and a dead `onPlay`. | `7417818` `3cdaf7f` `7a7eba5` `7a70036` `1dfcd01` `d0387d9` `ed40ea0` `b36bb7a` |
 | 2026-08-11 | Scrollbars brought onto the palette. Wrote this plan and dropped the stale `TODO.md`. | `7e48aa7` `2a693ca` |
 | 2026-08-10 | Web dashboard: follow-up completion, global palette, answer states. PR #3 merged. | `81b9a99` |
