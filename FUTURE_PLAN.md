@@ -64,6 +64,8 @@ playback, and chapters seek.
 in `7a7eba5` and the one affected real meeting was re-transcribed and verified
 against the mp4's own audio, so a cited second is the second you land on.
 
+**Ask now streams.** `POST /ask/stream` emits `tool_call` → `tool_result` via SSE; the panel shows live steps instead of a fake spinner. Tool-step streaming only — token streaming + inline markers still open.
+
 **The one-line summary:** Phase 0 is done and honest. Phase 1 is next — real
 pipeline status, delete/export, and plain search.
 
@@ -464,7 +466,7 @@ story in this document.
       not on vibes. Reverse the decision only if the metric moves.
 - [ ] Reranker + contextual retrieval — still **deferred**: measured gaps are
       routing and aggregation, not chunk ranking.
-- [ ] Streaming `/ask` (SSE) with inline citation markers.
+- [ ] Streaming `/ask` (SSE) with inline citation markers. — tool-step SSE shipped on `POST /ask/stream` (live checklist in `AskPanel`), token stream + inline markers still TODO.
 - [ ] The gpt-4o / gpt-5-mini experiment at suite scale (needs a higher OpenAI
       tier; 30k TPM cascades into 429s).
 - [ ] Golden set toward ~100 Q, eval in CI.
@@ -541,6 +543,7 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
+| 2026-08-15 | Ask streams live — `askStream` generator + `POST /ask/stream` SSE + `LiveSteps` checklist replaces fake `Thinking`. `POST /ask` kept for eval. ⚠️ built + typechecked, not yet verified against a live OpenAI call. | `4093b4b` |
 | 2026-08-14 | **Phase 0 closed.** Transcode slice verified + landed; playback endpoints with Range; `/m/[id]` with player, chapters, virtualized transcript, captions; citation loop wired (every citation in the product was inert); ask scoped to one meeting. Root-caused the audio/video clock splice, re-transcribed the real meeting and verified it against the mp4's own audio. Also fixed `"null"` owners and a dead `onPlay`. | `7417818` `3cdaf7f` `7a7eba5` `7a70036` `1dfcd01` `d0387d9` `ed40ea0` `b36bb7a` |
 | 2026-08-11 | Scrollbars brought onto the palette. Wrote this plan and dropped the stale `TODO.md`. | `7e48aa7` `2a693ca` |
 | 2026-08-10 | Web dashboard: follow-up completion, global palette, answer states. PR #3 merged. | `81b9a99` |

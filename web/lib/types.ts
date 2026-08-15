@@ -135,3 +135,29 @@ export interface Answer {
   retrieved_meetings: string[];
   iterations: number;
 }
+
+export type AskStreamEvent =
+  | { type: "thinking"; message: string }
+  | { type: "tool_call"; name: string; arguments: string; parsedArgs: unknown }
+  | { type: "tool_result"; name: string; arguments: string; result: unknown; summary: string }
+  | { type: "answer"; answer: string }
+  | {
+      type: "done";
+      answer: string;
+      citations: Citation[];
+      grounded: boolean;
+      refused: boolean;
+      retrieved_meetings: string[];
+      contexts?: string[];
+      iterations: number;
+    }
+  | { type: "error"; message: string };
+
+export interface AskStep {
+  id: string;
+  name: string;
+  label: string;
+  detail: string;
+  status: "running" | "done" | "error";
+  summary?: string;
+}

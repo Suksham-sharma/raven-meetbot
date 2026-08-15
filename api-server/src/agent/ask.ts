@@ -175,6 +175,38 @@ export interface AskOptions {
   provider?: ChatProvider;
 }
 
+export type AskStreamEvent =
+  | { type: "thinking"; message: string }
+  | { type: "tool_call"; name: string; arguments: string; parsedArgs: unknown }
+  | { type: "tool_result"; name: string; arguments: string; result: unknown; summary: string }
+  | { type: "answer"; answer: string }
+  | { type: "done"; result: AskResult }
+  | { type: "error"; message: string };
+
+function summarizeToolResult(name: string, result: unknown): string {
+  if (Array.isArray(result)) {
+    if (result.length === 0) return "no matches";
+    if (name === "search_transcript") return `found ${result.length} passage${result.length === 1 ? "" : "s"}`;
+    if (name === "search_structured") return `found ${result.length} record${result.length === 1 ? "" : "s"}`;
+    return `found ${result.length}`;
+  }
+  if (result && typeof result === "object") {
+    const r = result as Record<string, unknown>;
+    if (Array.isArray(r.rows)) {
+      const rows = r.rows as unknown[];
+      const total = typeof r.total_matched === "number" ? r.total_matched : rows.length;
+      const truncated = r.truncated === true ? ` (of ${total})` : "";
+      return `found ${rows.length}${truncated}`;
+    }
+    if (Array.isArray(r.meetings)) {
+      const ms = r.meetings as unknown[];
+      return `found ${ms.length} meeting${ms.length === 1 ? "" : "s"}`;
+    }
+    if (typeof r.note === "string") return r.note.slice(0, 80);
+  }
+  return "done";
+}
+
 export async function ask(
   question: string,
   ownerId: string | null,
@@ -329,4 +361,146 @@ export async function ask(
       endS: e.endS,
     })),
   };
+}
+
+export async function* askStream(
+  question: string,
+  ownerId: string | null,
+  options: AskOptions = {}
+): AsyncGenerator<AskStreamEvent> {
+  const { meetingId: scope = null, provider = openaiProvider } = options;
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content: scope
+        ? `${SYSTEM}\n\nSCOPE: answer only from meeting ${scope}. Every tool call is confined to it, so do not call list_meetings and do not ask which meeting is meant — it is this one. If this meeting does not answer the question, refuse.`
+        : SYSTEM,
+    },
+    { role: "user", content: question },
+  ];
+  const registry = new Map<string, RegistryEntry>();
+  const toolCallLog: { name: string; arguments: string }[] = [];
+  const seenCalls = new Set<string>();
+  let listedOnce = false;
+  let answer = "";
+  let iterations = 0;
+
+  yield { type: "thinking", message: "Understanding your question" };
+
+  for (let i = 0; i < MAX_ITERS; i++) {
+    iterations = i + 1;
+    const offered =
+      scope || listedOnce
+        ? TOOL_SPECS.filter((t) => t.name !== "list_meetings")
+        : TOOL_SPECS;
+
+    yield { type: "thinking", message: i === 0 ? "Planning which meetings to check" : "Deciding next step" };
+
+    const turn = await provider.chat({
+      messages,
+      tools: i < MAX_ITERS - 1 ? offered : undefined,
+    });
+
+    if (turn.toolCalls.length === 0) {
+      answer = turn.content ?? "";
+      if (answer) yield { type: "answer", answer: answer.replace(MARKER_RE, "").replace(/\s{2,}/g, " ").trim() };
+      break;
+    }
+
+    messages.push({ role: "assistant", content: turn.content, toolCalls: turn.toolCalls });
+    for (const tc of turn.toolCalls) {
+      toolCallLog.push({ name: tc.name, arguments: tc.arguments });
+      let parsed: unknown = {};
+      try {
+        parsed = tc.arguments ? JSON.parse(tc.arguments) : {};
+      } catch {
+        parsed = {};
+      }
+      yield { type: "tool_call", name: tc.name, arguments: tc.arguments, parsedArgs: parsed };
+
+      const sig = `${tc.name}:${tc.arguments}`;
+      let result: unknown;
+      if (tc.name === "list_meetings" && listedOnce) {
+        result = {
+          note: "You already listed meetings. Do NOT list again. From those results, PICK the one meeting_id that fits the question's date/recency cue (e.g. an explicit month → that date; 'current/latest' → newest; 'original/first' → earliest; otherwise newest), then call search_transcript or search_structured with that meeting_id now.",
+        };
+      } else if (seenCalls.has(sig)) {
+        result = {
+          note: "You already called this exact tool with these arguments. Use a DIFFERENT tool or arguments — to read meeting content call search_transcript or search_structured, then answer.",
+        };
+      } else {
+        if (tc.name === "list_meetings") listedOnce = true;
+        seenCalls.add(sig);
+        if (scope && parsed && typeof parsed === "object") {
+          (parsed as { meeting_id?: string }).meeting_id = scope;
+        }
+        result = await runTool(tc.name, parsed, ownerId);
+        harvest(registry, result);
+      }
+      const summary = summarizeToolResult(tc.name, result);
+      yield { type: "tool_result", name: tc.name, arguments: tc.arguments, result, summary };
+      messages.push({
+        role: "tool",
+        toolCallId: tc.id,
+        content: JSON.stringify(result),
+      });
+    }
+  }
+
+  const meetingIds = [...new Set([...registry.values()].map((e) => e.meetingId))];
+  const offsets = new Map<string, { offset: number; url: string | null }>();
+  const meta = new Map<string, { title: string | null; date: Date | null }>();
+  if (meetingIds.length) {
+    const rows = await db
+      .select({
+        id: meetings.id,
+        title: meetings.title,
+        date: meetings.startedAt,
+        offset: meetings.recordingOffsetS,
+        url: meetings.recordingUrl,
+      })
+      .from(meetings)
+      .where(
+        ownerId
+          ? and(inArray(meetings.id, meetingIds), eq(meetings.ownerId, ownerId))
+          : inArray(meetings.id, meetingIds)
+      );
+    for (const r of rows) {
+      offsets.set(r.id, { offset: r.offset, url: r.url });
+      meta.set(r.id, { title: r.title, date: r.date });
+    }
+  }
+
+  const citations = resolveCitations(answer, registry, offsets);
+  const refused = answer.trim().startsWith(REFUSAL);
+  const grounded = refused || citations.length > 0;
+  const cleanAnswer = answer.replace(MARKER_RE, "").replace(/\s{2,}/g, " ").trim();
+  const contexts = [
+    ...new Map(
+      [...registry.values()].map((e) => {
+        const m = meta.get(e.meetingId);
+        const date = m?.date ? m.date.toISOString().slice(0, 10) : "unknown date";
+        const tag = `[meeting "${m?.title ?? e.meetingId}" (${date}) | ${e.speaker ?? "speaker"} @${e.startS}s]`;
+        return [`${e.meetingId}@${Math.round(e.startS)}`, `${tag} ${e.text}`];
+      })
+    ).values(),
+  ];
+
+  const finalResult: AskResult = {
+    answer: cleanAnswer,
+    citations,
+    grounded,
+    refused,
+    iterations,
+    toolCalls: toolCallLog,
+    contexts,
+    retrievedMeetings: meetingIds,
+    evidence: [...registry.values()].map((e) => ({
+      meetingId: e.meetingId,
+      startS: e.startS,
+      endS: e.endS,
+    })),
+  };
+
+  yield { type: "done", result: finalResult };
 }

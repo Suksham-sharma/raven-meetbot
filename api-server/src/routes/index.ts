@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { joinMeet } from "../controllers/meet.controller";
 import { getBotStatus, listBots } from "../controllers/bot.controller";
-import { askQuestion } from "../controllers/ask.controller";
+import { askQuestion, askStreamHandler } from "../controllers/ask.controller";
 import {
   approveAction,
   listMeetingActions,
@@ -36,6 +36,7 @@ apiRouter.post("/join-meet", joinMeet);
 apiRouter.get("/bots/:jobId/status", getBotStatus);
 apiRouter.get("/bots", listBots);
 apiRouter.post("/ask", askQuestion);
+apiRouter.post("/ask/stream", askStreamHandler);
 apiRouter.get("/meetings", listMeetings);
 apiRouter.get("/meetings/:id", getMeeting);
 apiRouter.get("/meetings/:id/transcript", getMeetingTranscript);

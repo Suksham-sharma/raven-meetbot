@@ -109,4 +109,62 @@ export const api = {
       body: JSON.stringify({ q, meeting_id: meetingId }),
       timeoutMs: 60_000,
     }),
+
+  // Streaming variant — yields tool-call progress via SSE (POST + JWT, so fetch + ReadableStream, not EventSource).
+  askStream: async (
+    q: string,
+    onEvent: (event: import("./types").AskStreamEvent) => void,
+    opts?: { meetingId?: string; signal?: AbortSignal },
+  ): Promise<void> => {
+    const res = await fetch(`/api/v1/ask/stream`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json", accept: "text/event-stream" },
+      body: JSON.stringify({ q, meeting_id: opts?.meetingId }),
+      signal: opts?.signal,
+    });
+    if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
+    if (!res.body) throw new Error("No response body for stream");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE frames are `data: {...}\n\n` — split on double newline and parse complete frames
+      let sep: number;
+      while ((sep = buffer.indexOf("\n\n")) !== -1) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        const dataLines = frame
+          .split("\n")
+          .filter((l) => l.startsWith("data:"))
+          .map((l) => l.slice(5).trim());
+        if (!dataLines.length) continue;
+        const raw = dataLines.join("\n");
+        try {
+          const event = JSON.parse(raw) as import("./types").AskStreamEvent;
+          onEvent(event);
+        } catch {
+          // ignore malformed frame
+        }
+      }
+    }
+
+    // Flush trailing frame if server ended without double newline
+    if (buffer.trim().startsWith("data:")) {
+      const raw = buffer.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("\n");
+      if (raw) {
+        try {
+          onEvent(JSON.parse(raw) as import("./types").AskStreamEvent);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  },
 };
