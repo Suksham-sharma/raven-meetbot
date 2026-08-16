@@ -125,23 +125,51 @@ export const api = {
       `/bots/${encodeURIComponent(jobId)}/status`
     ),
 
-  uploadMeeting: (file: File, title?: string) => {
-    const fd = new FormData();
-    fd.set("file", file);
-    if (title) fd.set("title", title);
-    return fetch(`/api/v1/meetings/upload`, { method: "POST", credentials: "same-origin", body: fd }).then(async (r) => {
+  presignUpload: (title?: string, fileName?: string, contentType?: string, contentLength?: number) =>
+    request<{ meeting_id: string; key: string; upload_url: string; method: string; headers: Record<string, string> }>("/meetings/upload/presign", {
+      method: "POST",
+      body: JSON.stringify({ title, fileName, contentType, contentLength }),
+    }),
+
+  completeUpload: (meetingId: string) =>
+    request<{ meeting_id: string; status: string }>(`/meetings/${encodeURIComponent(meetingId)}/complete`, { method: "POST" }),
+
+  directUpload: (meetingId: string, file: File) =>
+    fetch(`/api/v1/meetings/${encodeURIComponent(meetingId)}/upload`, {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": file.type || "video/webm" },
+      body: file,
+    }).then(async (r) => {
       if (!r.ok) throw new ApiError(r.status, await errorMessage(r));
-      return r.json() as Promise<{ meeting_id: string; title: string | null; status: string }>;
-    });
+      return r.json() as Promise<{ meeting_id: string; key: string }>;
+    }),
+
+  // presigned: browser PUTs directly to R2 (or to /meetings/:id/upload for local), then complete
+  uploadMeeting: async (file: File, title?: string) => {
+    const presign = await api.presignUpload(title, file.name, file.type, file.size);
+    const isLocal = presign.upload_url.startsWith("/api/");
+    if (isLocal) {
+      await api.directUpload(presign.meeting_id, file);
+    } else {
+      const put = await fetch(presign.upload_url, { method: "PUT", headers: presign.headers, body: file });
+      if (!put.ok) throw new ApiError(put.status, `upload failed: ${put.statusText}`);
+    }
+    await api.completeUpload(presign.meeting_id);
+    return { meeting_id: presign.meeting_id, key: presign.key, status: "processing" };
   },
 
-  bulkUpload: (files: File[]) => {
-    const fd = new FormData();
-    for (const f of files) fd.append("files", f);
-    return fetch(`/api/v1/meetings/bulk-upload`, { method: "POST", credentials: "same-origin", body: fd }).then(async (r) => {
-      if (!r.ok) throw new ApiError(r.status, await errorMessage(r));
-      return r.json() as Promise<{ meetings: { meeting_id: string; title: string | null; status: string; error?: string }[] }>;
-    });
+  bulkUpload: async (files: File[]) => {
+    const results: { meeting_id: string; key: string; status: string; error?: string }[] = [];
+    for (const file of files) {
+      try {
+        const r = await api.uploadMeeting(file);
+        results.push({ meeting_id: r.meeting_id, key: r.key, status: r.status });
+      } catch (err) {
+        results.push({ meeting_id: "", key: "", status: "failed", error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    return { meetings: results };
   },
 
   search: (params: { q: string; k?: number; speaker?: string; meeting_id?: string; type?: string; participant?: string; from?: string; to?: string }) =>

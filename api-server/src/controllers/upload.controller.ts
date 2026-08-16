@@ -1,42 +1,15 @@
 import { Request, Response } from "express";
 import { randomBytes } from "crypto";
 import { eq } from "drizzle-orm";
-import multer from "multer";
-import os from "os";
 import { db } from "../db/client";
 import { meetings } from "../db/schema";
 import { getArtifactStore } from "../diarize/artifactStore";
 import { diarizeQueue, memoryQueue, transcodeQueue } from "../lib/queueManager";
-import { BadRequestError, UnauthorizedError } from "../utils/AppError";
+import { BadRequestError, NotFoundError, UnauthorizedError } from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
 
-const ALLOWED_MIMES = new Set([
-  "video/webm",
-  "video/mp4",
-  "video/quicktime",
-  "video/x-msvideo",
-  "video/x-matroska",
-  "audio/webm",
-  "audio/mpeg",
-  "audio/mp4",
-  "audio/wav",
-  "audio/ogg",
-  "audio/x-wav",
-]);
-
-const MAX_FILE_BYTES = 500 * 1024 * 1024;
-
-export const uploadMulter = multer({
-  dest: os.tmpdir(),
-  limits: { fileSize: MAX_FILE_BYTES },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIMES.has(file.mimetype) || file.mimetype.startsWith("video/") || file.mimetype.startsWith("audio/")) {
-      cb(null, true);
-    } else {
-      cb(new BadRequestError(`unsupported file type: ${file.mimetype}`) as unknown as Error);
-    }
-  },
-});
+const MAX_BYTES = 500 * 1024 * 1024;
+const PRESIGN_TTL_S = 3600;
 
 function generateMeetingId(): string {
   const now = new Date();
@@ -53,87 +26,150 @@ function requireUserId(req: Request): string {
   return userId;
 }
 
-async function handleSingleUpload(req: Request): Promise<{ meetingId: string; recordingKey: string }> {
-  const userId = requireUserId(req);
-  const file = (req as unknown as { file?: Express.Multer.File }).file;
-  if (!file) throw new BadRequestError("file is required (field name: file)");
+function sanitizeTitle(raw: unknown, fallback: string): string | null {
+  if (typeof raw === "string" && raw.trim()) return raw.trim().slice(0, 200);
+  const f = String(fallback ?? "").replace(/\.[^.]+$/, "").trim();
+  return f ? f.slice(0, 200) : null;
+}
 
-  const titleRaw = typeof req.body?.title === "string" ? req.body.title.trim() : "";
-  const title = titleRaw || file.originalname.replace(/\.[^.]+$/, "") || null;
+function inferContentType(fileName?: string, hint?: string): string {
+  if (hint && hint.startsWith("video/")) return hint;
+  if (hint && hint.startsWith("audio/")) return hint;
+  if (fileName?.endsWith(".mp4")) return "video/mp4";
+  if (fileName?.endsWith(".mov")) return "video/quicktime";
+  if (fileName?.endsWith(".wav")) return "audio/wav";
+  if (fileName?.endsWith(".mp3")) return "audio/mpeg";
+  if (fileName?.endsWith(".m4a")) return "audio/mp4";
+  return "video/webm";
+}
+
+export const presignUpload = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const { title: rawTitle, contentType: rawCt, fileName, contentLength } = (req.body ?? {}) as {
+    title?: string;
+    contentType?: string;
+    fileName?: string;
+    contentLength?: number;
+  };
+
+  if (typeof contentLength === "number" && contentLength > MAX_BYTES) {
+    throw new BadRequestError(`file too large — max ${MAX_BYTES} bytes`);
+  }
 
   const meetingId = generateMeetingId();
   const recordingKey = `${meetingId}.webm`;
-  const store = getArtifactStore();
+  const contentType = inferContentType(fileName, rawCt);
+  const title = sanitizeTitle(rawTitle, fileName ?? "");
 
-  await store.writeFile(recordingKey, file.path);
-
-  const now = new Date();
   await db.insert(meetings).values({
     id: meetingId,
     ownerId: userId,
     title,
     recordingUrl: recordingKey,
     status: "pending",
-    startedAt: now,
+    startedAt: new Date(),
     participants: [],
   });
+
+  const store = getArtifactStore();
+  const presigned = await store.presignUpload(recordingKey, contentType);
+
+  if (presigned) {
+    res.status(201).json({
+      meeting_id: meetingId,
+      key: recordingKey,
+      upload_url: presigned,
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      expires_in: PRESIGN_TTL_S,
+    });
+    return;
+  }
+
+  const uploadUrl = `/api/v1/meetings/${encodeURIComponent(meetingId)}/upload`;
+  res.status(201).json({
+    meeting_id: meetingId,
+    key: recordingKey,
+    upload_url: uploadUrl,
+    method: "PUT",
+    headers: { "Content-Type": contentType },
+    expires_in: PRESIGN_TTL_S,
+  });
+});
+
+export const presignBulkUpload = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const { files } = (req.body ?? {}) as {
+    files?: Array<{ title?: string; contentType?: string; fileName?: string; contentLength?: number }>;
+  };
+  if (!Array.isArray(files) || files.length === 0) throw new BadRequestError("files[] is required");
+  if (files.length > 20) throw new BadRequestError("too many files — max 20");
+
+  const store = getArtifactStore();
+  const out: Array<{ meeting_id: string; key: string; upload_url: string; method: string; headers: Record<string, string> }> = [];
+
+  for (const f of files) {
+    if (typeof f.contentLength === "number" && f.contentLength > MAX_BYTES) {
+      throw new BadRequestError(`file ${f.fileName ?? ""} too large`);
+    }
+    const meetingId = generateMeetingId();
+    const recordingKey = `${meetingId}.webm`;
+    const contentType = inferContentType(f.fileName, f.contentType);
+    const title = sanitizeTitle(f.title, f.fileName ?? "");
+    await db.insert(meetings).values({
+      id: meetingId,
+      ownerId: userId,
+      title,
+      recordingUrl: recordingKey,
+      status: "pending",
+      startedAt: new Date(),
+      participants: [],
+    });
+    const presigned = await store.presignUpload(recordingKey, contentType);
+    const uploadUrl = presigned ?? `/api/v1/meetings/${encodeURIComponent(meetingId)}/upload`;
+    out.push({ meeting_id: meetingId, key: recordingKey, upload_url: uploadUrl, method: "PUT", headers: { "Content-Type": contentType } });
+  }
+
+  res.status(201).json({ meetings: out });
+});
+
+export const directUpload = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const meetingId = String(req.params.id);
+  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId));
+  if (!meeting || meeting.ownerId !== userId) throw new NotFoundError(`meeting ${meetingId} not found`);
+
+  const key = meeting.recordingUrl ?? `${meetingId}.webm`;
+  const contentType = (req.headers["content-type"] as string) || "video/webm";
+  const contentLength = Number(req.headers["content-length"] ?? 0);
+  if (contentLength > MAX_BYTES) throw new BadRequestError("file too large");
+
+  const store = getArtifactStore();
+  await store.writeStream(key, req as unknown as NodeJS.ReadableStream, contentType);
+
+  res.status(200).json({ meeting_id: meetingId, key, bytes: contentLength || null });
+});
+
+export const completeUpload = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const meetingId = String(req.params.id);
+  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId));
+  if (!meeting || meeting.ownerId !== userId) throw new NotFoundError(`meeting ${meetingId} not found`);
+
+  const recordingKey = meeting.recordingUrl ?? `${meetingId}.webm`;
+  const store = getArtifactStore();
+  if (!(await store.exists(recordingKey))) {
+    throw new BadRequestError("upload not found — PUT the file to upload_url first");
+  }
 
   await transcodeQueue.add("transcode", { meetingId, recordingKey }, { jobId: meetingId });
 
   const hasDeepgram = Boolean(process.env.DEEPGRAM_API_KEY);
   if (hasDeepgram) {
-    await diarizeQueue.add(
-      "diarize",
-      { meetingId, recordingKey, speakersKey: null, ownerId: userId },
-      { jobId: meetingId }
-    );
+    await diarizeQueue.add("diarize", { meetingId, recordingKey, speakersKey: null, ownerId: userId }, { jobId: meetingId });
   } else {
     await memoryQueue.add("ingest", { meetingId, ownerId: userId }, { jobId: meetingId });
   }
 
-  try {
-    const { unlink } = await import("fs/promises");
-    await unlink(file.path).catch(() => {});
-  } catch {}
-
-  return { meetingId, recordingKey };
-}
-
-export const uploadMeeting = asyncHandler(async (req: Request, res: Response) => {
-  const { meetingId } = await handleSingleUpload(req);
-  const meeting = await db.select().from(meetings).where(eq(meetings.id, meetingId)).then((r) => r[0]);
-  res.status(201).json({
-    meeting_id: meetingId,
-    title: meeting?.title ?? null,
-    recording_key: `${meetingId}.webm`,
-    status: "pending",
-  });
-});
-
-export const bulkUploadMeetings = asyncHandler(async (req: Request, res: Response) => {
-  const files = (req as unknown as { files?: Express.Multer.File[] }).files;
-  if (!files || files.length === 0) throw new BadRequestError("at least one file is required (field name: files)");
-  if (files.length > 20) throw new BadRequestError("too many files — max 20 per request");
-
-  const results: Array<{ meeting_id: string; title: string | null; status: string; error?: string }> = [];
-  for (const f of files) {
-    const fakeReq = { ...req, file: f, body: req.body } as unknown as Request & { file: Express.Multer.File };
-    try {
-      const { meetingId } = await handleSingleUpload(fakeReq as unknown as Request);
-      const [row] = await db.select().from(meetings).where(eq(meetings.id, meetingId));
-      results.push({ meeting_id: meetingId, title: row?.title ?? null, status: "pending" });
-    } catch (err) {
-      results.push({
-        meeting_id: "",
-        title: f.originalname,
-        status: "failed",
-        error: err instanceof Error ? err.message : String(err),
-      });
-      try {
-        const { unlink } = await import("fs/promises");
-        await unlink(f.path).catch(() => {});
-      } catch {}
-    }
-  }
-  res.status(201).json({ meetings: results });
+  res.status(202).json({ meeting_id: meetingId, status: "processing", recording_key: recordingKey });
 });

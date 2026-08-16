@@ -315,7 +315,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
         setMsg(`Uploaded → ${res.meeting_id}`);
       } else {
         const res = await bulk.mutateAsync(arr);
-        setMsg(`${res.meetings.length} files queued — ${res.meetings.map((m) => m.meeting_id || m.title).join(", ")}`);
+        setMsg(`${res.meetings.length} files queued — ${res.meetings.map((m) => m.meeting_id).join(", ")}`);
       }
     } catch (ex) {
       setMsg(ex instanceof Error ? ex.message : String(ex));

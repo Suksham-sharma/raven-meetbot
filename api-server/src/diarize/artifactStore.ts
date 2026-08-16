@@ -30,8 +30,10 @@ export interface ArtifactStore {
   resolve(key: string): Promise<ResolvedArtifact>;
   write(key: string, data: string | Buffer): Promise<void>;
   writeFile(key: string, localPath: string): Promise<void>;
+  writeStream(key: string, stream: NodeJS.ReadableStream, contentType?: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   playbackUrl(key: string): Promise<string | null>;
+  presignUpload(key: string, contentType: string): Promise<string | null>;
   delete(key: string): Promise<void>;
 }
 
@@ -129,11 +131,34 @@ class R2ArtifactStore implements ArtifactStore {
     }
   }
 
+  async writeStream(key: string, stream: NodeJS.ReadableStream, contentTypeOverride?: string): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: stream as unknown as Readable,
+        ContentType: contentTypeOverride ?? contentType(key),
+      })
+    );
+  }
+
   async playbackUrl(key: string): Promise<string> {
     return getSignedUrl(
       this.client,
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       { expiresIn: PLAYBACK_URL_TTL_S }
+    );
+  }
+
+  async presignUpload(key: string, contentTypeHeader: string): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ContentType: contentTypeHeader || contentType(key),
+      }),
+      { expiresIn: 3600 }
     );
   }
 
@@ -183,7 +208,17 @@ class LocalArtifactStore implements ArtifactStore {
     }
   }
 
+  async writeStream(key: string, stream: NodeJS.ReadableStream, contentType?: string): Promise<void> {
+    const dest = path.join(this.dir, key);
+    await mkdir(this.dir, { recursive: true });
+    await pipeline(stream as unknown as Readable, createWriteStream(dest));
+  }
+
   async playbackUrl(): Promise<null> {
+    return null;
+  }
+
+  async presignUpload(): Promise<null> {
     return null;
   }
 
