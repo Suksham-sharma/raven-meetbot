@@ -279,8 +279,8 @@ while the meeting is happening. That is the adoption ceiling.*
       meetings the bot joins (all / external only / manual). Every competitor has
       this; it is the difference between an impressive system and something used
       on Monday. Largest single adoption unlock in this doc.
-- [x] **Upload an existing recording.** `POST /meetings/upload` (multer 500MB, video/audio) → `getArtifactStore().writeFile` as `{id}.webm` → `meetings` row + `transcode` enqueue + `diarize` with `speakersKey=null` fallback to `diarizeWithoutTimeline` (Speaker N) → `6c2330f`. Demoable without a bot.
-- [x] **Bulk backfill import** — `POST /meetings/bulk-upload` (array `files`, max 20) reuses the same path per file; `web` drag-drop calls single vs bulk automatically → `6c2330f`.
+- [x] **Upload an existing recording.** `POST /meetings/upload/presign` → presigned `PUT` (R2 presigned `PutObject`, local `PUT /meetings/:id/upload` streaming via `writeStream`) → `POST /meetings/:id/complete` enqueues `transcode` + `diarize` with `speakersKey=null` fallback to `diarizeWithoutTimeline` (Speaker N) → `cb632a7`. Demoable without a bot.
+- [x] **Bulk backfill import** — `POST /meetings/bulk-upload/presign` reuses the same presigned path per file; `web` drag-drop calls single vs bulk automatically → `cb632a7`.
 - [x] Manual join UX in the dashboard — **done** `6c2330f` (`Join a meeting` + `Upload recording` buttons on `/`, `JoinDialog` → `POST /join-meet` → polls `GET /bots/:jobId/status` timeline, `UploadDialog` with drag-drop/title).
 - [ ] **Zoom / Teams capture.** Container-per-meeting already generalizes; the
       capture layer is the only rewrite. Scope after Meet is genuinely solid.
