@@ -49,7 +49,7 @@ corpus to compound, and pointless to deploy if it isn't built.
 
 ## 1. Position
 
-**Branch:** `main` = `994e50e`, uncommitted Phase 2 work on top.
+**Branch:** `main` = `f690e5f`, pushed.
 
 **What works end to end today:** bot joins a real Google Meet → records →
 transcode to a seekable mp4 → batch diarization with real speaker names → memory
@@ -532,7 +532,8 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
-| 2026-08-15 | **Phase 2 started — rebuild + owner stop.** Rebuilt `meet-bot:latest` (`20c8d65b`, `--no-cache`) and verified transcriber fix in image; owner can now `POST /bots/:jobId/stop` (api `controlQueue` + orchestrator `bot-control` worker + `dockerManager.stopByJobId` with `com.meetbot.jobId` label). Recording consent decided: user-based exit, no auto chat announcement. ⚠️ not yet verified on a live meeting/container. | uncommitted |
+| 2026-08-15 | **Phase 2 started — rebuild + owner stop.** Rebuilt `meet-bot:latest` (`20c8d65b`, `--no-cache`) and verified transcriber fix in image; owner can now `POST /bots/:jobId/stop` (api `controlQueue` + orchestrator `bot-control` worker + `dockerManager.stopByJobId` with `com.meetbot.jobId` label). Recording consent decided: user-based exit, no auto chat announcement. ⚠️ not yet verified on a live meeting/container. | `f690e5f` |
+| 2026-08-16 | **Stop landed.** Committed `POST /bots/:jobId/stop` (`f690e5f`) — typecheck + 19 tests pass. Next: Phase 3 (upload). | `f690e5f` |
 | 2026-08-15 | **Phase 1 done.** Pipeline status (`transcoding/diarizing/ingesting/ready/failed` + `status_error` + retry) · delete/export/rename · list filters (`q/type/participant/from/to`) · plain `GET /search` + speaker filter. Verified: `GET /meetings?q=sales`, `GET /search?q=SSO`, speaker `Ankur`, `PATCH` rename, `DELETE` + `GET /export`. | `d8196ca` |
 | 2026-08-15 | Ask streams live — `askStream` generator + `POST /ask/stream` SSE + `LiveSteps` checklist replaces fake `Thinking`. `POST /ask` kept for eval. ⚠️ built + typechecked, not yet verified against a live OpenAI call. | `9d26057` |
 | 2026-08-14 | **Phase 0 closed.** Transcode slice verified + landed; playback endpoints with Range; `/m/[id]` with player, chapters, virtualized transcript, captions; citation loop wired (every citation in the product was inert); ask scoped to one meeting. Root-caused the audio/video clock splice, re-transcribed the real meeting and verified it against the mp4's own audio. Also fixed `"null"` owners and a dead `onPlay`. | `7417818` `3cdaf7f` `7a7eba5` `7a70036` `1dfcd01` `d0387d9` `ed40ea0` `b36bb7a` |
