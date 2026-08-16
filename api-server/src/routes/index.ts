@@ -22,6 +22,7 @@ import {
   updateMeeting,
 } from "../controllers/meetings.controller";
 import { plainSearch } from "../controllers/search.controller";
+import { bulkUploadMeetings, uploadMeeting, uploadMulter } from "../controllers/upload.controller";
 import { login, logout, me, register } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth";
 
@@ -53,6 +54,8 @@ apiRouter.get("/meetings/:id/transcript", getMeetingTranscript);
 apiRouter.post("/meetings/:id/retry", retryMeeting);
 apiRouter.get("/meetings/:id/recording", getMeetingRecording);
 apiRouter.get("/meetings/:id/recording/stream", streamMeetingRecording);
+apiRouter.post("/meetings/upload", uploadMulter.single("file"), uploadMeeting);
+apiRouter.post("/meetings/bulk-upload", uploadMulter.array("files", 20), bulkUploadMeetings);
 apiRouter.get("/meetings/:id/recording/poster", streamMeetingPoster);
 apiRouter.get("/meetings/:id/actions", listMeetingActions);
 apiRouter.get("/action-items", listActionItems);

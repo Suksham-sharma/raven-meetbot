@@ -11,11 +11,15 @@ import { EmptyState, SkeletonCard, SkeletonRow } from "@/components/raven/states
 import { Button } from "@/components/ui/button";
 import {
   useActionItems,
+  useBotStatus,
+  useBulkUpload,
+  useJoinMeet,
   useMeetings,
   usePlainSearch,
   useRetryMeeting,
   useSession,
   useToggleActionItem,
+  useUploadMeeting,
 } from "@/lib/queries";
 import { corpusLabel, groupByDay, toRow } from "@/lib/meetings";
 import type { MeetingSummary, OpenAction } from "@/lib/types";
@@ -47,6 +51,8 @@ export default function MeetingsPage() {
   const [plainQ, setPlainQ] = React.useState("");
   const [speaker, setSpeaker] = React.useState("");
   const plain = usePlainSearch(plainQ, { speaker: speaker || undefined, enabled: Boolean(plainQ) });
+  const [joinOpen, setJoinOpen] = React.useState(false);
+  const [uploadOpen, setUploadOpen] = React.useState(false);
   const {
     data,
     error,
@@ -96,7 +102,13 @@ export default function MeetingsPage() {
               {corpusLabel(data.corpus)}
             </p>
           )}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button variant="primary" size="sm" onClick={() => setJoinOpen(true)}>Join a meeting</Button>
+            <Button variant="secondary" size="sm" onClick={() => setUploadOpen(true)}>Upload recording</Button>
+          </div>
         </header>
+        {joinOpen && <JoinDialog onClose={() => setJoinOpen(false)} />}
+        {uploadOpen && <UploadDialog onClose={() => setUploadOpen(false)} />}
         <div className="mb-6 flex flex-wrap gap-2">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search meetings…" className="h-8 w-48 rounded-md border border-rule bg-paper px-2 text-sm" />
           <input value={type} onChange={(e) => setType(e.target.value)} placeholder="Type" className="h-8 w-28 rounded-md border border-rule bg-paper px-2 text-sm" />
@@ -228,6 +240,114 @@ function Archive({
 // from ballooning into a big grey box on a wide column (aspect-video means
 // width sets height). Extra width becomes a right-hand gap, not taller cards.
 const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(232px,300px))] gap-4";
+
+function JoinDialog({ onClose }: { onClose: () => void }) {
+  const [url, setUrl] = React.useState("");
+  const [err, setErr] = React.useState("");
+  const join = useJoinMeet();
+  const [jobId, setJobId] = React.useState<string | null>(null);
+  const status = useBotStatus(jobId ?? "", Boolean(jobId));
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    if (!url.trim()) { setErr("Paste a Google Meet link"); return; }
+    try {
+      const res = await join.mutateAsync({ url: url.trim() });
+      setJobId(res.jobId);
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : String(ex));
+    }
+  }
+
+  return (
+    <div className="mb-6 rounded-lg border border-rule bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-medium">Join a meeting</h3>
+        <button onClick={onClose} className="text-xs text-ink-3 hover:text-ink-1">Close</button>
+      </div>
+      {!jobId ? (
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://meet.google.com/abc-defg-hij" className="h-9 w-full rounded-md border border-rule bg-paper px-3 text-sm" />
+          {err && <p className="text-xs text-live">{err}</p>}
+          <div className="flex gap-2">
+            <Button type="submit" variant="primary" size="sm" loading={join.isPending}>Dispatch bot</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          </div>
+          <p className="text-xs text-ink-3">Raven joins as a visible participant. Everyone in the call can see it.</p>
+        </form>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-sm">Bot dispatched <span className="font-mono text-xs">{jobId}</span></p>
+          <p className="text-xs text-ink-3">Status: {status.data?.status ?? "queued"} · {status.data?.timeline?.slice(-1)[0]?.state ?? ""}</p>
+          {status.data?.timeline && status.data.timeline.length > 0 && (
+            <ul className="space-y-1">
+              {status.data.timeline.slice(-4).map((t) => (
+                <li key={t.timestamp} className="text-xs text-ink-3">{t.state} · {new Date(t.timestamp).toLocaleTimeString()}</li>
+              ))}
+            </ul>
+          )}
+          {status.error && <p className="text-xs text-live">{(status.error as Error).message}</p>}
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setJobId(null)}>Join another</Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>Done</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UploadDialog({ onClose }: { onClose: () => void }) {
+  const upload = useUploadMeeting();
+  const bulk = useBulkUpload();
+  const [dragOver, setDragOver] = React.useState(false);
+  const [msg, setMsg] = React.useState("");
+  const [title, setTitle] = React.useState("");
+
+  async function handleFiles(files: FileList | File[]) {
+    const arr = Array.from(files);
+    if (arr.length === 0) return;
+    setMsg("");
+    try {
+      if (arr.length === 1) {
+        const res = await upload.mutateAsync({ file: arr[0], title: title.trim() || undefined });
+        setMsg(`Uploaded → ${res.meeting_id}`);
+      } else {
+        const res = await bulk.mutateAsync(arr);
+        setMsg(`${res.meetings.length} files queued — ${res.meetings.map((m) => m.meeting_id || m.title).join(", ")}`);
+      }
+    } catch (ex) {
+      setMsg(ex instanceof Error ? ex.message : String(ex));
+    }
+  }
+
+  return (
+    <div className="mb-6 rounded-lg border border-rule bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-medium">Upload recording</h3>
+        <button onClick={onClose} className="text-xs text-ink-3 hover:text-ink-1">Close</button>
+      </div>
+      <div className="space-y-3">
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional, defaults to filename)" className="h-9 w-full rounded-md border border-rule bg-paper px-3 text-sm" />
+        <label
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files) handleFiles(e.dataTransfer.files); }}
+          className={`flex flex-col items-center justify-center rounded-md border border-dashed px-4 py-8 text-center ${dragOver ? "border-accent bg-accent/5" : "border-rule bg-sunk"}`}
+        >
+          <span className="text-sm">Drop video/audio here or click to choose</span>
+          <span className="mt-1 text-xs text-ink-3">webm, mp4, mov, wav, mp3 — up to 500MB, max 20 files</span>
+          <input type="file" accept="video/*,audio/*" multiple className="hidden" onChange={(e) => e.target.files && handleFiles(e.target.files)} />
+          <span className="mt-3 inline-flex h-8 items-center rounded-full border border-rule bg-paper px-4 text-xs">Choose files</span>
+        </label>
+        {(upload.isPending || bulk.isPending) && <p className="text-xs text-ink-3">Uploading…</p>}
+        {msg && <p className="text-xs text-ink-2">{msg}</p>}
+        <p className="text-xs text-ink-3">Stored as your meeting — transcode + transcription run automatically. Watch the list for the new row.</p>
+      </div>
+    </div>
+  );
+}
 
 function Loading() {
   return (

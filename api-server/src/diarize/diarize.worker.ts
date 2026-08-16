@@ -5,7 +5,7 @@ import { db, pool } from "../db/client";
 import { meetings } from "../db/schema";
 import { diarizeQueue, memoryQueue, type DiarizeJob } from "../lib/queueManager";
 import { getArtifactStore } from "./artifactStore";
-import { diarizeRecording, serializeNamedTranscript } from "./pipeline";
+import { diarizeRecording, diarizeWithoutTimeline, serializeNamedTranscript } from "./pipeline";
 
 // v4 post-processing worker: one job = one finished recording → fetch from R2 →
 // diarize (keyterms from tile names) → interval-vote name-merge → write
@@ -31,14 +31,27 @@ const worker = new Worker<DiarizeJob>(
 
     const store = getArtifactStore();
     const webm = await store.resolve(recordingKey);
-    const speakers = await store.resolve(speakersKey);
-
+    let speakers: Awaited<ReturnType<typeof store.resolve>> | null = null;
     let namedKey: string;
     try {
-      const result = await diarizeRecording(webm.path, speakers.path, {
-        apiKey,
-        onLog: log,
-      });
+      let result;
+      if (speakersKey) {
+        try {
+          speakers = await store.resolve(speakersKey);
+          result = await diarizeRecording(webm.path, speakers.path, {
+            apiKey,
+            onLog: log,
+          });
+        } catch (err) {
+          if (err instanceof Error && err.name === "ArtifactNotFoundError") {
+            log(`speakers ${speakersKey} not found — falling back to timeline-free diarization`);
+            result = await diarizeWithoutTimeline(webm.path, { apiKey, onLog: log });
+          } else throw err;
+        }
+      } else {
+        log("no speakers timeline — using timeline-free diarization");
+        result = await diarizeWithoutTimeline(webm.path, { apiKey, onLog: log });
+      }
       for (const a of result.assignments) {
         log(
           `Speaker ${a.speaker} → ${a.name} ` +
@@ -58,7 +71,7 @@ const worker = new Worker<DiarizeJob>(
       throw err;
     } finally {
       await webm.cleanup();
-      await speakers.cleanup();
+      if (speakers) await speakers.cleanup();
     }
 
     if (systemConfig.INGEST_AFTER_DIARIZE) {

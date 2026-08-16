@@ -114,6 +114,36 @@ export const api = {
       method: "POST",
     }),
 
+  joinMeet: (url: string, botName?: string) =>
+    request<{ jobId: string; message: string }>("/join-meet", {
+      method: "POST",
+      body: JSON.stringify({ url, botName }),
+    }),
+
+  botStatus: (jobId: string) =>
+    request<{ jobId: string; status: string; meetingUrl: string; botName: string; timeline: { state: string; timestamp: string }[] }>(
+      `/bots/${encodeURIComponent(jobId)}/status`
+    ),
+
+  uploadMeeting: (file: File, title?: string) => {
+    const fd = new FormData();
+    fd.set("file", file);
+    if (title) fd.set("title", title);
+    return fetch(`/api/v1/meetings/upload`, { method: "POST", credentials: "same-origin", body: fd }).then(async (r) => {
+      if (!r.ok) throw new ApiError(r.status, await errorMessage(r));
+      return r.json() as Promise<{ meeting_id: string; title: string | null; status: string }>;
+    });
+  },
+
+  bulkUpload: (files: File[]) => {
+    const fd = new FormData();
+    for (const f of files) fd.append("files", f);
+    return fetch(`/api/v1/meetings/bulk-upload`, { method: "POST", credentials: "same-origin", body: fd }).then(async (r) => {
+      if (!r.ok) throw new ApiError(r.status, await errorMessage(r));
+      return r.json() as Promise<{ meetings: { meeting_id: string; title: string | null; status: string; error?: string }[] }>;
+    });
+  },
+
   search: (params: { q: string; k?: number; speaker?: string; meeting_id?: string; type?: string; participant?: string; from?: string; to?: string }) =>
     request<{ query: string; hits: import("./types").SearchHit[] }>(`/search${query(params as Record<string, string | number | undefined>)}`),
 

@@ -177,3 +177,35 @@ export function usePlainSearch(q: string, opts: { speaker?: string; enabled?: bo
     enabled: Boolean(q) && (opts.enabled ?? true),
   });
 }
+
+export function useJoinMeet() {
+  return useMutation({
+    mutationFn: ({ url, botName }: { url: string; botName?: string }) => api.joinMeet(url, botName),
+  });
+}
+
+export function useUploadMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, title }: { file: File; title?: string }) => api.uploadMeeting(file, title),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.meetings }),
+  });
+}
+
+export function useBulkUpload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (files: File[]) => api.bulkUpload(files),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.meetings }),
+  });
+}
+
+export function useBotStatus(jobId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["bot-status", jobId],
+    queryFn: () => api.botStatus(jobId),
+    enabled: Boolean(jobId) && enabled,
+    refetchInterval: enabled ? 3000 : false,
+    retry: false,
+  });
+}

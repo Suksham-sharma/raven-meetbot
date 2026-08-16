@@ -68,7 +68,7 @@ export interface AgentJob {
 export interface DiarizeJob {
   meetingId: string;
   recordingKey: string;
-  speakersKey: string;
+  speakersKey?: string | null;
   ownerId?: string | null;
 }
 

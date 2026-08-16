@@ -50,6 +50,42 @@ export async function diarizeRecording(
   }
 }
 
+export async function diarizeWithoutTimeline(
+  webmPath: string,
+  opts: DiarizeOptions
+): Promise<MergeResult> {
+  const log = opts.onLog ?? (() => {});
+  const wav = path.join(os.tmpdir(), `${path.basename(webmPath, ".webm")}.diarize.wav`);
+  log("extracting audio…");
+  await extractAudio(webmPath, wav);
+  try {
+    log("transcribing (Deepgram batch nova-3, diarize without timeline)…");
+    const utterances = await transcribeBatch(wav, {
+      apiKey: opts.apiKey,
+      model: opts.model,
+    });
+    log(`  ${utterances.length} utterances, ${new Set(utterances.map((u) => u.speaker)).size} diarized speakers`);
+    const named = utterances.map((u) => ({
+      speaker: `Speaker ${u.speaker}`,
+      start: u.start,
+      end: u.end,
+      text: u.transcript,
+      confidence: 1,
+    }));
+    const assignments = [...new Set(utterances.map((u) => u.speaker))].map((speaker) => ({
+      speaker,
+      csrcId: null,
+      name: `Speaker ${speaker}`,
+      method: "unresolved" as const,
+      mappingConfidence: 0,
+      utterances: utterances.filter((u) => u.speaker === speaker).length,
+    }));
+    return { named, assignments };
+  } finally {
+    rmSync(wav, { force: true });
+  }
+}
+
 export function serializeNamedTranscript(result: MergeResult): string {
   return result.named.map((n) => JSON.stringify(n)).join("\n") + "\n";
 }
