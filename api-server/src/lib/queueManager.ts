@@ -17,6 +17,7 @@ class QueueManager {
   public transcodeQueue: Queue;
   // v3 action proposer: enqueued by the memory worker after ingest.
   public agentQueue: Queue;
+  public controlQueue: Queue;
 
   private constructor() {
     const defaultJobOptions = {
@@ -33,6 +34,7 @@ class QueueManager {
     this.diarizeQueue = new Queue("diarize", { connection, defaultJobOptions });
     this.transcodeQueue = new Queue("transcode", { connection, defaultJobOptions });
     this.agentQueue = new Queue("agent", { connection, defaultJobOptions });
+    this.controlQueue = new Queue("bot-control", { connection });
   }
 
   static getInstance(): QueueManager {
@@ -49,6 +51,7 @@ export const memoryQueue = queueManager.memoryQueue;
 export const diarizeQueue = queueManager.diarizeQueue;
 export const transcodeQueue = queueManager.transcodeQueue;
 export const agentQueue = queueManager.agentQueue;
+export const controlQueue = queueManager.controlQueue;
 
 // ownerId rides the job from the join request through diarize/ingest; null for
 // eval + seed ingests (backfilled via seed:owner).

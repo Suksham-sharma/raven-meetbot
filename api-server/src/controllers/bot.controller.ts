@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { NotFoundError, UnauthorizedError } from "../utils/AppError";
+import { BadRequestError, NotFoundError, UnauthorizedError } from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
-import { meetQueue } from "../lib/queueManager";
+import { controlQueue, meetQueue } from "../lib/queueManager";
 
 export const getBotStatus = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId;
@@ -78,6 +78,28 @@ export const listBots = asyncHandler(async (req: Request, res: Response) => {
   });
 
   res.status(200).json({ bots });
+});
+
+export const stopBot = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) throw new UnauthorizedError();
+  const jobId = req.params.jobId as string;
+
+  const job = await meetQueue.getJob(jobId);
+  if (!job || job.data.ownerId !== userId) throw new NotFoundError("Bot not found");
+
+  const jobState = await job.getState();
+  if (jobState === "completed" || jobState === "failed") {
+    throw new BadRequestError(`Bot already ${jobState}`);
+  }
+  if (jobState === "waiting" || jobState === "delayed") {
+    await job.remove();
+    res.status(200).json({ jobId, status: "cancelled" });
+    return;
+  }
+
+  await controlQueue.add("stop", { jobId }, { removeOnComplete: true, removeOnFail: true });
+  res.status(202).json({ jobId, status: "stopping" });
 });
 
 function mapJobState(state: string): string {

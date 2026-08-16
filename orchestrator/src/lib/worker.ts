@@ -50,6 +50,7 @@ const processJob = async (job: Job<MeetBotJob>) => {
       url,
       botName,
       maxDurationMinutes,
+      jobId: job.id!,
     });
 
     const rl = createInterface({ input: stdout });
@@ -122,6 +123,21 @@ const processJob = async (job: Job<MeetBotJob>) => {
     throw err;
   }
 };
+
+const controlWorker = redisManager.createControlWorker(async (job) => {
+  const { jobId } = job.data as { jobId: string };
+  if (!jobId) throw new Error("jobId required");
+  const stopped = await dockerManager.stopByJobId(jobId);
+  if (!stopped) throw new Error(`No running bot for job ${jobId}`);
+  console.log(`[ControlWorker] Stopped bot for job ${jobId}`);
+});
+
+controlWorker.on("completed", (job) => {
+  console.log(`[ControlWorker] Stop completed for job ${job.id}`);
+});
+controlWorker.on("failed", (job, err) => {
+  console.error(`[ControlWorker] Stop failed for job ${job?.id}:`, err.message);
+});
 
 const worker = redisManager.createWorker(processJob, {
   concurrency: systemConfig.MAX_CONCURRENT_BOTS,

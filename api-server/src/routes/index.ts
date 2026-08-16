@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { joinMeet } from "../controllers/meet.controller";
-import { getBotStatus, listBots } from "../controllers/bot.controller";
+import { getBotStatus, listBots, stopBot } from "../controllers/bot.controller";
 import { askQuestion, askStreamHandler } from "../controllers/ask.controller";
 import {
   approveAction,
@@ -38,6 +38,7 @@ apiRouter.use(requireAuth);
 
 apiRouter.get("/auth/me", me);
 apiRouter.post("/join-meet", joinMeet);
+apiRouter.post("/bots/:jobId/stop", stopBot);
 apiRouter.get("/bots/:jobId/status", getBotStatus);
 apiRouter.get("/bots", listBots);
 apiRouter.post("/ask", askQuestion);

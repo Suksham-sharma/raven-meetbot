@@ -19,6 +19,7 @@ class RedisManager {
   private queue: Queue;
   private diarizeQueue: Queue;
   private transcodeQueue: Queue;
+  private controlQueue: Queue;
 
   private constructor() {
     const connection = { url: systemConfig.REDIS_URL };
@@ -34,6 +35,7 @@ class RedisManager {
     // audio, the other the video, so they run in parallel and a long encode
     // never delays the transcript.
     this.transcodeQueue = new Queue("transcode", { connection, defaultJobOptions });
+    this.controlQueue = new Queue("bot-control", { connection });
   }
 
   static getInstance(): RedisManager {
@@ -80,10 +82,21 @@ class RedisManager {
     });
   }
 
+  getControlQueue(): Queue {
+    return this.controlQueue;
+  }
+
+  createControlWorker(processor: Processor) {
+    return new Worker("bot-control", processor, {
+      connection: { url: systemConfig.REDIS_URL },
+    });
+  }
+
   async close(): Promise<void> {
     await this.queue.close();
     await this.diarizeQueue.close();
     await this.transcodeQueue.close();
+    await this.controlQueue.close();
     console.log("[RedisManager] Queue closed");
   }
 }

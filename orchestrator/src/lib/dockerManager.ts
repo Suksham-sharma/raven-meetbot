@@ -6,6 +6,7 @@ interface BotContainerOptions {
   url: string;
   botName: string;
   maxDurationMinutes: number | null;
+  jobId: string;
 }
 
 interface SpawnResult {
@@ -17,10 +18,12 @@ class DockerManager {
   private static instance: DockerManager;
   private docker: Docker;
   private runningContainers: Map<string, Docker.Container>;
+  private jobToContainer: Map<string, string>;
 
   private constructor() {
     this.docker = new Docker();
     this.runningContainers = new Map();
+    this.jobToContainer = new Map();
   }
 
   static getInstance(): DockerManager {
@@ -31,7 +34,7 @@ class DockerManager {
   }
 
   async spawnBot(options: BotContainerOptions): Promise<SpawnResult> {
-    const { url, botName, maxDurationMinutes } = options;
+    const { url, botName, maxDurationMinutes, jobId } = options;
 
     const env = [
       `MEET_URL=${url}`,
@@ -72,6 +75,7 @@ class DockerManager {
     const container = await this.docker.createContainer({
       Image: systemConfig.BOT_IMAGE,
       Env: env,
+      Labels: { "com.meetbot.jobId": jobId },
       HostConfig: {
         ShmSize: 2 * 1024 * 1024 * 1024,
         Binds: binds,
@@ -80,7 +84,8 @@ class DockerManager {
 
     const containerId = container.id;
     this.runningContainers.set(containerId, container);
-    console.log(`[DockerManager] Starting container ${containerId.slice(0, 12)} for ${url}`);
+    this.jobToContainer.set(jobId, containerId);
+    console.log(`[DockerManager] Starting container ${containerId.slice(0, 12)} for ${url} (job ${jobId})`);
 
     const stdout = new PassThrough();
     const rawStream = await container.attach({ stream: true, stdout: true, stderr: true });
@@ -93,11 +98,47 @@ class DockerManager {
       stdout.end();
       console.log(`[DockerManager] Container ${containerId.slice(0, 12)} exited with code ${StatusCode}`);
       this.runningContainers.delete(containerId);
-      await container.remove();
+      this.jobToContainer.delete(jobId);
+      await container.remove().catch(() => {});
       return StatusCode;
     };
 
     return { stdout, wait };
+  }
+
+  async stopByJobId(jobId: string): Promise<boolean> {
+    let containerId = this.jobToContainer.get(jobId);
+    let container: Docker.Container | null = null;
+
+    if (containerId) {
+      container = this.runningContainers.get(containerId) ?? null;
+    }
+
+    if (!container) {
+      const containers = await this.docker.listContainers({
+        all: true,
+        filters: { label: [`com.meetbot.jobId=${jobId}`] },
+      });
+      if (containers.length === 0) return false;
+      const foundId = containers[0].Id;
+      container = this.docker.getContainer(foundId);
+      containerId = foundId;
+    }
+
+    if (!container) return false;
+
+    try {
+      await container.stop({ t: 10 });
+      console.log(`[DockerManager] Stopped container ${String(containerId).slice(0, 12)} for job ${jobId}`);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("already stopped") || message.includes("is not running")) {
+        return true;
+      }
+      console.error(`[DockerManager] Error stopping container for job ${jobId}:`, err);
+      return false;
+    }
   }
 
   async stopAll(): Promise<void> {
@@ -107,7 +148,7 @@ class DockerManager {
       async ([id, container]) => {
         try {
           await container.stop({ t: 10 });
-          await container.remove();
+          await container.remove().catch(() => {});
           console.log(`[DockerManager] Stopped container ${id.slice(0, 12)}`);
         } catch (err) {
           console.error(`[DockerManager] Error stopping container ${id.slice(0, 12)}:`, err);
@@ -117,6 +158,7 @@ class DockerManager {
 
     await Promise.all(stopPromises);
     this.runningContainers.clear();
+    this.jobToContainer.clear();
   }
 }
 
