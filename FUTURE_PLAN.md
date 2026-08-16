@@ -49,7 +49,7 @@ corpus to compound, and pointless to deploy if it isn't built.
 
 ## 1. Position
 
-**Branch:** `main` = `f690e5f`, pushed.
+**Branch:** `main` = `6c2330f`, pushed.
 
 **What works end to end today:** bot joins a real Google Meet → records →
 transcode to a seekable mp4 → batch diarization with real speaker names → memory
@@ -279,15 +279,9 @@ while the meeting is happening. That is the adoption ceiling.*
       meetings the bot joins (all / external only / manual). Every competitor has
       this; it is the difference between an impressive system and something used
       on Monday. Largest single adoption unlock in this doc.
-- [ ] **Upload an existing recording.** The pipeline is already file-based, so an
-      upload endpoint reuses transcode → diarize → ingest untouched. Cheap, and it
-      makes the product demoable *without running a bot at all* — which also
-      de-risks every demo against Meet's anti-bot behaviour.
-- [ ] **Bulk backfill import** — point it at an archive of existing recordings or
-      an Otter/Granola/Fireflies export. Migration path is how tools get adopted;
-      a memory product with an empty corpus has nothing to compound.
-- [ ] Manual join UX in the dashboard — paste a URL, watch the bot join. Today
-      this is curl.
+- [x] **Upload an existing recording.** `POST /meetings/upload` (multer 500MB, video/audio) → `getArtifactStore().writeFile` as `{id}.webm` → `meetings` row + `transcode` enqueue + `diarize` with `speakersKey=null` fallback to `diarizeWithoutTimeline` (Speaker N) → `6c2330f`. Demoable without a bot.
+- [x] **Bulk backfill import** — `POST /meetings/bulk-upload` (array `files`, max 20) reuses the same path per file; `web` drag-drop calls single vs bulk automatically → `6c2330f`.
+- [x] Manual join UX in the dashboard — **done** `6c2330f` (`Join a meeting` + `Upload recording` buttons on `/`, `JoinDialog` → `POST /join-meet` → polls `GET /bots/:jobId/status` timeline, `UploadDialog` with drag-drop/title).
 - [ ] **Zoom / Teams capture.** Container-per-meeting already generalizes; the
       capture layer is the only rewrite. Scope after Meet is genuinely solid.
 
@@ -533,6 +527,7 @@ One line per session. Newest first.
 | Date | What moved | Commits |
 |---|---|---|
 | 2026-08-15 | **Phase 2 started — rebuild + owner stop.** Rebuilt `meet-bot:latest` (`20c8d65b`, `--no-cache`) and verified transcriber fix in image; owner can now `POST /bots/:jobId/stop` (api `controlQueue` + orchestrator `bot-control` worker + `dockerManager.stopByJobId` with `com.meetbot.jobId` label). Recording consent decided: user-based exit, no auto chat announcement. ⚠️ not yet verified on a live meeting/container. | `f690e5f` |
+| 2026-08-16 | **Phase 3 — ingest + dashboard.** Upload (`POST /meetings/upload`, bulk `bulk-upload`) reusing transcode+diarize with timeline-free fallback (`diarizeWithoutTimeline`), plus dashboard `Join a meeting` (polls `GET /bots/:jobId/status`) and `Upload recording` dialogs. `6c2330f` typecheck + 19 tests pass. Calendar deferred for dedicated planning. | `6c2330f` |
 | 2026-08-16 | **Stop landed.** Committed `POST /bots/:jobId/stop` (`f690e5f`) — typecheck + 19 tests pass. Next: Phase 3 (upload). | `f690e5f` |
 | 2026-08-15 | **Phase 1 done.** Pipeline status (`transcoding/diarizing/ingesting/ready/failed` + `status_error` + retry) · delete/export/rename · list filters (`q/type/participant/from/to`) · plain `GET /search` + speaker filter. Verified: `GET /meetings?q=sales`, `GET /search?q=SSO`, speaker `Ankur`, `PATCH` rename, `DELETE` + `GET /export`. | `d8196ca` |
 | 2026-08-15 | Ask streams live — `askStream` generator + `POST /ask/stream` SSE + `LiveSteps` checklist replaces fake `Thinking`. `POST /ask` kept for eval. ⚠️ built + typechecked, not yet verified against a live OpenAI call. | `9d26057` |
