@@ -26,9 +26,6 @@ export function useSession() {
   });
 }
 
-// Gated on the session rather than on where it is mounted: relying on the
-// component tree to hold it back 401s on the way to the login redirect, and
-// caches that error. This has regressed once already.
 export function useMeetings(filters: { q?: string; type?: string; participant?: string } = {}) {
   const { data: session } = useSession();
   const f = { q: filters.q || undefined, type: filters.type || undefined, participant: filters.participant || undefined };
@@ -45,7 +42,6 @@ export function useMeetings(filters: { q?: string; type?: string; participant?: 
   });
 }
 
-// Session-gated for the same reason as useMeetings.
 export function useActionItems(limit = 12) {
   const { data: session } = useSession();
 
@@ -56,15 +52,6 @@ export function useActionItems(limit = 12) {
   });
 }
 
-/**
- * Optimistic, because a checkbox that waits on a round trip feels broken —
- * this is the one control in the product a user clicks reflexively.
- *
- * The cache is patched in place rather than invalidated on success: the list is
- * ordered open-first server-side, so refetching would slide a row out from
- * under the cursor the instant it is ticked. It settles on the next natural
- * refetch instead.
- */
 export function useToggleActionItem(limit = 12) {
   const queryClient = useQueryClient();
   const key = [...keys.actionItems, limit];
@@ -119,12 +106,6 @@ export function useTranscript(id: string, enabled = true) {
   });
 }
 
-/**
- * Polls while the media is still being made, so a meeting opened straight off a
- * call turns into a player on its own instead of needing a reload. A 409 is the
- * expected answer for the first minutes and must not be retried as a fault —
- * retry would burn the attempts and then surface it as an error.
- */
 export function useRecording(id: string) {
   return useQuery({
     queryKey: keys.recording(id),

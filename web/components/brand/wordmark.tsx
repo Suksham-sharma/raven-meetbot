@@ -1,9 +1,5 @@
 import { cn } from "@/lib/cn";
 
-// The mark is a mask, not an <img>, so it paints in currentColor and can take
-// accent here or ink anywhere else. Set larger than Newsreader's 0.676em cap
-// height on purpose — a logotype R, not a letter matched to the text face —
-// and dropped below the baseline so the wing clears the following letter.
 const H = 1.05;
 const AR = 0.9311;
 const GAP = 0.09;

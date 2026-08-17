@@ -8,7 +8,6 @@ interface MeetBotWindow {
   _audioScanTimer?: number;
   _audioCtx?: AudioContext;
 
-  // Speaker timeline
   __pcs?: RTCPeerConnection[];
   __speakerEvent: (line: string) => void;
   __speakerStop?: () => void;

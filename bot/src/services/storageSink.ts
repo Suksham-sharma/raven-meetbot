@@ -14,7 +14,6 @@ export interface StorageSink {
 
 const RECORDINGS_DIR = path.resolve(process.cwd(), "recordings");
 
-// Local-disk fallback with the same surface as R2Uploader.
 class LocalFileSink implements StorageSink {
   private filePath: string;
   private stream: WriteStream | null = null;
@@ -53,7 +52,6 @@ class LocalFileSink implements StorageSink {
     return this.writeChain;
   }
 
-  // Returns the key (not the absolute path) to stay substitutable with R2Uploader.
   async complete(): Promise<string> {
     if (this.completed) return this.key;
     this.completed = true;
@@ -81,7 +79,6 @@ class LocalFileSink implements StorageSink {
   }
 }
 
-// R2 when configured, local disk otherwise.
 export function createStorageSink(key: string): StorageSink {
   const hasR2 = Boolean(
     botConfig.R2_ENDPOINT &&

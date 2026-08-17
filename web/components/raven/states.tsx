@@ -87,7 +87,6 @@ export function SkeletonRow() {
   );
 }
 
-/** Mirrors MeetingCard: plate, title, a summary line, then meta. */
 export function SkeletonCard() {
   return (
     <div className="overflow-hidden rounded-lg border border-rule-lo">

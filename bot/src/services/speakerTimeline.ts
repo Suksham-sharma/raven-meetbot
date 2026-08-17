@@ -31,7 +31,6 @@ class SpeakerTimeline {
       if (this.buffer.length >= FLUSH_AT_LINES) this.flush();
     });
 
-    // lets post-processing align event epochs to the recording
     this.buffer.push(
       JSON.stringify({ type: "meta", t: Date.now(), recordingStartEpochMs })
     );
@@ -52,7 +51,6 @@ class SpeakerTimeline {
     if (this.buffer.length === 0) return;
     const chunk = Buffer.from(this.buffer.join("\n") + "\n");
     this.buffer = [];
-    // Best-effort: a swallowed rejection here would crash the recording process.
     void this.uploader.addChunk(chunk).catch((err) => {
       console.error("[Speakers] chunk write failed:", err);
     });
@@ -64,9 +62,8 @@ class SpeakerTimeline {
     if (page && this.started) {
       try {
         await page.evaluate(() => window.__speakerStop?.());
-        await page.waitForTimeout(300); // final events flush
+        await page.waitForTimeout(300);
       } catch {
-        // page may already be gone
       }
     }
     this.stopped = true;

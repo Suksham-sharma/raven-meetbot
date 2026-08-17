@@ -5,7 +5,7 @@ The ruler that proves retrieval + answer quality and catches regressions. Built 
 ## Contents
 
 - `seeds/*.transcript.jsonl` — seed meetings in the bot's transcript format (`{speaker, text, start, end, confidence}` per line). Double as demo seed data, so first-time search works without recording 10 meetings.
-- `golden-set.json` — questions with `expected_facts`, `relevant_meetings`, and (after ingest) `relevant_ids`. Each maps to a query type from `PLAN.md`: local lookup, structured/aggregative, recency, decision lookup, cross-meeting synthesis, and refusal.
+- `golden-set.json` — questions with `expected_facts`, `relevant_meetings`, and (after ingest) `relevant_ids`. Each maps to a query type from `docs/decisions.md`: local lookup, structured/aggregative, recency, decision lookup, cross-meeting synthesis, and refusal.
 
 ## What gets measured
 

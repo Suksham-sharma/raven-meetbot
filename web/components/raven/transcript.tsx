@@ -8,11 +8,6 @@ import { timecode } from "@/lib/speaker";
 import { useIsCurrent, usePlayer } from "@/lib/player";
 import type { TranscriptTurn } from "@/lib/types";
 
-/**
- * Virtuoso is not optional here — real transcripts run past a thousand turns
- * (§11). The consequence is that browser ⌘F cannot see the rows that are not
- * mounted, so find is ours to ship, not a nice-to-have.
- */
 export function TranscriptView({
   turns,
   offsetS,
@@ -38,8 +33,6 @@ export function TranscriptView({
     }, []);
   }, [q, turns]);
 
-  // Browser find is broken on virtualized content, so ⌘F has to mean ours or it
-  // means nothing (§9).
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "f") {
@@ -60,8 +53,6 @@ export function TranscriptView({
     [turns, currentS, offsetS],
   );
 
-  // Follows playback, but yields the moment the reader scrolls away — a list
-  // that drags the viewport back while you are reading is unusable.
   React.useEffect(() => {
     if (!following || !playing || active < 0) return;
     handle.current?.scrollToIndex({
@@ -80,9 +71,6 @@ export function TranscriptView({
   }
 
   return (
-    // Its own scroll region, unlike the summary: a thousand turns is a place you
-    // scroll *within*, and hoisting it into the column would push find out of
-    // reach and drag the player off screen on the one tab you read longest.
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-3 flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[999px] border border-rule bg-paper px-3.5 py-1.5 focus-within:border-field">
@@ -138,8 +126,6 @@ export function TranscriptView({
         data={turns}
         components={LIST_SEMANTICS}
         className="min-h-0 flex-1"
-        // Any scroll the reader starts hands them control until they ask for it
-        // back. Virtuoso's own programmatic scrolls do not raise this.
         isScrolling={(scrolling) => {
           if (scrolling && playing) setFollowing(false);
         }}
@@ -158,14 +144,6 @@ export function TranscriptView({
   );
 }
 
-/**
- * `aria-setsize` / `aria-posinset` are ignored on `role="button"`, so putting
- * them on the row control looks like it satisfies §9 while telling a screen
- * reader nothing — it would still announce the mounted window as the whole
- * transcript. They belong on a `listitem`, which needs a `list` above it, and
- * Virtuoso's own wrapper sits in between: marking that one presentational makes
- * the item the effective child of the list.
- */
 const LIST_SEMANTICS = {
   List: function List({
     ref,
@@ -201,11 +179,6 @@ function Step({
   );
 }
 
-/**
- * Touched hundreds of times a session, so §6 allows colour change only — no
- * transform, no movement. The row subscribes to a boolean, so the playhead
- * moving re-renders the row that lost it and the row that gained it.
- */
 const Turn = React.memo(function Turn({
   turn,
   index,
@@ -225,8 +198,6 @@ const Turn = React.memo(function Turn({
   const requestSeek = usePlayer((s) => s.requestSeek);
 
   return (
-    // Virtuoso mounts a window of rows, so without the count a screen reader
-    // reports "1 of 12" on a thousand-turn transcript (§9).
     <div role="listitem" aria-setsize={total} aria-posinset={index + 1}>
       <button
         type="button"

@@ -79,7 +79,6 @@ class MeetBot {
     this.shouldStop = true;
   }
 
-
   private async launchBrowser(): Promise<void> {
     console.log("[Bot] Launching browser...");
 
@@ -88,7 +87,6 @@ class MeetBot {
       args: CHROME_ARGS,
     });
 
-    // Signed-in session from `pnpm auth` — anonymous knocks get rate-limited.
     const hasAuthState =
       botConfig.AUTH_STATE_PATH && existsSync(botConfig.AUTH_STATE_PATH);
     if (hasAuthState) {
@@ -103,13 +101,11 @@ class MeetBot {
       ...(hasAuthState ? { storageState: botConfig.AUTH_STATE_PATH } : {}),
     });
 
-    // speaker timeline reads RTP contributing sources via this tap
     await installPcTap(this.context);
 
     this.page = await this.context.newPage();
     console.log("[Bot] Browser launched");
   }
-
 
   private async validateMeeting(): Promise<void> {
     const page = this.getPage();
@@ -137,7 +133,6 @@ class MeetBot {
 
     console.log("[Bot] Meeting URL validated");
   }
-
 
   private async attemptJoin(): Promise<void> {
     const page = this.getPage();
@@ -214,7 +209,6 @@ class MeetBot {
     return false;
   }
 
-
   private async waitForAdmission(): Promise<void> {
     const page = this.getPage();
     this.reportStatus("waiting_admission");
@@ -222,7 +216,6 @@ class MeetBot {
     const deadline = Date.now() + TIMEOUTS.ADMISSION_TIMEOUT;
 
     while (Date.now() < deadline) {
-      // Check if we're in the meeting
       for (const selector of MEET_SELECTORS.IN_MEETING_INDICATORS) {
         const el = page.locator(selector).first();
         if (await el.isVisible({ timeout: 500 }).catch(() => false)) {
@@ -231,7 +224,6 @@ class MeetBot {
         }
       }
 
-      // Check if entry was declined, expired, or blocked
       const bodyText = await page.textContent("body");
       for (const text of MEET_SELECTORS.DECLINE_TEXTS) {
         if (bodyText?.includes(text)) {
@@ -245,13 +237,11 @@ class MeetBot {
     throw new Error("Admission timed out after 5 minutes");
   }
 
-
   private async startRecording(): Promise<void> {
     const page = this.getPage();
 
     console.log(`[Bot] Starting recording → ${this.meetingId}`);
 
-    // R2 when configured, local recordings/ directory otherwise
     this.recordingSink = createStorageSink(`${this.meetingId}.webm`);
     await this.recordingSink.init();
 
@@ -261,7 +251,6 @@ class MeetBot {
       await this.transcriber.start();
     }
 
-    // Expose chunk callback for video recording — receives base64 string from browser
     await page.exposeFunction("__saveChunk", async (base64Data: string) => {
       const buffer = Buffer.from(base64Data, "base64");
       if (this.recordingSink) {
@@ -269,7 +258,6 @@ class MeetBot {
       }
     });
 
-    // Expose audio chunk callback for transcription
     await page.exposeFunction("__sendAudioChunk", (base64Data: string) => {
       if (this.transcriber) {
         const buffer = Buffer.from(base64Data, "base64");
@@ -281,12 +269,10 @@ class MeetBot {
       return Promise.resolve();
     });
 
-    // Wait for media elements to load, then trigger user gesture for MediaRecorder
     await page.waitForTimeout(5000);
     try {
       await page.click("body", { force: true });
     } catch {
-      // Gesture may fail, non-critical
     }
 
     const hasTranscription = useTranscription;
@@ -295,7 +281,6 @@ class MeetBot {
       await page.evaluate(async (enableTranscription: boolean) => {
         console.log("Browser: Starting composite stream capture...");
 
-        // 1. Tab capture for video only — no audio device in Docker (Xvfb only)
         const displayStream = await navigator.mediaDevices.getDisplayMedia({
           video: { displaySurface: "browser" },
           preferCurrentTab: true,
@@ -306,7 +291,6 @@ class MeetBot {
         if (!videoTrack) throw new Error("No video track from tab capture");
         console.log("Browser: Got video track:", videoTrack.label);
 
-        // 2. AudioContext to capture WebRTC audio from page media elements
         const audioCtx = new AudioContext();
         if (audioCtx.state === "suspended") {
           await audioCtx.resume();
@@ -344,7 +328,6 @@ class MeetBot {
         connectElements();
         const audioScanTimer = setInterval(connectElements, 3000);
 
-        // 3. Composite stream: video from tab capture + audio from AudioContext
         const compositeStream = new MediaStream([videoTrack]);
         const audioTracks = destination.stream.getAudioTracks();
         if (audioTracks[0]) {
@@ -355,7 +338,6 @@ class MeetBot {
         window._audioScanTimer = audioScanTimer as unknown as number;
         window._audioCtx = audioCtx;
 
-        // 4. Video MediaRecorder — sequential write queue to prevent out-of-order chunks
         const recorder = new MediaRecorder(compositeStream, {
           mimeType: "video/webm",
         });
@@ -388,7 +370,6 @@ class MeetBot {
         window._mediaRecorder = recorder;
         window._recordingStream = compositeStream;
 
-        // 5. Audio-only MediaRecorder for Deepgram transcription
         if (enableTranscription && destination.stream.getAudioTracks().length > 0) {
           const audioRecorder = new MediaRecorder(destination.stream, {
             mimeType: "audio/webm;codecs=opus",
@@ -414,7 +395,7 @@ class MeetBot {
             console.log("Browser: Audio MediaRecorder stopped");
           };
 
-          audioRecorder.start(250); // 250ms chunks for lower transcription latency
+          audioRecorder.start(250);
           console.log("Browser: Audio MediaRecorder started (for transcription)");
 
           window._audioRecorder = audioRecorder;
@@ -443,7 +424,6 @@ class MeetBot {
 
       this.reportStatus("recording");
     } catch (err) {
-      // Clean up if recording setup fails
       if (this.recordingSink) {
         await this.recordingSink.abort();
         this.recordingSink = null;
@@ -456,7 +436,6 @@ class MeetBot {
     }
   }
 
-
   private async monitorAndAutoExit(): Promise<void> {
     const page = this.getPage();
 
@@ -464,7 +443,6 @@ class MeetBot {
     let gracePeriodPassed = false;
 
     while (!this.shouldStop) {
-      // Duration cap
       if (botConfig.MAX_DURATION_MINUTES) {
         const elapsed = (Date.now() - this.startTime) / 60_000;
         if (elapsed >= botConfig.MAX_DURATION_MINUTES) {
@@ -473,25 +451,21 @@ class MeetBot {
         }
       }
 
-      // Kick detection
       if (await this.isKicked(page)) {
         this.reportStatus("kicked");
         return;
       }
 
-      // URL-based kick detection
       if (page.url().includes("/bye")) {
         this.reportStatus("ended");
         return;
       }
 
-      // Participant count
       const count = await this.getParticipantCount(page);
       if (count !== null) {
         console.log(`[Bot] Participants: ${count}`);
       }
 
-      // Alone detection
       if (count !== null && count <= 1) {
         if (!aloneStartTime) {
           aloneStartTime = Date.now();
@@ -528,13 +502,11 @@ class MeetBot {
 
   private async getParticipantCount(page: Page): Promise<number | null> {
     return page.evaluate(() => {
-      // Strategy 1: data-participant-id elements
       const participantEls = document.querySelectorAll(
         "[data-participant-id]"
       );
       if (participantEls.length > 0) return participantEls.length;
 
-      // Strategy 2: button text that's a plain number (people panel button)
       const buttons = document.querySelectorAll("button");
       for (const btn of buttons) {
         const text = btn.textContent?.trim() || "";
@@ -544,7 +516,6 @@ class MeetBot {
         }
       }
 
-      // Strategy 3: aria-label patterns
       const allElements = document.querySelectorAll("[aria-label]");
       for (const el of allElements) {
         const label = el.getAttribute("aria-label") || "";
@@ -564,21 +535,17 @@ class MeetBot {
     });
   }
 
-
   private async cleanup(): Promise<void> {
     console.log("[Bot] Cleaning up...");
 
-    // Stop browser-side recording (both video and audio recorders)
     if (this.isRecording && this.page) {
       try {
         await this.page.evaluate(async (stopWait: number) => {
-          // Stop audio recorder first (transcription)
           const audioRecorder = window._audioRecorder;
           if (audioRecorder && audioRecorder.state !== "inactive") {
             audioRecorder.stop();
           }
 
-          // Stop video recorder
           const recorder = window._mediaRecorder;
           if (recorder && recorder.state !== "inactive") {
             recorder.stop();
@@ -593,7 +560,6 @@ class MeetBot {
       }
     }
 
-    // Only finalize if recording started — terminal states on a pre-join failure block retries.
     if (this.isRecording || this.recordingSink) {
       this.reportStatus("finalizing_upload");
 
@@ -640,7 +606,6 @@ class MeetBot {
       });
     }
 
-    // Leave the call
     if (this.page) {
       try {
         const leaveBtn = this.page.locator(MEET_SELECTORS.LEAVE_BUTTON).first();
@@ -650,7 +615,6 @@ class MeetBot {
           console.log("[Bot] Left the call");
         }
       } catch {
-        // Page may already be closed
       }
     }
 
@@ -663,7 +627,6 @@ class MeetBot {
 
     console.log("[Bot] Cleanup complete");
   }
-
 
   private getPage(): Page {
     if (!this.page) {

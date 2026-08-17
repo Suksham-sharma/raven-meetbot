@@ -1,11 +1,3 @@
-/**
- * Browser-context speaker tracker, serialized via page.evaluate — must stay
- * self-contained. Logs two independent who-is-speaking signals: RTP
- * contributing sources (CSRC + audioLevel) and Meet's per-tile speaking
- * indicator, whose obfuscated classes are learned at runtime during
- * single-speaker moments — the same moments bind CSRC ids to tiles.
- * Timestamps are epoch ms; events flow out via window.__speakerEvent.
- */
 
 export function speakerTrackerMain(opts: {
   sampleMs: number;
@@ -17,11 +9,8 @@ export function speakerTrackerMain(opts: {
     try {
       window.__speakerEvent(JSON.stringify({ type, t: Date.now(), ...data }));
     } catch {
-      // page may be tearing down
     }
   };
-
-  // --- participant tiles ----------------------------------------------------
 
   interface Tile {
     el: Element;
@@ -29,7 +18,6 @@ export function speakerTrackerMain(opts: {
   }
   const tiles = new Map<string, Tile>();
 
-  // drops icon-font ligatures (mic_off, more_vert) and bare numbers
   const NOISE = /_|^[0-9]+$/;
 
   const extractNames = (el: Element): string[] => {
@@ -43,7 +31,6 @@ export function speakerTrackerMain(opts: {
       if (s.length < 2 || s.length > 40 || NOISE.test(s)) continue;
       counts.set(s, (counts.get(s) || 0) + 1);
     }
-    // shortest first — the bare name beats button labels containing it
     return [...counts.keys()].sort((a, b) => a.length - b.length).slice(0, 3);
   };
 
@@ -77,8 +64,6 @@ export function speakerTrackerMain(opts: {
       }
     }
 
-    // Meet churns transient classes constantly — drop tokens past any query
-    // window so per-tile maps don't grow over a multi-hour call.
     const cutoff = Date.now() - opts.ringWindowMs;
     for (const map of toggles.values()) {
       for (const [token, ts] of map) {
@@ -87,9 +72,6 @@ export function speakerTrackerMain(opts: {
     }
   };
 
-  // --- class-toggle observation (speaking-indicator discovery) --------------
-
-  // pid → class token → last toggle epoch ms
   const toggles = new Map<string, Map<string, number>>();
 
   const observer = new MutationObserver((muts) => {
@@ -141,8 +123,6 @@ export function speakerTrackerMain(opts: {
     return out;
   };
 
-  // --- RTP contributors -------------------------------------------------------
-
   const readContributors = (): Array<{ id: number; lvl: number; kind: string }> => {
     const out: Array<{ id: number; lvl: number; kind: string }> = [];
     const seen = new Set<string>();
@@ -164,7 +144,6 @@ export function speakerTrackerMain(opts: {
                 kind: "ssrc",
               }));
         for (const e of list) {
-          // skip Meet's synthetic constant-id contributor (real ids are random 32-bit)
           if (e.id < 1000) continue;
           const key = `${e.kind}:${e.id}`;
           if (seen.has(key)) continue;
@@ -175,8 +154,6 @@ export function speakerTrackerMain(opts: {
     }
     return out;
   };
-
-  // --- calibration + sampling -------------------------------------------------
 
   const speakingClasses = new Set<string>();
   const classVotes = new Map<string, number>();
@@ -195,7 +172,6 @@ export function speakerTrackerMain(opts: {
           return true;
         }
       } catch {
-        // unescapable token — skip
       }
     }
     return false;
@@ -216,14 +192,12 @@ export function speakerTrackerMain(opts: {
       });
     }
 
-    // Calibration: one loud contributor + churning tiles, one round per second.
     const nowSec = Math.floor(now / 1000);
     if (hot.length === 1 && nowSec !== lastVoteSec) {
       const churning = tilesTogglingWithin(now, opts.ringWindowMs, false);
       if (churning.length > 0) {
         lastVoteSec = nowSec;
 
-        // class learning only from unambiguous single-tile moments
         if (churning.length === 1) {
           const map = toggles.get(churning[0]);
           if (map) {
@@ -239,7 +213,6 @@ export function speakerTrackerMain(opts: {
           }
         }
 
-        // bindings vote every churning tile; majority with 2x separation decides
         const id = hot[0].id;
         if (!locked.has(id)) {
           let tally = bindTallies.get(id);
@@ -270,7 +243,6 @@ export function speakerTrackerMain(opts: {
       }
     }
 
-    // ring transitions, once indicator classes are learned
     if (speakingClasses.size > 0) {
       const churning = new Set(tilesTogglingWithin(now, 1500, true));
       for (const [pid, tile] of tiles) {
@@ -282,8 +254,6 @@ export function speakerTrackerMain(opts: {
       }
     }
   };
-
-  // --- lifecycle ---------------------------------------------------------------
 
   rescanTiles();
   log("start", { tiles: tiles.size });

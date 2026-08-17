@@ -1,7 +1,5 @@
 import { BrowserContext } from "playwright";
 
-// No-op shim for the __name() helper esbuild/tsx injects into serialized
-// functions; inert under tsc-compiled output.
 export const NAME_SHIM =
   "globalThis.__name = globalThis.__name || function (target, value) { return target; }";
 
@@ -17,7 +15,6 @@ export function patchRTCPeerConnection(): void {
   });
 }
 
-// Install before navigation so Meet's RTCPeerConnections get captured.
 export async function installPcTap(context: BrowserContext): Promise<void> {
   await context.addInitScript({ content: NAME_SHIM });
   await context.addInitScript(patchRTCPeerConnection);

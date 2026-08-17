@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { timecode } from "@/lib/speaker";
 
-/** `executing` is client-only — the ledger never holds it. Never PUT it back. */
 export type ProposalStatus = "proposed" | "executing" | "executed" | "failed" | "rejected";
 
 export interface Proposal {

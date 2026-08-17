@@ -9,24 +9,12 @@ import { useNav } from "@/lib/use-nav";
 import { CommandPalette } from "@/components/raven/command-palette";
 import { NavRail } from "./nav-rail";
 
-/**
- * The palette lives here rather than on the page that first needed it, because
- * ⌘K is a global shortcut and one mounted on a single route only answers on
- * that route — which reads as the shortcut being broken, not as it being
- * scoped. Anything inside the shell can open it through this.
- */
 const PaletteContext = React.createContext<(() => void) | null>(null);
 
-/** Opens the ⌘K palette. Null outside the shell, so callers can hide the affordance. */
 export function useCommandPalette() {
   return React.useContext(PaletteContext);
 }
 
-/**
- * DESIGN.md §5: full viewport, regions scroll independently, the page itself
- * does not. Below 1040 that inverts — the rail drops and the page scrolls
- * normally, because three columns in a phone's width is not a layout.
- */
 export function AppShell({
   children,
   rail,
@@ -38,7 +26,6 @@ export function AppShell({
   const { data, error, isPending } = useSession();
   const { collapsed, canToggle, toggle } = useNav();
   const [searching, setSearching] = React.useState(false);
-  // Already in cache on the meetings route; a cheap first fetch anywhere else.
   const meetings = useMeetings();
   const unauthorized = error instanceof ApiError && error.status === 401;
 

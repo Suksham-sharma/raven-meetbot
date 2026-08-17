@@ -8,7 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 import botConfig from "../config";
 
-const MIN_PART_SIZE = 5 * 1024 * 1024; // 5MB minimum for multipart parts
+const MIN_PART_SIZE = 5 * 1024 * 1024;
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
@@ -124,18 +124,15 @@ class R2Uploader {
       return this.key;
     }
 
-    // Flush any remaining buffered data as the final part
     if (this.buffer.length > 0) {
       await this.flushBuffer();
     }
 
     if (this.parts.length === 0) {
-      // Nothing was uploaded, abort
       await this.abort();
       return this.key;
     }
 
-    // Sort parts by part number before completing
     this.parts.sort((a, b) => (a.PartNumber ?? 0) - (b.PartNumber ?? 0));
 
     try {
@@ -148,7 +145,6 @@ class R2Uploader {
         })
       );
     } catch (err) {
-      // Retry once
       console.warn("[R2] CompleteMultipartUpload failed, retrying once...");
       await this.client.send(
         new CompleteMultipartUploadCommand({
@@ -184,7 +180,6 @@ class R2Uploader {
       );
       console.log(`[R2] Upload aborted: ${this.key}`);
     } catch (err) {
-      // Non-critical — R2 auto-cleans after 7 days
       console.warn(`[R2] Abort failed (will auto-clean): ${this.key}`);
     }
     this.completed = true;

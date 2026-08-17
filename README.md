@@ -14,7 +14,7 @@ The interesting problems here aren't the CRUD — they're capturing per-speaker 
 
 ## How it fits together
 
-A meeting moves through the system in two passes. **Capture:** the API dispatches a bot, which joins the call, records it, and stores the artifacts. **Post-processing:** three workers turn those artifacts into searchable memory, one hop at a time. Questions run separately, back over that memory.
+A meeting moves through the system in two passes. **Capture:** the API dispatches a bot, which joins the call, records it, and stores the artifacts. **Post-processing:** four workers turn those artifacts into searchable memory, one hop at a time. Questions run separately, back over that memory.
 
 ```mermaid
 flowchart TB
@@ -24,10 +24,20 @@ flowchart TB
     BOT -->|uploads recording · transcript · speaker timeline| R2[(R2 / local disk)]
     ORCH -->|diarize queue · on bot exit| DIA
 
-    subgraph workers [api-server workers · one BullMQ queue per stage]
+    ORCH -->|transcode queue · on bot exit| TRA
+
+    subgraph media [media-worker · ffmpeg image]
         direction LR
-        DIA[diarize<br/>batch transcribe<br/>+ real-name merge] --> MEM[memory<br/>extract · chunk · embed] --> AGT[agent<br/>propose Linear / Slack]
+        TRA[transcode<br/>webm to seekable mp4<br/>+ poster]
+        DIA[diarize<br/>batch transcribe<br/>+ real-name merge]
     end
+
+    subgraph apiw [api-server workers]
+        direction LR
+        MEM[memory<br/>extract · chunk · embed] --> AGT[agent<br/>propose Linear / Slack]
+    end
+
+    DIA --> MEM
 
     R2 -.reads artifacts.-> DIA
     MEM --> PG[(Postgres<br/>+ pgvector)]
@@ -36,7 +46,9 @@ flowchart TB
     PG -->|grounded answer + cited clips| ASK
 ```
 
-Redis backs every queue; Postgres with pgvector holds the memory. Each post-processing stage is its own queue drained by its own worker process — all three reuse the api-server codebase, and a meeting is handed from one to the next as each finishes.
+Redis backs every queue; Postgres with pgvector holds the memory. Each stage is its own queue drained by its own worker process, and a meeting is handed from one to the next as each finishes.
+
+The split between the two worker groups is deliberate. `transcode` and `diarize` are ffmpeg-bound and touch the database with five `UPDATE meetings` statements, so they run as their own service on an image that carries ffmpeg. `memory` and `agent` *are* the domain layer — they write five tables transactionally — so they run the api-server image, triggered by a queue instead of by HTTP. See [docs/decisions.md](docs/decisions.md) D1 and D6.
 
 ---
 
@@ -59,13 +71,21 @@ Consumes the `gmeet-bot` queue and spawns one `meet-bot:latest` container per me
 
 ### `api-server/` — the brain (Express + Drizzle + OpenAI)
 
-The single REST surface, plus the three post-processing workers:
+The single REST surface, plus the two domain workers:
 
-- **`diarize` worker** — pulls the recording and speaker timeline from R2, extracts audio with ffmpeg, runs Deepgram batch (nova-3, diarization) with participant names fed in as keyterms, then interval-vote-joins the anonymous diarizer labels against the speaker timeline to get **real names**. Writes a `named-transcript.jsonl` and enqueues ingest.
-- **`memory` worker** ([ingestMeeting.ts](api-server/src/ingest/ingestMeeting.ts)) — extracts a minimal universal spine (decisions, action items, chapters, summary, a soft meeting-type label) via OpenAI structured outputs, chunks the transcript by speaker turn, embeds the chunks, and writes everything in one idempotent transaction. A hallucination guard drops any decision/action whose evidence quote isn't a literal substring of the transcript.
+- **`memory` worker** ([ingestMeeting.ts](api-server/src/domain/ingest/ingestMeeting.ts)) — extracts a minimal universal spine (decisions, action items, chapters, summary, a soft meeting-type label) via OpenAI structured outputs, chunks the transcript by speaker turn, embeds the chunks, and writes everything in one idempotent transaction. A hallucination guard drops any decision/action whose evidence quote isn't a literal substring of the transcript.
 - **`agent` worker** — proposes external actions (a Linear issue per action item, a templated Slack recap) into an `agent_actions` ledger with status `proposed`. Nothing fires until a human approves it.
 
-Retrieval lives here too: [hybridSearch.ts](api-server/src/search/hybridSearch.ts) fuses pgvector cosine search and Postgres full-text search with Reciprocal Rank Fusion in a single SQL query, and [ask.ts](api-server/src/agent/ask.ts) runs the agentic answer loop.
+Retrieval lives here too: [hybridSearch.ts](api-server/src/domain/search/hybridSearch.ts) fuses pgvector cosine search and Postgres full-text search with Reciprocal Rank Fusion in a single SQL query, and [ask.ts](api-server/src/domain/agent/ask.ts) runs the agentic answer loop.
+
+### `media-worker/` — the encoder (ffmpeg + Deepgram batch)
+
+The only service that needs ffmpeg, which is why it has its own image.
+
+- **`transcode` worker** — remuxes the bot's live WebM into a seekable mp4 plus a poster frame. The raw capture has no duration and no cues, so a browser cannot seek it and every `#t=` citation would be unplayable. Its own queue rather than a diarize stage: an hour-long encode would park every later meeting's transcript behind it.
+- **`diarize` worker** — pulls the recording and speaker timeline from the artifact store, extracts audio, runs Deepgram batch (nova-3, diarization) with participant names fed in as keyterms, then interval-vote-joins the anonymous diarizer labels against the speaker timeline to get **real names**. Writes a `named-transcript.jsonl` and enqueues ingest.
+
+It reaches Postgres with raw `pg` rather than the Drizzle schema — five write statements is the whole contract, and [schema.test.ts](media-worker/src/schema.test.ts) checks those column names against the migrations.
 
 ---
 
@@ -91,7 +111,7 @@ Every tool is owner-scoped: the loop only ever sees the meetings belonging to th
 ### Prerequisites
 
 - Docker (Docker Desktop or OrbStack) and Node 20+ with `pnpm`
-- `ffmpeg` on the host running the diarize worker
+- `ffmpeg` on the host running media-worker (the Docker image installs it)
 - A Deepgram API key and an OpenAI API key
 - A Google account for the bot to join calls as (used once, via `pnpm auth`)
 - *(Optional but recommended)* Cloudflare R2 credentials. The bot falls back to local disk without them, but the diarize worker is R2-only.
@@ -138,13 +158,21 @@ Then start the orchestrator (`cd orchestrator && pnpm install && pnpm dev`), or 
 
 ### 4. Start the workers
 
-Each is its own process (all from `api-server/`):
+Each is its own process. From `api-server/`:
 
 ```bash
-pnpm worker            # memory ingest
-pnpm worker:diarize    # batch transcription + real-name attribution (needs ffmpeg + R2)
+pnpm worker:memory     # extract, chunk, embed
 pnpm worker:agent      # action proposals
 ```
+
+From `media-worker/` (needs ffmpeg on PATH):
+
+```bash
+pnpm worker:transcode  # webm to seekable mp4 + poster
+pnpm worker:diarize    # batch transcription + real-name attribution
+```
+
+Or `docker compose up`, which runs all four alongside the API and orchestrator.
 
 ### 5. Use it
 
@@ -251,15 +279,17 @@ Multi-user isolation is single-level (a tenant is a user; no orgs or RBAC — de
 ```
 bot/                  Playwright meeting bot (join, record, transcribe, speaker timeline)
 orchestrator/         BullMQ consumer that spawns one bot container per meeting
-api-server/           REST API + memory/diarize/agent workers + retrieval + eval scripts
-  src/ingest/         extraction → chunking → embedding → idempotent write
-  src/search/         hybrid RRF retrieval + retrieval eval
-  src/agent/          the /ask loop, tools, LLM-as-judge, answer/evidence eval
-  src/diarize/        batch transcription + real-name attribution worker
-  src/actions/        v3 propose → approve → execute (Linear / Slack adapters)
+api-server/           REST API + the memory and agent workers
+  src/api/            routes, controllers, middleware
+  src/domain/         ingest, search, agent loop, v3 actions
+  src/platform/       db, config, queues, artifact store, llm, auth
+  src/workers/        memory + agent queue consumers
+  src/eval/           retrieval / answer / evidence harnesses
+  src/cli/            one-off dev entry points
+media-worker/         transcode + diarize (its own image — the one that needs ffmpeg)
 eval/                 golden set, seed transcripts, Ragas comparison
-docker-compose.yml    redis + postgres + api-server + orchestrator
-PLAN.md · ROADMAP.md  architecture source-of-truth and the longer build plan
+docker-compose.yml    redis + postgres + api-server + 4 workers + orchestrator
+docs/decisions.md     architecture decisions and the reasoning behind them
 ```
 
 ---
@@ -281,6 +311,6 @@ PLAN.md · ROADMAP.md  architecture source-of-truth and the longer build plan
 **Not built yet**
 
 - A web dashboard (recordings, transcripts, an approval surface for proposed actions).
-- MP4 transcode / HLS and clip export.
+- HLS and clip export.
 
-**Explicit non-goals:** GraphRAG, org/RBAC-level multi-tenancy, and per-meeting-type extraction schemas. See [ROADMAP.md](ROADMAP.md) for the longer plan and [PLAN.md](PLAN.md) for the architecture rationale.
+**Explicit non-goals:** GraphRAG, org/RBAC-level multi-tenancy, and per-meeting-type extraction schemas. See [docs/decisions.md](docs/decisions.md) for the architecture rationale.

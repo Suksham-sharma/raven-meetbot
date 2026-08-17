@@ -16,8 +16,6 @@ import { useSession } from "@/lib/queries";
 import { useCommandPalette } from "@/components/layout/app-shell";
 import { Mark, Wordmark } from "@/components/brand/wordmark";
 
-// Only routes that exist are listed. A nav full of links to unbuilt screens is
-// the same failure as a button with no handler.
 const NAV: { href: string; label: string; icon: Icon }[] = [
   { href: "/", label: "Meetings", icon: VideoCamera },
 ];

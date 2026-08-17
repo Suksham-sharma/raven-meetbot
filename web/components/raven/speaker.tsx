@@ -3,18 +3,6 @@
 import { cn } from "@/lib/cn";
 import { people } from "@/lib/speaker";
 
-/**
- * A speaker is their name. That is the whole component.
- *
- * Three devices were tried here and all cut. Circles-with-initials are the
- * generic SaaS pattern and DESIGN.md forbids icons in coloured circles. A 3px
- * colour bar replaced them and failed the opposite way — at that size eight
- * hues are indistinguishable, so it was decoration encoding nothing. The
- * colours themselves were justified by a timeline ribbon, and the ribbon was
- * cut for clutter.
- *
- * What is left is the thing that was always doing the work: the name.
- */
 export function SpeakerName({
   name,
   size = "md",
@@ -37,10 +25,6 @@ export function SpeakerName({
   );
 }
 
-/**
- * Participants as text. A meeting with six people is a sentence, not a row of
- * faces — and the names are what someone actually scans for.
- */
 export function Participants({
   names,
   max = 3,

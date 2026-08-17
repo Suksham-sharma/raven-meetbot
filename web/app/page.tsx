@@ -24,20 +24,6 @@ import {
 import { corpusLabel, groupByDay, toRow } from "@/lib/meetings";
 import type { MeetingSummary, OpenAction } from "@/lib/types";
 
-/**
- * Cards for the newest few, rows for the rest.
- *
- * The split earns its keep only if the card shows something the row can't —
- * otherwise it is the same fields at four times the height (§7). So the card
- * carries a line of summary and the row does not: recent meetings get a preview
- * of what happened, the archive stays a dense index you scan to find one.
- *
- * That summary is a deliberate departure from the 2026-08-03 "no summary on the
- * card" entry. It is what makes the two components mean different things instead
- * of being two sizes of one, and it matches §7's own prose ("shows a line of
- * summary"). The plate is still grey until `has_recording` turns true; the
- * summary is what gives the card substance in the meantime.
- */
 const RECENT = 3;
 
 export default function MeetingsPage() {
@@ -183,9 +169,6 @@ function Archive({
   const rest = meetings.slice(RECENT);
 
   return (
-    // `.rise` is already scoped to prefers-reduced-motion in globals.css, and it
-    // runs on the block rather than per row — §6 gives list rows colour change
-    // only, so a staggered cascade would argue with the rule on every visit.
     <div className="rise">
       <div className={CARD_GRID}>
         {recent.map((m) => (
@@ -234,11 +217,6 @@ function Archive({
   );
 }
 
-// Tracks, not a fixed column count: the column width shifts with the nav and
-// rail state, so a breakpoint guesses wrong at half the widths. Floor 232px is
-// where the meta line stops truncating to "Marco …"; cap 300px keeps the plate
-// from ballooning into a big grey box on a wide column (aspect-video means
-// width sets height). Extra width becomes a right-hand gap, not taller cards.
 const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(232px,300px))] gap-4";
 
 function JoinDialog({ onClose }: { onClose: () => void }) {

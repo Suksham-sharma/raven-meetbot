@@ -8,16 +8,6 @@ import { clockTime, longDate, people, timecode } from "@/lib/speaker";
 import { toRow } from "@/lib/meetings";
 import type { MeetingSummary } from "@/lib/types";
 
-/**
- * DESIGN.md §11 names cmdk as the pick for "Search everything", so this filters
- * the meetings the page has already loaded rather than reaching for an endpoint
- * that does not exist. That bounds it honestly: it searches the pages you have
- * fetched, which is what the footer says.
- *
- * Matching runs over title, participants and the written-out date, so "tuesday"
- * and "priya" both find the meeting — cmdk's default scorer only sees the
- * `value` string, so everything searchable has to be in it.
- */
 export function CommandPalette({
   meetings,
   open,
@@ -31,7 +21,6 @@ export function CommandPalette({
 }) {
   const [query, setQuery] = React.useState("");
 
-  // Registered here so the parent only has to hold a boolean.
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -147,20 +136,6 @@ export function CommandPalette({
   );
 }
 
-/**
- * Fuzzy on the title, literal on everything else.
- *
- * cmdk's default scorer matches subsequences over the whole search string. With
- * the people and the date folded into one value, "tara" pulled in "standup
- * planning" — the t, a, r and a are all in there, scattered across the title,
- * the weekday and three other people's names. Over a couple of hundred meetings
- * that is noise dressed as results.
- *
- * So the title stays the fuzzy target, where subsequence matching is worth
- * having ("sles acme" should still find it), and the participants and date move
- * to keywords matched literally — nobody misspells a name they are searching by
- * and expects a hit, but everybody expects "tara" to mean Tara.
- */
 function score(value: string, search: string, keywords: string[] = []): number {
   const q = search.trim().toLowerCase();
   if (!q) return 1;
@@ -168,8 +143,6 @@ function score(value: string, search: string, keywords: string[] = []): number {
   return defaultFilter?.(value, search) ?? 0;
 }
 
-// Matches MeetingRow: people first, because a date names when it happened and
-// never what it was.
 function fallback(m: MeetingSummary): string {
   if (m.participants.length) return people(m.participants);
   const label = m.started_at ? longDate(m.started_at) : "";

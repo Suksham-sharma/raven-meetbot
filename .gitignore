@@ -4,6 +4,7 @@ dist/
 .env.*
 !.env.example
 recordings/
+screenshots/
 .DS_Store
 *.log
 CLAUDE.md
@@ -11,7 +12,5 @@ bot/.auth/
 .gstack/
 # Per-machine port remaps and service overrides.
 docker-compose.override.yml
-# Local run output from scripts/demo.sh — service logs and a session cookie.
-.demo-logs/
 # Codex session handle, local to one machine.
 .context/

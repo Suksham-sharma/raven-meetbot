@@ -47,14 +47,12 @@ export function longDate(iso: string): string {
   return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
-/** "3 Jan" */
 export function shortDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
-/** "Priya, Marcus and 4 others" — a meeting's people as a sentence. */
 export function people(names: string[], max = 3): string {
   return names.length > max
     ? `${names.slice(0, max - 1).join(", ")} and ${names.length - (max - 1)} others`

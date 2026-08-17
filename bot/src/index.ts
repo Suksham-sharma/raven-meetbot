@@ -19,8 +19,6 @@ const main = async () => {
   const shutdown = (signal: string) => {
     console.log(`[Bot] Received ${signal}, stopping...`);
     bot.stop();
-    // Don't call process.exit — let main() resolve naturally via cleanup
-    // Force-kill after 30s if graceful shutdown hangs
     setTimeout(() => {
       console.error("[Bot] Forced exit after timeout");
       process.exit(1);

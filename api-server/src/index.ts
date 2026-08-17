@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
-import apiRouter from "./routes";
-import systemConfig from "./config";
-import { setupGracefulShutdown } from "./utils/gracefulShutdown";
+import apiRouter from "./api/routes/index";
+import systemConfig from "./platform/config/index";
+import { setupGracefulShutdown } from "./platform/utils/gracefulShutdown";
 
 // Never boot production on the committed dev JWT secret — a forgeable signing
 // key is silent account takeover.

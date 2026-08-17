@@ -1,8 +1,3 @@
-/**
- * One-time auth bootstrap (`pnpm auth`): human signs the bot's Google
- * account in, session is exported as Playwright storage state that the bot
- * loads on host and in Docker alike. Re-run when the session expires.
- */
 import { mkdir } from "fs/promises";
 import path from "path";
 import { chromium } from "playwright";
@@ -45,7 +40,6 @@ const main = async () => {
     process.exit(1);
   }
 
-  // let Google finish setting session cookies
   await page.waitForTimeout(2000).catch(() => undefined);
   await ctx.storageState({ path: STATE_PATH });
   await ctx.close();

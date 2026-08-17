@@ -31,7 +31,6 @@ class Transcriber {
   }
 
   async start(): Promise<void> {
-    // R2 when configured, local recordings/ dir otherwise — mirrors recordingSink.
     this.transcriptSink = createStorageSink(`${this.meetingId}.transcript.jsonl`);
     await this.transcriptSink.init();
 
@@ -73,7 +72,6 @@ class Transcriber {
     this.connection.connect();
     await this.connection.waitForOpen();
 
-    // Flush transcript buffer to storage every 30s
     this.flushTimer = setInterval(() => this.flushToSink(), 30_000);
 
     console.log("[Transcriber] Started");
@@ -97,7 +95,6 @@ class Transcriber {
     const isFinal = Boolean(data.is_final);
     const words = alt.words ?? [];
 
-    // Group words by speaker for cleaner segments
     if (words.length > 0) {
       let currentSpeaker = words[0].speaker ?? 0;
       let segmentWords: typeof words = [];
@@ -116,7 +113,6 @@ class Transcriber {
         this.addSegment(currentSpeaker, segmentWords, isFinal);
       }
     } else if (alt.transcript.trim()) {
-      // Fallback: no word-level data
       const segment: TranscriptSegment = {
         speaker: 0,
         text: alt.transcript.trim(),
@@ -176,15 +172,12 @@ class Transcriber {
     if (this.connection && this.connected) {
       try {
         this.connection.sendFinalize({ type: "Finalize" });
-        // Give Deepgram a moment to send final results
         await new Promise((r) => setTimeout(r, 2000));
         this.connection.close();
       } catch {
-        // Connection may already be closed
       }
     }
 
-    // Final flush
     await this.flushToSink();
 
     if (this.transcriptSink) {

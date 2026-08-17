@@ -40,10 +40,12 @@ corpus to compound, and pointless to deploy if it isn't built.
 | **`FUTURE_PLAN.md`** (this) | **Live spine** | What's done, what's next |
 | `DESIGN.md` | **Live, enforced** | Every visual/UI decision. Read before writing any component |
 | `web/AGENTS.md` | **Live** | Next.js 16 rules — read `node_modules/next/dist/docs/` first |
-| `FRONTEND-PLAN.md` | Live reference | Screen-level frontend detail, open UX questions |
-| `API-SURFACE.md` | Live reference | Endpoint contracts |
-| `PLAN.md` | Historical | v2 architecture decisions + rationale (still the "why") |
-| `ROADMAP.md` | **Superseded by this doc** | Keep for the risk register and non-goals |
+| `docs/decisions.md` | **Live** | Architecture decisions D1–D6, failure modes, non-goals — the "why" |
+| `TODOS.md` | **Live** | Work consciously deferred, with the reasoning intact |
+
+`PLAN.md`, `ROADMAP.md`, `FRONTEND-PLAN.md` and `API-SURFACE.md` were retired on
+2026-08-17 — all four had gone stale enough to mislead. Their durable reasoning
+lives in `docs/decisions.md`; endpoint contracts come from `api-server/src/routes`.
 
 ---
 
@@ -74,7 +76,7 @@ against the mp4's own audio, so a cited second is the second you land on.
 
 ## 2. Done
 
-Condensed. Detail lives in the linked commits and `PLAN.md`.
+Condensed. Detail lives in the linked commits and `docs/decisions.md`.
 
 ### Capture — v1 / v1.x
 - [x] Three-service architecture: `api-server` (Express) / `orchestrator`
@@ -251,7 +253,7 @@ without it.*
 - [ ] Concurrent meetings — orchestrator container-per-meeting under real load.
 - [ ] Time-based flush for long meetings.
 - [x] **Clock skew — root-caused and fixed** (`7a7eba5`), though not where
-      `PLAN.md` predicted. It was never the live-stream-vs-recorder offset: raw
+      `docs/decisions.md` records. It was never the live-stream-vs-recorder offset: raw
       PCM extraction was splicing out the WebM's stall gaps, so transcript time
       ran ahead of media time and the error accumulated. `recording_offset_s`
       stays 0 and correct.
@@ -512,7 +514,6 @@ cheaper and nothing consumes it live — revisit only if in-meeting Q&A ships).
 | **Node version** | Shell default is v16 — no global `fetch`, so the OpenAI SDK crashes. `export PATH="$HOME/.nvm/versions/node/v20.17.0/bin:$PATH"`. |
 | **pnpm in api-server** | `pnpm add`/`update` prunes rolldown's native binding and breaks vitest → `pnpm install --force`. Corepack shim broken on node 20 → `npx -y pnpm@10.17.0`. |
 | **pnpm arg parsing** | Bareword script args (`all`) mis-parse → call `./node_modules/.bin/tsx` directly. |
-| **`scripts/demo.sh`** | Orphaned workers retry-loop against a dead Redis forever and grow `.demo-logs/` past 100MB. Kill them when done. |
 | **OrbStack** | Drops mid-session. `open -a OrbStack`. |
 | **OpenAI billing** | Complimentary shared-data tokens **exclude tool use and embeddings**. The `/ask` loop *is* tool use, so it bills at full rate. Iterate with `eval:answer --fast` and low `--runs`. |
 | **Drizzle + pgvector** | drizzle-kit does not emit `CREATE EXTENSION vector`. Prepended manually in `0000`. |

@@ -8,7 +8,6 @@ export interface ActionItem {
   id: number;
   text: string;
   owner: string | null;
-  /** Free text as spoken ("end of week"). Not a date — never parse it. */
   due: string | null;
   at: number;
   mine?: boolean;

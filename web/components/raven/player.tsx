@@ -17,16 +17,6 @@ import { timecode } from "@/lib/speaker";
 import { usePlayer } from "@/lib/player";
 import type { Chapter, Recording, TranscriptTurn } from "@/lib/types";
 
-/**
- * No player library. Their value is their default chrome and we replace all of
- * it — a scrubber marked with chapters, wired to the transcript (DESIGN.md §11).
- *
- * Chrome floats over the video, which is the one place §8 permits a frosted
- * surface: it sits over moving picture, so an opaque bar would punch a hole in
- * the frame.
- */
-// Meetings are watched to catch up, so speed is not a power-user flourish here
-// — it is the reason someone opens a recording they already sat through.
 const SPEEDS = [1, 1.25, 1.5, 2, 0.75];
 
 export function Player({
@@ -61,9 +51,6 @@ export function Player({
   const { setCurrent, setDuration, setPlaying, consumeSeek } =
     usePlayer.getState();
 
-  // Media duration wins over the stored one: the recording keeps rolling for a
-  // while after the last thing anybody says, so the transcript's end is short of
-  // the file's by however long the bot lingered.
   const total = durationS || recording.duration_s || 0;
 
   React.useEffect(() => {
@@ -78,19 +65,12 @@ export function Player({
 
   const vtt = useCaptionTrack(turns, recording.recording_offset_s);
 
-  // Chrome over moving picture is chrome over the thing you are watching, so it
-  // steps out while playing and comes back on any intent to touch it.
-  //
-  // Keyed on pointer activity, not on currentS: timeupdate fires four times a
-  // second, so restarting the timer on playback progress means it never fires.
   React.useEffect(() => {
     if (!playing) return;
     const id = setTimeout(() => setIdle(true), 2500);
     return () => clearTimeout(id);
   }, [playing, activity]);
 
-  // Derived rather than cleared on pause, so pausing always reveals the
-  // controls without another state write to keep in sync.
   const chromeHidden = idle && playing;
 
   function stirChrome() {
@@ -121,7 +101,6 @@ export function Player({
   function onKeyDown(e: React.KeyboardEvent) {
     const el = ref.current;
     if (!el) return;
-    // The scrubber is a real range input; it owns the arrow keys when focused.
     const onSlider = (e.target as HTMLElement).tagName === "INPUT";
     const keys: Record<string, () => void> = {
       " ": toggle,
@@ -150,8 +129,6 @@ export function Player({
     const box = shell.current;
     if (!box) return;
     if (document.fullscreenElement) void document.exitFullscreen();
-    // A 420px rail cannot render a shared slide or code (§5); this is the
-    // escape hatch that keeps screen-share content readable.
     else void box.requestFullscreen?.().catch(() => undefined);
   }
 
@@ -310,9 +287,6 @@ export function Player({
                 onClick={onToggleTheater}
                 label={theater ? "Shrink to the side" : "Expand the video"}
                 pressed={theater}
-                // A sidebar, not another pair of expand arrows: it sat beside
-                // Fullscreen and the two were indistinguishable. This one says
-                // where the video goes, which is the actual difference.
                 icon={
                   <SidebarSimple
                     size={14}
@@ -360,7 +334,6 @@ function Control({
       aria-label={label}
       aria-pressed={pressed}
       className={cn(
-        // 24px minimum touch target, §9.
         "grid h-6 place-items-center rounded-xs transition-colors duration-150 ease-out",
         wide ? "min-w-9 px-1.5" : "w-6",
         pressed ? "bg-paper/90 text-ink-1" : "text-paper/85 hover:bg-paper/15",
@@ -421,8 +394,6 @@ function Scrubber({
           <div
             className={cn(
               "relative h-full rounded-[999px] bg-accent-tint",
-              // timeupdate lands ~4x a second; without this the fill steps
-              // rather than travels. Off while paused so a seek is instant.
               playing && "motion-safe:transition-[width] duration-250 ease-linear",
             )}
             style={{ width: `${pct}%` }}
@@ -479,18 +450,12 @@ function chapterAt(chapters: Chapter[], s: number): Chapter | undefined {
   return chapters.find((c) => s >= c.start_s && s < c.end_s);
 }
 
-/**
- * Captions are built from the transcript we already have rather than shipped as
- * a file, because the transcript *is* the caption track — §9 leaves no room to
- * skip this. Blob URL so nothing has to be generated server-side.
- */
 function useCaptionTrack(
   turns: TranscriptTurn[] | undefined,
   offsetS: number,
 ): string | null {
-  // Derived, not stored: building the URL in an effect and then setting state
-  // renders the player once without captions and again with them, for a value
-  // that is a pure function of the transcript.
+  // Derived, not stored: an effect + setState would render once without
+  // captions and again with them, for a pure function of the transcript.
   const url = React.useMemo(() => {
     if (!turns?.length) return null;
     const body = turns
@@ -505,8 +470,6 @@ function useCaptionTrack(
     return URL.createObjectURL(blob);
   }, [turns, offsetS]);
 
-  // The object URL pins the blob until it is revoked, so the previous one has
-  // to go whenever this recomputes or the component unmounts.
   React.useEffect(() => {
     if (!url) return;
     return () => URL.revokeObjectURL(url);

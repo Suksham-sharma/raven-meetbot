@@ -13,7 +13,6 @@ export interface Meeting {
   participants: string[];
   state: MeetingState;
   stateDetail?: string;
-  /** One line of what happened. The card shows it; the row ignores it. */
   summary?: string | null;
   poster?: string;
 }
@@ -127,25 +126,18 @@ function Thumb({ meeting }: { meeting: Meeting }) {
   );
 }
 
-// Untitled rows put the people in the title, so repeating them here would say
-// the same thing twice and leave the row with nothing that identifies it.
 function secondary(m: Meeting): string {
   return m.title == null
     ? clockTime(m.startedAt)
     : [clockTime(m.startedAt), people(m)].filter(Boolean).join(" · ");
 }
 
-// Rows sit under a day heading, so a date here repeats the group it is in. Who
-// was in the call is the most useful thing left, and it stays in tertiary ink
-// so it never reads as a real name someone gave the meeting.
 function fallbackTitle(m: Meeting): string {
   if (m.participants.length) return people(m);
   const label = longDate(m.startedAt);
   return label ? `Untitled — ${label}` : m.id;
 }
 
-// Content order puts the duration badge first, so the computed name comes out
-// as "42:30suksham, Ankur Singh21:07". Spell it instead.
 function rowLabel(m: Meeting, title: string): string {
   return [
     title,

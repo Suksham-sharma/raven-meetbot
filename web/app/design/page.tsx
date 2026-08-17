@@ -87,8 +87,6 @@ export default function DesignSystem() {
   );
 }
 
-/* ─────────────────────────── chrome ─────────────────────────── */
-
 function Nav() {
   return (
     <aside className="sticky top-0 h-screen overflow-y-auto border-r border-rule bg-rail px-4 py-8">
@@ -155,8 +153,6 @@ function Code({ children }: { children: React.ReactNode }) {
     </code>
   );
 }
-
-/* ─────────────────────────── sections ─────────────────────────── */
 
 const NEUTRALS = [
   ["paper", "bg-paper", "#F8F6F1", "app ground"],
@@ -653,12 +649,8 @@ function Evidence() {
   );
 }
 
-/* ─────────────────────────── ask ─────────────────────────── */
-
 const CORPUS = "34 meetings · 3 Jan – 3 Aug";
 
-// Same four moments as the Evidence section above, in the shape the API
-// actually returns them — AnswerBlock maps them to Sources itself.
 const CITATIONS: Citation[] = SOURCES.slice(0, 3).map((s) => ({
   meetingId: "acme_2026-08-03_15-00-00",
   start_s: s.at,
@@ -678,9 +670,6 @@ const ANSWERED: Answer = {
   iterations: 3,
 };
 
-// No chips, because that is what ungrounded means: nothing resolved to a
-// moment. An answer that hedges and then offers three sources is telling the
-// user two different things.
 const HEDGED: Answer = {
   ...ANSWERED,
   answer:
@@ -697,12 +686,6 @@ const REFUSED: Answer = {
   refused: true,
 };
 
-/**
- * The rail at 360px, which is the only width this is ever seen at. Rendering it
- * wide would flatter it — the answer has to hold up in a column narrower than
- * the document it sits beside, and the citation chips have to wrap without
- * shredding the last line.
- */
 function Rail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -784,9 +767,6 @@ function Ask() {
   );
 }
 
-/* Chrome copied from AskPanel's own header and box, because those two are
-   welded to the live mutation and there is nothing to fixture them with. Kept
-   deliberately thin — everything below the box is the real component. */
 function AskHeader() {
   return (
     <header className="mb-5">
@@ -818,8 +798,6 @@ function AskBox({ value }: { value?: string }) {
     </div>
   );
 }
-
-/* ─────────────────────────── domain ─────────────────────────── */
 
 const MEETINGS: Meeting[] = [
   {

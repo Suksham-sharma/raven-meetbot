@@ -31,20 +31,7 @@ import {
 import { duration, longDate, timecode } from "@/lib/speaker";
 import type { Decision, MeetingActionItem, MeetingDetail } from "@/lib/types";
 
-/**
- * The moment is the atomic unit of this product (DESIGN.md §1), so every
- * surface on this page resolves to one: a decision opens the quote behind it, a
- * chapter is a seek, a transcript turn is a seek, and `?t=` is how a citation
- * from anywhere else in the app lands here.
- *
- * Layout runs title and detail first, then the recording, then the document.
- * DESIGN.md §5 argued against a video at the top because a hero scrolls away
- * exactly when quote-clicking starts — which is answered by the summary being
- * short enough not to scroll, and by the transcript handing the video to the
- * sidebar instead of leaving it overhead.
- */
 export default function Page() {
-  // useSearchParams needs a boundary; the deep link is read below it.
   return (
     <React.Suspense fallback={<div className="h-dvh bg-paper" />}>
       <MeetingView />
@@ -61,16 +48,6 @@ function MeetingView() {
 
   const [tab, setTab] = React.useState<Tab>("happened");
   const [theater, toggleTheater] = useTheater();
-  /**
-   * The tab picks the layout, because the two tabs want opposite things: the
-   * summary is short and the video is the point, the transcript is long and the
-   * video is company. Reading a transcript through the gap a big player leaves
-   * is the one arrangement neither mode is good at.
-   *
-   * Still overridable — watching along with the transcript open is a real way to
-   * use this — but only for as long as you stay on that tab. Only the summary
-   * tab's choice is the remembered one.
-   */
   const [override, setOverride] = React.useState<boolean | null>(null);
   const bigPlayer = override ?? (theater && tab !== "said");
 
@@ -100,17 +77,9 @@ function MeetingView() {
   const [editing, setEditing] = React.useState(false);
   const [titleDraft, setTitleDraft] = React.useState("");
 
-  // Position is per-meeting; carrying it across would highlight a turn in a
-  // transcript that no longer exists.
+  // Position is per-meeting: carrying it across highlights a turn that is gone.
   React.useEffect(() => reset, [meetingId, reset]);
 
-  // Land on the cited second once the media is actually there to seek. Without
-  // autoplay: arriving at a moment should not start sound the reader did not ask
-  // for, and browsers block it anyway.
-  //
-  // Keyed on the value rather than latched once, because a citation can point at
-  // the meeting already open — that is a same-route push with a new `?t=`, and a
-  // one-shot guard would swallow every jump after the first.
   const landedAt = React.useRef<string | null>(null);
   React.useEffect(() => {
     const raw = params.get("t");
@@ -291,15 +260,6 @@ function title(m: MeetingDetail): string {
   return m.title ?? m.chapters[0]?.title ?? m.id;
 }
 
-/**
- * Two modes, and only two: big here, or in the sidebar. A third floating state
- * was built — the player following the reader into a corner — and cut, because
- * "where is the video now" became a question the page kept asking of you.
- *
- * Height is capped against the viewport: 16:9 across a wide column can
- * otherwise fill a short screen with video and leave nothing to read. When the
- * document needs the room, the sidebar is the mode for that.
- */
 function TheaterSlot({ children }: { children: React.ReactNode }) {
   return <div className="mb-9 w-full max-w-[calc(46vh*16/9)]">{children}</div>;
 }
@@ -402,11 +362,6 @@ function SectionHead({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * Evidence is a footnote, not a card (§7): the chip names a person and a moment,
- * and unfolds the quote beneath rather than boxing it. A box would hand a
- * fallible extraction more standing than it has earned.
- */
 function Statement({ item }: { item: Decision }) {
   const [open, setOpen] = React.useState(false);
   const requestSeek = usePlayer((s) => s.requestSeek);
@@ -456,9 +411,6 @@ function Tasks({
   const queryClient = useQueryClient();
   const requestSeek = usePlayer((s) => s.requestSeek);
 
-  // Patched in place rather than invalidated, matching the follow-ups rail: the
-  // list is ordered by seq here, so nothing moves, but a refetch would still
-  // blank the row for a beat on a control people click reflexively.
   const toggle = useMutation({
     mutationFn: ({ id, completed }: { id: number; completed: boolean }) =>
       api.setActionItemCompleted(id, completed),
@@ -489,7 +441,6 @@ function Tasks({
       }
     },
     onSettled: () => {
-      // The cross-meeting rail counts these, so it has to hear about it.
       void queryClient.invalidateQueries({ queryKey: keys.actionItems });
     },
   });
@@ -531,8 +482,6 @@ function SaidTab({
   turns?: { speaker: string; start_s: number; end_s: number; text: string }[];
   offsetS: number;
 }) {
-  // A missing transcript is the normal state for the first minutes after a call,
-  // so it takes the neutral processing tone rather than an error (§7).
   if (error instanceof ApiError && error.status === 409) {
     return <Processing />;
   }
@@ -577,8 +526,6 @@ function RecordingPane({
         onToggleTheater={onToggleTheater}
       />
     );
-    // In theater the column wrapper already pins it; in the rail it pins itself,
-    // so it stays seekable while the document is read (§5).
     return theater ? (
       player
     ) : (
@@ -622,9 +569,6 @@ function Chapters({
                 type="button"
                 onClick={() => requestSeek(c.start_s + offsetS)}
                 aria-current={here ? "true" : undefined}
-                // Spelled out, or the computed name runs the timecode into the
-                // title and then reads the gist too — "0:37IntroductionSuksham
-                // introduces himself and…". Same trap the meeting row names.
                 aria-label={`${c.title}, ${timecode(c.start_s)}, jump to this moment`}
                 className={cn(
                   "flex w-full items-baseline gap-3 rounded-md px-2 py-2 text-left",

@@ -3,14 +3,12 @@ import { Newsreader, Instrument_Sans } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
 
-// Serif is for speech: quotes, transcript, summary prose.
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
   display: "swap",
 });
 
-// Sans is for interface: labels, buttons, nav, metadata.
 const instrument = Instrument_Sans({
   variable: "--font-instrument",
   subsets: ["latin"],

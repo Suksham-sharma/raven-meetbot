@@ -12,7 +12,6 @@ export const CHROME_ARGS = [
 ];
 
 export const MEET_SELECTORS = {
-  // Error indicators
   ERROR_TEXTS: [
     "Check your meeting code",
     "Invalid meeting code",
@@ -20,44 +19,35 @@ export const MEET_SELECTORS = {
     "This meeting doesn't exist",
   ],
 
-  // Overlay dismiss buttons
   DISMISS_BUTTONS: ["Dismiss", "Got it", "OK", "Close"],
 
-  // Mute controls
   MIC_BUTTON: '[aria-label*="microphone" i]',
   CAMERA_BUTTON: '[aria-label*="camera" i]',
 
-  // Name input
   NAME_INPUT: 'input[aria-label="Your name"]',
 
-  // Join buttons
   JOIN_BUTTONS: ["Join now", "Ask to join"],
 
-  // Admission indicators (means we're in the meeting)
   IN_MEETING_INDICATORS: [
     'button[aria-label*="Chat with everyone" i]',
     'button[aria-label*="Show everyone" i]',
     'button[aria-label*="Meeting details" i]',
   ],
 
-  // Host denied, request expired, or Meet blocked the knock
   DECLINE_TEXTS: [
     "denied your request to join",
     "You can't join this video call",
     "No one responded to your request",
   ],
 
-  // Waiting indicator
   WAITING_TEXT: "Please wait until a meeting host brings you into the call",
 
-  // Kick indicators
   KICK_INDICATORS: [
     "Return to home screen",
     "You've been removed from the meeting",
     "The meeting has ended",
   ],
 
-  // Leave button
   LEAVE_BUTTON: '[aria-label="Leave call"]',
 };
 

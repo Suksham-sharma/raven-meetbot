@@ -1,5 +1,5 @@
 {
-  "_comment": "Golden eval set for v2 retrieval + answer quality. relevant_ids are CHUNK-level, keyed meetingId#seq (stable across re-ingest, unlike bigserial ids) — the chunks that actually contain the answer; retrievalEval.ts scores chunk-level recall@k/MRR/nDCG against them. relevant_meetings stays for meeting-level / agent scoring. Each question maps to a query type from PLAN.md. q8+ target the long generated meetings; q16-q19 are adversarial (entity confusion, revised decision, cross-meeting no-conflation, tempting refusal).",
+  "_comment": "Golden eval set for v2 retrieval + answer quality. relevant_ids are CHUNK-level, keyed meetingId#seq (stable across re-ingest, unlike bigserial ids) — the chunks that actually contain the answer; retrievalEval.ts scores chunk-level recall@k/MRR/nDCG against them. relevant_meetings stays for meeting-level / agent scoring. Each question maps to a query type from docs/decisions.md. q8+ target the long generated meetings; q16-q19 are adversarial (entity confusion, revised decision, cross-meeting no-conflation, tempting refusal).",
   "meetings": [
     "standup-planning_2026-05-20_14-30-00",
     "eng-sync_2026-06-03_10-00-00",

@@ -20,7 +20,6 @@ export class ApiError extends Error {
 
 const SERVER_FAULT = "Something went wrong on our end. Try again in a moment.";
 
-/** Frames stopped arriving but the socket never closed. Not a timeout: the far end died. */
 export class StreamStalledError extends Error {
   constructor() {
     super("The connection to Raven dropped.");
@@ -28,8 +27,8 @@ export class StreamStalledError extends Error {
   }
 }
 
-// No total deadline: an agent run can legitimately take minutes. IDLE measures
-// gaps between frames instead, and must stay above the server's 15s heartbeat.
+// Gaps between frames, not a total deadline (an agent run takes minutes).
+// Must stay above the server's 15s heartbeat.
 const STREAM_CONNECT_MS = 20_000;
 const STREAM_IDLE_MS = 40_000;
 
@@ -38,9 +37,7 @@ async function errorMessage(res: Response): Promise<string> {
   try {
     raw = ((await res.json()) as { message?: string })?.message ?? "";
   } catch {
-    // no body, or not JSON
   }
-  // 5xx messages come from asyncHandler, which forwards raw exception text.
   if (res.status >= 500) {
     if (raw) console.error("[api]", res.status, raw);
     return SERVER_FAULT;
@@ -145,7 +142,6 @@ export const api = {
       return r.json() as Promise<{ meeting_id: string; key: string }>;
     }),
 
-  // presigned: browser PUTs directly to R2 (or to /meetings/:id/upload for local), then complete
   uploadMeeting: async (file: File, title?: string) => {
     const presign = await api.presignUpload(title, file.name, file.type, file.size);
     const isLocal = presign.upload_url.startsWith("/api/");
@@ -187,13 +183,9 @@ export const api = {
   transcript: (id: string) =>
     request<Transcript>(`/meetings/${encodeURIComponent(id)}/transcript`),
 
-  // 409 until transcode finishes, which is the normal state for a few minutes
-  // after every call — the caller renders that as processing, not as an error.
   recording: (id: string) =>
     request<Recording>(`/meetings/${encodeURIComponent(id)}/recording`),
 
-  // Blocking, 3–40s, up to 8 sequential LLM round-trips. No streaming exists.
-  // `meetingId` confines the agent to one meeting; omit it to search everything.
   ask: (q: string, meetingId?: string) =>
     request<Answer>("/ask", {
       method: "POST",
@@ -201,7 +193,6 @@ export const api = {
       timeoutMs: 60_000,
     }),
 
-  // Streaming variant — yields tool-call progress via SSE (POST + JWT, so fetch + ReadableStream, not EventSource).
   askStream: async (
     q: string,
     onEvent: (event: import("./types").AskStreamEvent) => void,
@@ -244,7 +235,6 @@ export const api = {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
-        // SSE frames are `data: {...}\n\n` — split on double newline and parse complete frames
         let sep: number;
         while ((sep = buffer.indexOf("\n\n")) !== -1) {
           const frame = buffer.slice(0, sep);
@@ -259,24 +249,20 @@ export const api = {
             const event = JSON.parse(raw) as import("./types").AskStreamEvent;
             onEvent(event);
           } catch {
-            // ignore malformed frame
           }
         }
       }
 
-      // Flush trailing frame if server ended without double newline
       if (buffer.trim().startsWith("data:")) {
         const raw = buffer.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("\n");
         if (raw) {
           try {
             onEvent(JSON.parse(raw) as import("./types").AskStreamEvent);
           } catch {
-            // ignore
           }
         }
       }
     } catch (err) {
-      // Our own abort, not the caller's — the two need different handling upstream.
       if (stalled) throw new StreamStalledError();
       throw err;
     } finally {

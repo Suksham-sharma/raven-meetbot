@@ -3,7 +3,6 @@ import type { MeetingState } from "@/components/ui/pill";
 import type { Corpus, MeetingSummary } from "./types";
 import { longDate, shortDate } from "./speaker";
 
-/** "34 meetings · 3 Jan – 2 Aug" — DESIGN.md §7 wants the boundary stated. */
 export function corpusLabel(c: Corpus): string {
   const count = `${c.total} meeting${c.total === 1 ? "" : "s"}`;
   const from = c.from ? shortDate(c.from) : "";

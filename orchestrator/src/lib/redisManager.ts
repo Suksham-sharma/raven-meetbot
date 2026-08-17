@@ -1,7 +1,6 @@
 import { Worker, Queue, Processor, WorkerOptions } from "bullmq";
 import systemConfig from "../config";
 
-// Enqueued on successful bot exit; consumed by the api-server diarize worker.
 export interface DiarizeJob {
   meetingId: string;
   recordingKey: string;
@@ -49,7 +48,6 @@ class RedisManager {
     return this.queue;
   }
 
-  // Best-effort: never fails the (already-complete) bot job. jobId dedupes retries.
   async enqueueDiarize(job: DiarizeJob): Promise<void> {
     try {
       await this.diarizeQueue.add("diarize", job, { jobId: job.meetingId });
@@ -62,7 +60,6 @@ class RedisManager {
     }
   }
 
-  // Best-effort, same contract as enqueueDiarize.
   async enqueueTranscode(job: TranscodeJob): Promise<void> {
     try {
       await this.transcodeQueue.add("transcode", job, { jobId: job.meetingId });

@@ -231,6 +231,14 @@ A 420px player cannot render a shared slide or code, so the pinned player is the
 **companion** size and expands to **theater** on demand. Screen-share content
 exists nowhere but the video — never make it unreadable.
 
+**Resolved 2026-08-17: theater is the default, not companion.** 420px is a
+thumbnail, and the recording is what people open a meeting for. The scroll-away
+objection above was right and is answered rather than ignored — the player docks
+to a corner once it leaves the viewport, so a cited clip still plays somewhere
+visible. Companion stays one click away and the choice is remembered per viewer.
+The transcript tab still opens in companion, because reading a transcript through
+the gap a theater player leaves is the one arrangement neither mode is good at.
+
 ### Density regimes
 
 Three, and they do not share a spacing scale:

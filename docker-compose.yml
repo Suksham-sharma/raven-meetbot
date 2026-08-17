@@ -1,9 +1,34 @@
+# Secrets come from the service's own .env plus the repo-root .env (R2 + Deepgram
+# live there). `environment:` below is only for values that MUST differ inside the
+# compose network — it overrides whatever env_file supplied.
+
+x-network-env: &network-env
+  REDIS_URL: redis://redis:6379
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/meetbot
+  # Read when R2 is unset. api-server, media-worker and the bot must agree on
+  # this or they read and write artifacts in different places.
+  RECORDINGS_DIR: /data/recordings
+
+x-api-env: &api-env
+  - path: ./.env
+    required: false
+  - path: ./api-server/.env
+    required: false
+
+x-media-env: &media-env
+  - path: ./.env
+    required: false
+  - path: ./media-worker/.env
+    required: false
+
+x-recordings: &recordings
+  - ${PWD}/recordings:/data/recordings
+
 services:
   redis:
     image: redis:7-alpine
-    # Not published to the host: api-server/orchestrator reach it over the
-    # compose network as redis://redis:6379. Use `docker compose exec redis
-    # redis-cli` for host inspection.
+    # Not published to the host: services reach it over the compose network as
+    # redis://redis:6379. Use `docker compose exec redis redis-cli` to inspect.
     volumes:
       - redis-data:/data
 
@@ -12,9 +37,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=meetbot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: meetbot
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -27,31 +52,72 @@ services:
     build: ./api-server
     ports:
       - "3000:3000"
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/meetbot
+    env_file: *api-env
+    environment: *network-env
+    volumes: *recordings
+    depends_on:
+      - redis
+      - postgres
+
+  # Ingest and action-proposal share the api-server image: they are the same
+  # domain code, triggered by a queue rather than by HTTP (docs/decisions.md D1).
+  worker-memory:
+    build: ./api-server
+    command: ["node", "dist/workers/memory.worker.js"]
+    env_file: *api-env
+    environment: *network-env
+    volumes: *recordings
+    depends_on:
+      - redis
+      - postgres
+
+  worker-agent:
+    build: ./api-server
+    command: ["node", "dist/workers/agent.worker.js"]
+    env_file: *api-env
+    environment: *network-env
+    depends_on:
+      - redis
+      - postgres
+
+  # Its own image because both of these shell out to ffmpeg (docs/decisions.md D6).
+  media-transcode:
+    build: ./media-worker
+    command: ["node", "dist/transcode/worker.js"]
+    env_file: *media-env
+    environment: *network-env
+    volumes: *recordings
+    depends_on:
+      - redis
+      - postgres
+
+  media-diarize:
+    build: ./media-worker
+    command: ["node", "dist/diarize/worker.js"]
+    env_file: *media-env
+    environment: *network-env
+    volumes: *recordings
     depends_on:
       - redis
       - postgres
 
   orchestrator:
     build: ./orchestrator
+    env_file:
+      - path: ./.env
+        required: false
+      - path: ./orchestrator/.env
+        required: false
     environment:
-      - REDIS_URL=redis://redis:6379
-      - BOT_IMAGE=meet-bot:latest
-      - SCREENSHOTS_HOST_PATH=${PWD}/screenshots
-      - MAX_CONCURRENT_BOTS=10
-      - R2_ENDPOINT=${R2_ENDPOINT}
-      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
-      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - R2_BUCKET=${R2_BUCKET:-meeting-recordings}
-      - R2_REGION=${R2_REGION:-auto}
-      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      REDIS_URL: redis://redis:6379
+      BOT_IMAGE: meet-bot:latest
+      MAX_CONCURRENT_BOTS: 10
+      SCREENSHOTS_HOST_PATH: ${PWD}/screenshots
       # Host paths the orchestrator binds into each spawned bot container.
       # AUTH_STATE: signed-in Google session (anonymous joins get blocked).
       # RECORDINGS: persist artifacts past the ephemeral container when R2 is unset.
-      - AUTH_STATE_HOST_PATH=${PWD}/bot/.auth
-      - RECORDINGS_HOST_PATH=${PWD}/recordings
+      AUTH_STATE_HOST_PATH: ${PWD}/bot/.auth
+      RECORDINGS_HOST_PATH: ${PWD}/recordings
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:

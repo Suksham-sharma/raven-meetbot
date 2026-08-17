@@ -19,7 +19,6 @@ export interface MeetingSummary {
   summary: string | null;
 }
 
-/** The whole archive, not the page — it states the boundary an answer spans. */
 export interface Corpus {
   total: number;
   from: string | null;
@@ -52,9 +51,7 @@ export interface Decision {
 
 export interface MeetingActionItem extends Decision {
   owner: string | null;
-  /** Free text as spoken ("end of week"). Not a date — never parse it. */
   due: string | null;
-  /** When it was ticked off. Null is open. */
   completed_at: string | null;
 }
 
@@ -68,17 +65,11 @@ export interface MeetingDetail extends MeetingSummary {
 
 export interface Recording {
   meeting_id: string;
-  /** Presigned when the store can sign, else a same-origin streaming path. */
   url: string;
   poster_url: string | null;
   mime: string;
-  /**
-   * False when only the raw capture exists. A live-written WebM has no duration
-   * and no cues, so it plays but cannot seek — and every citation is a seek.
-   */
   seekable: boolean;
   duration_s: number | null;
-  /** Citations land at `start_s + this`. */
   recording_offset_s: number;
 }
 
@@ -95,18 +86,15 @@ export interface Transcript {
   turns: TranscriptTurn[];
 }
 
-/** An action item lifted out of its meeting, for the cross-meeting list. */
 export interface OpenAction {
   id: number;
   text: string;
   owner: string | null;
-  /** Free text as spoken ("end of week"). Not a date — never parse it. */
   due: string | null;
   evidence_quote: string;
   speaker: string | null;
   start_s: number;
   end_s: number;
-  /** When it was ticked off. Null is open. */
   completed_at: string | null;
   meeting_id: string;
   meeting_title: string | null;
@@ -119,16 +107,13 @@ export interface Citation {
   end_s: number;
   speaker: string | null;
   text: string;
-  /** `<r2-key>#t=<sec>` — a key, not a resolvable URL. */
   recordingUrl: string | null;
 }
 
 export interface Answer {
   answer: string;
   citations: Citation[];
-  /** False when claims could not be tied to a source — served as a normal 200. */
   grounded: boolean;
-  /** True when nothing matched — also a 200. Render as empty, never as an error. */
   refused: boolean;
   retrieved_meetings: string[];
   iterations: number;

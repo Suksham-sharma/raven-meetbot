@@ -16,20 +16,12 @@ const OPENERS = [
   "What came up more than once this month?",
 ];
 
-// The cross-meeting openers make no sense against a single call — "what came up
-// more than once this month" has one meeting to look at.
 const SCOPED_OPENERS = [
   "What was decided here?",
   "What did I agree to do?",
   "What was left unresolved?",
 ];
 
-/**
- * `scope` confines the answer to one meeting. On a meeting page that is the
- * only honest behaviour: asking "what did we decide?" while looking at one call
- * and getting decisions from four others reads as the product ignoring you.
- * The heading and the boundary line say which of the two you are getting.
- */
 function describeTool(name: string, parsed: unknown): { label: string; detail: string } {
   const p = (parsed ?? {}) as Record<string, unknown>;
   switch (name) {
@@ -42,7 +34,6 @@ function describeTool(name: string, parsed: unknown): { label: string; detail: s
     }
     case "search_transcript": {
       const q = typeof p.query === "string" ? p.query : "";
-      // No meeting_id: it's a slug, and the step above already named the meeting.
       return { label: "Searching what was said", detail: q ? `"${q.slice(0, 42)}"` : "scanning transcripts" };
     }
     case "search_structured": {
@@ -106,7 +97,6 @@ export function AskPanel({
       if (controller.signal.aborted) return;
       switch (event.type) {
         case "thinking":
-          // One trailing line, not a step — tool calls are the backbone.
           setNote(event.message);
           break;
         case "tool_call": {
@@ -120,7 +110,6 @@ export function AskPanel({
         case "tool_result": {
           setSteps((prev) => {
             const next = [...prev];
-            // mark the latest running step with this name as done (last occurrence)
             for (let i = next.length - 1; i >= 0; i--) {
               if (next[i].name === event.name && next[i].status === "running") {
                 next[i] = {
@@ -148,7 +137,6 @@ export function AskPanel({
             retrieved_meetings: event.retrieved_meetings,
             iterations: event.iterations,
           });
-          // mark any still-running steps as done as stream ends
           setSteps((prev) => prev.map((s) => (s.status === "running" ? { ...s, status: "done" as const } : s)));
           break;
         }
@@ -164,7 +152,6 @@ export function AskPanel({
       }
     };
 
-    // Always as a pair, so a stale error can't survive beside a fresh answer.
     const settle = (result: Answer | null, err: Error | null) => {
       if (controller.signal.aborted) return;
       setNote("");
@@ -182,18 +169,13 @@ export function AskPanel({
 
     try {
       await api.askStream(trimmed, handleEvent, { meetingId: scope?.meetingId, signal: controller.signal });
-      // Closed cleanly having said nothing: no answer, no error, nothing spent.
       if (!gotDone && !gotError && !controller.signal.aborted) await runBlocking();
     } catch (e) {
       if ((e as Error)?.name === "AbortError" || controller.signal.aborted) return;
-      // Only a missing route is worth retrying. Retrying a stall or a 500 buys
-      // the same failure twice at full agent cost.
       const missingRoute = e instanceof ApiError && (e.status === 404 || e.status === 405);
       if (missingRoute && !gotDone) await runBlocking();
       else settle(null, e instanceof Error ? e : new Error(String(e)));
     } finally {
-      // Only the current request may clear the flag; a superseded one unwinding
-      // later would stop the spinner on the request that replaced it.
       if (abortRef.current === controller) {
         abortRef.current = null;
         setIsPending(false);
@@ -206,11 +188,6 @@ export function AskPanel({
   }, []);
 
   return (
-    // Everything stacks from the top; the rail scrolls as one column. This used
-    // to stretch to full height with the answer slot on flex-1 and the openers
-    // pinned to the bottom, which at rest opened a ~500px hole through the
-    // middle of the widest empty region on the page. Nothing here needs to
-    // reach the fold.
     <div>
       <header className="mb-5">
         <h2 className="font-serif text-[23px] leading-tight tracking-[-0.014em]">
@@ -302,8 +279,6 @@ export function Openers({
   scoped?: boolean;
 }) {
   return (
-    // Space, not a rule: the rail already carries one hairline above the
-    // commitments list, and two stacked inside 360px reads as a form.
     <div className="mt-5 flex flex-col items-start">
       <p className="mb-1 px-2 text-[12.5px] text-ink-3">
         Or start with one of these
@@ -331,8 +306,6 @@ export function Openers({
   );
 }
 
-// Kept for the design gallery — /design renders Thinking from fixtures.
-// The live panel now uses LiveSteps with real tool-call events.
 const STEPS = [
   "Searching what was said",
   "Reading the meetings that matched",
@@ -400,7 +373,6 @@ export function LiveSteps({
     <div role="log" aria-live="polite" className={shell}>
       {steps.map((s) => {
         const done = s.status === "done";
-        // Neutral, not green: DESIGN §7, a check on "no matches" claims a result.
         const blank = done && s.empty;
         return (
           <div key={s.id} className="flex items-start gap-2.5">
@@ -451,12 +423,6 @@ export function LiveSteps({
   );
 }
 
-/**
- * The answer, once it lands. Exported because the design gallery renders it
- * from fixtures — /ask is a 3–40s billed round trip, which is not a loop you
- * can iterate a layout in, and a hand-copied answer in the gallery would drift
- * from this one within a week.
- */
 export function AnswerBlock({
   answer,
   query,
@@ -478,9 +444,6 @@ export function AnswerBlock({
       </p>
       <EvidenceFootnote
         sources={answer.citations.map(toSource)}
-        // The one move the whole product is built around: an answer resolves to
-        // a person saying a thing at a time, and this is how you get there.
-        // `?t=` is transcript-relative; the meeting page adds its own offset.
         onPlay={(s) =>
           s.where &&
           router.push(

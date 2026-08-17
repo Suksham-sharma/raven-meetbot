@@ -20,7 +20,6 @@ const processJob = async (job: Job<MeetBotJob>) => {
     `[Worker] Processing job ${job.id} (attempt ${job.attemptsMade + 1}): ${url}`
   );
 
-  // Preserve recording/metrics from a prior attempt — progress is per-job, not per-attempt.
   const prior =
     (job.progress as {
       recording?: string | null;
@@ -89,8 +88,6 @@ const processJob = async (job: Job<MeetBotJob>) => {
 
     console.log(`[Worker] Job ${job.id} completed successfully`);
 
-    // Transcode needs only the recording, so it is gated separately from
-    // diarize — a lost speaker timeline should still leave a playable meeting.
     if (recording) {
       const meetingId = recording.replace(/\.webm$/, "");
       await redisManager.enqueueTranscode({ meetingId, recordingKey: recording });
@@ -111,7 +108,6 @@ const processJob = async (job: Job<MeetBotJob>) => {
       console.warn(`[Worker] Job ${job.id}: no recording — skipping post-processing`);
     }
   } catch (err) {
-    // Only pre-join failures are retryable; rejoining a recorded meeting would duplicate it.
     if (
       !(err instanceof UnrecoverableError) &&
       timeline.some((e) => POST_JOIN_STATES.has(e.state))

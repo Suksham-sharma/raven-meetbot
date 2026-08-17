@@ -2,8 +2,6 @@ export interface MeetBotJob {
   url: string;
   botName: string;
   maxDurationMinutes: number | null;
-  // User who requested the join, carried to the diarize/ingest hand-off so the
-  // meeting is owned. Optional for jobs enqueued before auth.
   ownerId?: string | null;
 }
 
