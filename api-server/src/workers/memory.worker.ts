@@ -9,7 +9,11 @@ import { agentQueue, type MemoryJob } from "../platform/queues";
 
 const CONCURRENCY = Number(process.env.MEMORY_WORKER_CONCURRENCY) || 2;
 
-async function resolveMeeting(meetingId: string) {
+async function resolveMeeting(
+  meetingId: string,
+  title?: string | null,
+  scheduledStartMs?: number | null
+) {
   if (!systemConfig.R2_ENDPOINT) return loadSeedMeeting(meetingId);
 
   try {
@@ -18,7 +22,12 @@ async function resolveMeeting(meetingId: string) {
     );
     try {
       const segments = loadNamedTranscript(path);
-      const { meta } = buildRealMeeting(segments, meetingId);
+      const { meta } = buildRealMeeting(
+        segments,
+        meetingId,
+        title,
+        scheduledStartMs ? new Date(scheduledStartMs) : null
+      );
       console.log(`[memory] resolved ${meetingId} from named-transcript (${segments.length} segs)`);
       return { segments, meta };
     } finally {
@@ -36,7 +45,7 @@ async function resolveMeeting(meetingId: string) {
 const worker = new Worker<MemoryJob>(
   "memory",
   async (job) => {
-    const { meetingId, ownerId } = job.data;
+    const { meetingId, ownerId, title, scheduledStartMs } = job.data;
     console.log(`[memory] ingest start: ${meetingId} (job ${job.id})`);
 
     const { eq } = await import("drizzle-orm");
@@ -48,7 +57,11 @@ const worker = new Worker<MemoryJob>(
 
     let result;
     try {
-      const { segments, meta } = await resolveMeeting(meetingId);
+      const { segments, meta } = await resolveMeeting(
+        meetingId,
+        title,
+        scheduledStartMs
+      );
       result = await ingestMeeting({ meetingId, segments, meta, ownerId: ownerId ?? null });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

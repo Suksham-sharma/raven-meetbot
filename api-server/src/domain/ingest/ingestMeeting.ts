@@ -84,7 +84,7 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
         target: meetings.id,
         set: {
           ownerId: sql`coalesce(${meetings.ownerId}, ${input.ownerId ?? null}::uuid)`,
-          title: meta.title,
+          title: sql`coalesce(${meta.title}, ${meetings.title})`,
           type: extraction.meetingType,
           startedAt: meta.startedAt,
           endedAt: meta.endedAt,

@@ -39,9 +39,10 @@ corpus to compound, and pointless to deploy if it isn't built.
 |---|---|---|
 | **`FUTURE_PLAN.md`** (this) | **Live spine** | What's done, what's next |
 | `DESIGN.md` | **Live, enforced** | Every visual/UI decision. Read before writing any component |
+| `AGENTS.md` | **Live, enforced** | Repository conventions — pnpm only; never npm or npx |
 | `web/AGENTS.md` | **Live** | Next.js 16 rules — read `node_modules/next/dist/docs/` first |
 | `docs/decisions.md` | **Live** | Architecture decisions D1–D6, failure modes, non-goals — the "why" |
-| `TODOS.md` | **Live** | Work consciously deferred, with the reasoning intact |
+| `TODOS.md` | **Live** | Calendar handoff and deferred decisions, with reasoning intact |
 
 `PLAN.md`, `ROADMAP.md`, `FRONTEND-PLAN.md` and `API-SURFACE.md` were retired on
 2026-08-17 — all four had gone stale enough to mislead. Their durable reasoning
@@ -51,7 +52,8 @@ lives in `docs/decisions.md`; endpoint contracts come from `api-server/src/route
 
 ## 1. Position
 
-**Branch:** `main` = `6c2330f`, pushed.
+**Branch:** `main` = `2ad54fe`. Calendar foundation and UI are uncommitted in the
+working tree.
 
 **What works end to end today:** bot joins a real Google Meet → records →
 transcode to a seekable mp4 → batch diarization with real speaker names → memory
@@ -70,7 +72,23 @@ against the mp4's own audio, so a cited second is the second you land on.
 
 **Bot image rebuilt.** `meet-bot:latest` rebuilt `2026-08-15` (`20c8d65b`, `--no-cache`) and verified `encoding`/`sample_rate` are omitted so Deepgram auto-detects `audio/webm;codecs=opus`. Owner can now stop their bot via `POST /bots/:jobId/stop` (queued `bot-control` → `docker stop` → graceful finalize).
 
-**The one-line summary:** Phase 0 and Phase 1 are done. Phase 2 has started — rebuild + owner-controlled exit landed (unverified on a live meeting); re-verification of the live-transcription path is the next gate.
+**Calendar position:** The lean Phase A backend and `/settings/integrations` UI are
+implemented and locally verified. The remaining gate is a real Google OAuth account
+and a real scheduled Meet proving reconciliation → delayed BullMQ job → unattended
+join → capture. Do not add event overrides, incremental sync tokens, or more
+integration UI before that proof.
+
+**Next session starts here:** configure `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET`, a base64-encoded 32-byte `CALENDAR_TOKEN_KEY`, and the
+callback URL; start Raven's Postgres/Redis/API/web/orchestrator stack; apply migration
+`0009`; connect from `/settings/integrations`; enable `all`; create a near-future
+Google Meet; then inspect the account row, schedule row, delayed queue job, bot
+timeline, meeting title, and empty-room behavior. Record the exact failure if lobby
+admission or live transcription breaks.
+
+**The one-line summary:** Phase 0 and Phase 1 are done. Phase 2's live capture
+re-verification remains open. Phase 3 Calendar is code-complete locally but not
+feature-complete until the real OAuth and scheduled-Meet path passes.
 
 ---
 
@@ -277,10 +295,33 @@ without it.*
 *Today there is exactly one way to create a meeting: a manual `POST` with a URL,
 while the meeting is happening. That is the adoption ceiling.*
 
-- [ ] **Calendar integration → auto-join.** Connect Google Calendar, pick which
-      meetings the bot joins (all / external only / manual). Every competitor has
-      this; it is the difference between an impressive system and something used
-      on Monday. Largest single adoption unlock in this doc.
+- [ ] **Calendar integration → auto-join.** Phase A is deliberately a scheduler,
+      not a calendar mirror: one per-user OAuth account, one schedule table, and a
+      five-minute rolling reconciliation of the next 48 hours. Modes are `all` and
+      `manual`; event overrides and incremental sync tokens stay out until scale
+      proves they are needed.
+  - [x] Backend foundation written and locally verified 2026-08-18: encrypted refresh tokens,
+        one-time OAuth state, strict Meet-link parsing, owner-scoped BullMQ IDs,
+        rolling sync, cancellation, late-join guard, scheduled-start propagation,
+        meeting-title propagation, and empty-room suppression. Migration `0009`
+        passed against temporary Postgres; 22 API tests, the Redis idempotency test,
+        and API/orchestrator/bot/media typechecks passed. Uncommitted.
+  - [x] `/settings/integrations`: Calendar-only settings surface with connect,
+        reconnect/disconnect, `all`/`manual`, last checked, loading, denied, and one
+        actionable sync-error state. Empty, connected, denied, and mode-change paths
+        were browser-verified at desktop and 640px. Web lint/typecheck/build passed;
+        React Doctor is 100/100. Uncommitted.
+  - [ ] Real-account path: apply `0009` to Raven's actual dev database, complete
+        Google OAuth, verify encrypted refresh-token persistence, switch `manual` ↔
+        `all`, sync, disconnect, and reconnect.
+  - [ ] Real scheduled-Meet path: reconcile a near-future event, prove exactly one
+        delayed job across repeated syncs, then prove unattended admission, title
+        propagation, scheduled-start alone handling, empty-room suppression, and
+        live Deepgram segments.
+  - [ ] Keep the calendar unit and Redis tests until the live feature path passes;
+        remove them afterward to match the repository convention.
+  - [ ] Google OAuth production verification. Testing-mode refresh tokens expire
+        after seven days, so this is a launch gate rather than follow-up polish.
 - [x] **Upload an existing recording.** `POST /meetings/upload/presign` → presigned `PUT` (R2 presigned `PutObject`, local `PUT /meetings/:id/upload` streaming via `writeStream`) → `POST /meetings/:id/complete` enqueues `transcode` + `diarize` with `speakersKey=null` fallback to `diarizeWithoutTimeline` (Speaker N) → `cb632a7`. Demoable without a bot.
 - [x] **Bulk backfill import** — `POST /meetings/bulk-upload/presign` reuses the same presigned path per file; `web` drag-drop calls single vs bulk automatically → `cb632a7`.
 - [x] Manual join UX in the dashboard — **done** `6c2330f` (`Join a meeting` + `Upload recording` buttons on `/`, `JoinDialog` → `POST /join-meet` → polls `GET /bots/:jobId/status` timeline, `UploadDialog` with drag-drop/title).
@@ -512,8 +553,9 @@ cheaper and nothing consumes it live — revisit only if in-meeting Q&A ships).
 | **`web/node_modules`** | Can be empty even though the repo looks complete — `tsc` then resolves React from a parent directory and emits hundreds of phantom errors. `pnpm install` in `web/`. |
 | **Port 3000** | Taken by your other Next.js app. Run api-server on `PORT=3100`. |
 | **Node version** | Shell default is v16 — no global `fetch`, so the OpenAI SDK crashes. `export PATH="$HOME/.nvm/versions/node/v20.17.0/bin:$PATH"`. |
-| **pnpm in api-server** | `pnpm add`/`update` prunes rolldown's native binding and breaks vitest → `pnpm install --force`. Corepack shim broken on node 20 → `npx -y pnpm@10.17.0`. |
-| **pnpm arg parsing** | Bareword script args (`all`) mis-parse → call `./node_modules/.bin/tsx` directly. |
+| **Package manager** | `AGENTS.md` makes pnpm mandatory across the repository. Never use npm or npx. The web, bot, and media-worker workspace files require `packages: ['.']`; without it pnpm fails before running a command. |
+| **pnpm in api-server** | `pnpm add`/`update` can prune rolldown's native binding and break vitest → `pnpm install --force`. If pnpm itself is unavailable, restore it with the machine's package/version manager, not npm or npx. |
+| **pnpm arg parsing** | Bareword script args can mis-parse; use `pnpm exec tsx <file> <args>` when a package script cannot forward them cleanly. |
 | **OrbStack** | Drops mid-session. `open -a OrbStack`. |
 | **OpenAI billing** | Complimentary shared-data tokens **exclude tool use and embeddings**. The `/ask` loop *is* tool use, so it bills at full rate. Iterate with `eval:answer --fast` and low `--runs`. |
 | **Drizzle + pgvector** | drizzle-kit does not emit `CREATE EXTENSION vector`. Prepended manually in `0000`. |
@@ -527,6 +569,7 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
+| 2026-08-18 | **Calendar Phase A foundation + UI.** Added migration `0009`, encrypted per-owner OAuth account/state, rolling 48h reconciler, deterministic delayed jobs, cancellation/late guards, scheduled metadata through bot→ingest, empty-room suppression, Calendar worker/routes, and `/settings/integrations` using existing Raven components. Verified temp Postgres migration, Redis idempotency, 22 API tests, all service typechecks, web production build, browser states at 640px, and React Doctor 100/100. Added repository pnpm-only rule and repaired pnpm workspace declarations. ⚠️ Real Google OAuth and scheduled Meet remain unverified. | uncommitted |
 | 2026-08-15 | **Phase 2 started — rebuild + owner stop.** Rebuilt `meet-bot:latest` (`20c8d65b`, `--no-cache`) and verified transcriber fix in image; owner can now `POST /bots/:jobId/stop` (api `controlQueue` + orchestrator `bot-control` worker + `dockerManager.stopByJobId` with `com.meetbot.jobId` label). Recording consent decided: user-based exit, no auto chat announcement. ⚠️ not yet verified on a live meeting/container. | `f690e5f` |
 | 2026-08-16 | **Phase 3 — ingest + dashboard.** Upload (`POST /meetings/upload`, bulk `bulk-upload`) reusing transcode+diarize with timeline-free fallback (`diarizeWithoutTimeline`), plus dashboard `Join a meeting` (polls `GET /bots/:jobId/status`) and `Upload recording` dialogs. `6c2330f` typecheck + 19 tests pass. Calendar deferred for dedicated planning. | `6c2330f` |
 | 2026-08-16 | **Stop landed.** Committed `POST /bots/:jobId/stop` (`f690e5f`) — typecheck + 19 tests pass. Next: Phase 3 (upload). | `f690e5f` |

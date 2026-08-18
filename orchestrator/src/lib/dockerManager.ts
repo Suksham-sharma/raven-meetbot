@@ -7,6 +7,7 @@ interface BotContainerOptions {
   botName: string;
   maxDurationMinutes: number | null;
   jobId: string;
+  scheduledStartMs?: number | null;
 }
 
 interface SpawnResult {
@@ -34,7 +35,7 @@ class DockerManager {
   }
 
   async spawnBot(options: BotContainerOptions): Promise<SpawnResult> {
-    const { url, botName, maxDurationMinutes, jobId } = options;
+    const { url, botName, maxDurationMinutes, jobId, scheduledStartMs } = options;
 
     const env = [
       `MEET_URL=${url}`,
@@ -43,6 +44,10 @@ class DockerManager {
 
     if (maxDurationMinutes) {
       env.push(`MAX_DURATION_MINUTES=${maxDurationMinutes}`);
+    }
+
+    if (scheduledStartMs) {
+      env.push(`SCHEDULED_START_MS=${scheduledStartMs}`);
     }
 
     if (systemConfig.R2_ENDPOINT) {

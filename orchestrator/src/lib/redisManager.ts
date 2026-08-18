@@ -6,6 +6,8 @@ export interface DiarizeJob {
   recordingKey: string;
   speakersKey: string;
   ownerId?: string | null;
+  title?: string | null;
+  scheduledStartMs?: number | null;
 }
 
 export interface TranscodeJob {

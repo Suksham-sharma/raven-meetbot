@@ -15,6 +15,7 @@ const systemConfig = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
   JWT_MAX_AGE_MS: Number(process.env.JWT_MAX_AGE_MS) || 7 * 24 * 60 * 60 * 1000,
   COOKIE_SECURE: process.env.COOKIE_SECURE === "true",
+  WEB_APP_URL: process.env.WEB_APP_URL || "http://localhost:3000",
   DEFAULT_USER_EMAIL: process.env.DEFAULT_USER_EMAIL || "dev@raven.local",
   DEFAULT_USER_PASSWORD: process.env.DEFAULT_USER_PASSWORD || "devpassword",
   DEFAULT_USER_NAME: process.env.DEFAULT_USER_NAME || "Dev User",
@@ -26,6 +27,20 @@ const systemConfig = {
   LINEAR_API_KEY: process.env.LINEAR_API_KEY || "",
   LINEAR_TEAM_ID: process.env.LINEAR_TEAM_ID || "",
   SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL || "",
+
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
+  GOOGLE_REDIRECT_URI:
+    process.env.GOOGLE_REDIRECT_URI ||
+    "http://localhost:3000/api/v1/auth/google/callback",
+  CALENDAR_TOKEN_KEY: process.env.CALENDAR_TOKEN_KEY || "",
+  CALENDAR_LOOKAHEAD_HOURS: Number(process.env.CALENDAR_LOOKAHEAD_HOURS) || 48,
+  CALENDAR_SYNC_INTERVAL_MS:
+    Number(process.env.CALENDAR_SYNC_INTERVAL_MS) || 5 * 60 * 1000,
+  CALENDAR_JOIN_EARLY_MS:
+    Number(process.env.CALENDAR_JOIN_EARLY_MS) || 60 * 1000,
+  CALENDAR_MAX_LATE_MS:
+    Number(process.env.CALENDAR_MAX_LATE_MS) || 5 * 60 * 1000,
 
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
   OPENAI_EXTRACT_MODEL: process.env.OPENAI_EXTRACT_MODEL || "gpt-4o-mini",

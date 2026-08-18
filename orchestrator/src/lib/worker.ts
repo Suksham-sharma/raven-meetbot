@@ -15,7 +15,21 @@ const STATUS_PREFIX = "[BOT_STATUS] ";
 const METRICS_PREFIX = "[BOT_METRICS] ";
 
 const processJob = async (job: Job<MeetBotJob>) => {
-  const { url, botName, maxDurationMinutes, ownerId } = job.data;
+  const {
+    url,
+    botName,
+    maxDurationMinutes,
+    ownerId,
+    title,
+    scheduledStartMs,
+  } = job.data;
+
+  if (
+    scheduledStartMs &&
+    Date.now() - scheduledStartMs > systemConfig.CALENDAR_MAX_LATE_MS
+  ) {
+    throw new UnrecoverableError("calendar join window expired");
+  }
   console.log(
     `[Worker] Processing job ${job.id} (attempt ${job.attemptsMade + 1}): ${url}`
   );
@@ -50,6 +64,7 @@ const processJob = async (job: Job<MeetBotJob>) => {
       botName,
       maxDurationMinutes,
       jobId: job.id!,
+      scheduledStartMs,
     });
 
     const rl = createInterface({ input: stdout });
@@ -88,7 +103,13 @@ const processJob = async (job: Job<MeetBotJob>) => {
 
     console.log(`[Worker] Job ${job.id} completed successfully`);
 
-    if (recording) {
+    const emptyRoom = timeline.some(
+      (event) =>
+        event.reason === "alone_too_long" &&
+        event.hadOtherParticipants === false
+    );
+
+    if (recording && !emptyRoom) {
       const meetingId = recording.replace(/\.webm$/, "");
       await redisManager.enqueueTranscode({ meetingId, recordingKey: recording });
 
@@ -98,6 +119,8 @@ const processJob = async (job: Job<MeetBotJob>) => {
           recordingKey: recording,
           speakersKey: speakers,
           ownerId,
+          title,
+          scheduledStartMs,
         });
       } else {
         console.warn(
@@ -105,7 +128,7 @@ const processJob = async (job: Job<MeetBotJob>) => {
         );
       }
     } else {
-      console.warn(`[Worker] Job ${job.id}: no recording — skipping post-processing`);
+      console.warn(`[Worker] Job ${job.id}: recording unavailable or suppressed`);
     }
   } catch (err) {
     if (

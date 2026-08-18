@@ -12,6 +12,8 @@
     "worker:memory:dev": "tsx watch src/workers/memory.worker.ts",
     "worker:agent": "tsx src/workers/agent.worker.ts",
     "worker:agent:dev": "tsx watch src/workers/agent.worker.ts",
+    "worker:calendar": "tsx src/workers/calendar.worker.ts",
+    "worker:calendar:dev": "tsx watch src/workers/calendar.worker.ts",
     "propose": "tsx src/cli/propose.ts",
     "seed:owner": "tsx src/cli/seedOwner.ts",
     "ingest:seed": "tsx src/cli/ingest.ts",

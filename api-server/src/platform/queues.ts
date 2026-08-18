@@ -11,6 +11,7 @@ class QueueManager {
   public transcodeQueue: Queue;
   public agentQueue: Queue;
   public controlQueue: Queue;
+  public calendarQueue: Queue;
 
   private constructor() {
     const defaultJobOptions = {
@@ -27,6 +28,7 @@ class QueueManager {
     this.transcodeQueue = new Queue("transcode", { connection, defaultJobOptions });
     this.agentQueue = new Queue("agent", { connection, defaultJobOptions });
     this.controlQueue = new Queue("bot-control", { connection });
+    this.calendarQueue = new Queue("calendar-sync", { connection, defaultJobOptions });
   }
 
   static getInstance(): QueueManager {
@@ -44,10 +46,13 @@ export const diarizeQueue = queueManager.diarizeQueue;
 export const transcodeQueue = queueManager.transcodeQueue;
 export const agentQueue = queueManager.agentQueue;
 export const controlQueue = queueManager.controlQueue;
+export const calendarQueue = queueManager.calendarQueue;
 
 export interface MemoryJob {
   meetingId: string;
   ownerId?: string | null;
+  title?: string | null;
+  scheduledStartMs?: number | null;
 }
 
 export interface AgentJob {
@@ -59,6 +64,8 @@ export interface DiarizeJob {
   recordingKey: string;
   speakersKey?: string | null;
   ownerId?: string | null;
+  title?: string | null;
+  scheduledStartMs?: number | null;
 }
 
 export interface TranscodeJob {

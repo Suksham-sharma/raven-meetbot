@@ -1,5 +1,7 @@
 import type {
   Answer,
+  CalendarMode,
+  CalendarResponse,
   MeetingDetail,
   MeetingsPage,
   OpenAction,
@@ -88,6 +90,20 @@ export const api = {
 
   logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
+  calendar: () => request<CalendarResponse>("/calendar"),
+
+  updateCalendar: (mode: CalendarMode) =>
+    request<{ calendar: { mode: CalendarMode } }>("/calendar", {
+      method: "PATCH",
+      body: JSON.stringify({ mode }),
+    }),
+
+  disconnectCalendar: () =>
+    request<{ ok: boolean }>("/calendar/disconnect", { method: "POST" }),
+
+  syncCalendar: () =>
+    request<{ schedules: unknown[] }>("/calendar/sync", { method: "POST" }),
+
   meetings: (params: { limit?: number; before?: string; q?: string; type?: string; participant?: string; from?: string; to?: string } = {}) =>
     request<MeetingsPage>(`/meetings${query(params as Record<string, string | number | undefined>)}`),
 
@@ -156,15 +172,25 @@ export const api = {
   },
 
   bulkUpload: async (files: File[]) => {
-    const results: { meeting_id: string; key: string; status: string; error?: string }[] = [];
-    for (const file of files) {
-      try {
-        const r = await api.uploadMeeting(file);
-        results.push({ meeting_id: r.meeting_id, key: r.key, status: r.status });
-      } catch (err) {
-        results.push({ meeting_id: "", key: "", status: "failed", error: err instanceof Error ? err.message : String(err) });
-      }
-    }
+    const results = await Promise.all(
+      files.map(async (file) => {
+        try {
+          const result = await api.uploadMeeting(file);
+          return {
+            meeting_id: result.meeting_id,
+            key: result.key,
+            status: result.status,
+          };
+        } catch (error) {
+          return {
+            meeting_id: "",
+            key: "",
+            status: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }),
+    );
     return { meetings: results };
   },
 

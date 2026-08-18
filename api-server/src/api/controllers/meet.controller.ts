@@ -15,6 +15,9 @@ export const joinMeet = asyncHandler(async (req: Request, res: Response) => {
     botName: botName || "Shadow NoteTaker",
     maxDurationMinutes: maxDurationMinutes || null,
     ownerId,
+    title: null,
+    scheduledStartMs: null,
+    calendarScheduleId: null,
   });
 
   res.status(200).json({

@@ -7,15 +7,17 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, ApiError } from "./api";
-import type { OpenAction } from "./types";
+import type { CalendarMode, CalendarResponse, OpenAction } from "./types";
 
 export const keys = {
   session: ["session"] as const,
+  calendar: ["calendar"] as const,
   meetings: ["meetings"] as const,
   actionItems: ["action-items"] as const,
   meeting: (id: string) => ["meeting", id] as const,
   transcript: (id: string) => ["transcript", id] as const,
   recording: (id: string) => ["recording", id] as const,
+  botStatus: (id: string) => ["bot-status", id] as const,
 };
 
 export function useSession() {
@@ -23,6 +25,49 @@ export function useSession() {
     queryKey: keys.session,
     queryFn: api.me,
     staleTime: 5 * 60_000,
+  });
+}
+
+export function useCalendar() {
+  const { data: session } = useSession();
+
+  return useQuery({
+    queryKey: keys.calendar,
+    queryFn: api.calendar,
+    enabled: Boolean(session),
+  });
+}
+
+export function useUpdateCalendar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (mode: CalendarMode) => api.updateCalendar(mode),
+    onSuccess: ({ calendar }) => {
+      queryClient.setQueryData<CalendarResponse>(keys.calendar, (current) =>
+        current?.calendar
+          ? { calendar: { ...current.calendar, mode: calendar.mode } }
+          : current,
+      );
+    },
+  });
+}
+
+export function useDisconnectCalendar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: api.disconnectCalendar,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.calendar }),
+  });
+}
+
+export function useSyncCalendar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: api.syncCalendar,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.calendar }),
   });
 }
 
@@ -160,8 +205,19 @@ export function usePlainSearch(q: string, opts: { speaker?: string; enabled?: bo
 }
 
 export function useJoinMeet() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ url, botName }: { url: string; botName?: string }) => api.joinMeet(url, botName),
+    onSuccess: ({ jobId }, { url, botName }) => {
+      queryClient.setQueryData(keys.botStatus(jobId), {
+        jobId,
+        status: "queued",
+        meetingUrl: url,
+        botName: botName ?? "Raven",
+        timeline: [],
+      });
+    },
   });
 }
 
@@ -183,7 +239,7 @@ export function useBulkUpload() {
 
 export function useBotStatus(jobId: string, enabled = true) {
   return useQuery({
-    queryKey: ["bot-status", jobId],
+    queryKey: keys.botStatus(jobId),
     queryFn: () => api.botStatus(jobId),
     enabled: Boolean(jobId) && enabled,
     refetchInterval: enabled ? 3000 : false,

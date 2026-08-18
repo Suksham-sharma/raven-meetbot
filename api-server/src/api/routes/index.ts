@@ -24,6 +24,14 @@ import {
 import { plainSearch } from "../controllers/search.controller";
 import { completeUpload, directUpload, presignBulkUpload, presignUpload } from "../controllers/upload.controller";
 import { login, logout, me, register } from "../controllers/auth.controller";
+import {
+  connectCalendar,
+  disconnectCalendar,
+  getCalendar,
+  googleCalendarCallback,
+  syncCalendar,
+  updateCalendar,
+} from "../controllers/calendar.controller";
 import { requireAuth } from "../middleware/auth";
 
 const apiRouter = Router();
@@ -31,10 +39,16 @@ const apiRouter = Router();
 apiRouter.post("/auth/register", register);
 apiRouter.post("/auth/login", login);
 apiRouter.post("/auth/logout", logout);
+apiRouter.get("/auth/google/callback", googleCalendarCallback);
 
 apiRouter.use(requireAuth);
 
 apiRouter.get("/auth/me", me);
+apiRouter.get("/calendar", getCalendar);
+apiRouter.get("/calendar/connect", connectCalendar);
+apiRouter.patch("/calendar", updateCalendar);
+apiRouter.post("/calendar/disconnect", disconnectCalendar);
+apiRouter.post("/calendar/sync", syncCalendar);
 apiRouter.post("/join-meet", joinMeet);
 apiRouter.post("/bots/:jobId/stop", stopBot);
 apiRouter.get("/bots/:jobId/status", getBotStatus);

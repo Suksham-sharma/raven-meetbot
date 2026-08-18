@@ -36,6 +36,7 @@ class MeetBot {
   private recordingSink: StorageSink | null = null;
   private transcriber: Transcriber | null = null;
   private speakerTimeline: SpeakerTimeline | null = null;
+  private hadOtherParticipants = false;
 
   constructor() {
     const meetingCode = (botConfig.MEET_URL.split("/").pop() || "recording").split("?")[0];
@@ -466,6 +467,21 @@ class MeetBot {
         console.log(`[Bot] Participants: ${count}`);
       }
 
+      if (count !== null && count > 1) {
+        this.hadOtherParticipants = true;
+      }
+
+      const aloneCheckNotBefore = botConfig.SCHEDULED_START_MS
+        ? botConfig.SCHEDULED_START_MS + botConfig.SCHEDULED_ALONE_DELAY_MS
+        : null;
+
+      if (aloneCheckNotBefore && Date.now() < aloneCheckNotBefore) {
+        aloneStartTime = null;
+        gracePeriodPassed = false;
+        await page.waitForTimeout(TIMEOUTS.MONITOR_INTERVAL);
+        continue;
+      }
+
       if (count !== null && count <= 1) {
         if (!aloneStartTime) {
           aloneStartTime = Date.now();
@@ -479,7 +495,10 @@ class MeetBot {
           Date.now() - aloneStartTime >=
           TIMEOUTS.ALONE_GRACE_PERIOD + TIMEOUTS.ALONE_EXIT_DELAY
         ) {
-          this.reportStatus("ended", { reason: "alone_too_long" });
+          this.reportStatus("ended", {
+            reason: "alone_too_long",
+            hadOtherParticipants: this.hadOtherParticipants,
+          });
           return;
         }
       } else {

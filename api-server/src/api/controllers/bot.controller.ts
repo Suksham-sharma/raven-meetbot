@@ -1,4 +1,7 @@
 import { Request, Response } from "express";
+import { eq } from "drizzle-orm";
+import { db } from "../../platform/db/client";
+import { calendarSchedules } from "../../platform/db/schema";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../../platform/utils/AppError";
 import { asyncHandler } from "../../platform/utils/asyncHandler";
 import { controlQueue, meetQueue } from "../../platform/queues";
@@ -89,6 +92,12 @@ export const stopBot = asyncHandler(async (req: Request, res: Response) => {
   const jobState = await job.getState();
   if (jobState === "completed" || jobState === "failed") {
     throw new BadRequestError(`Bot already ${jobState}`);
+  }
+  if (typeof job.data.calendarScheduleId === "number") {
+    await db
+      .update(calendarSchedules)
+      .set({ status: "skipped", updatedAt: new Date() })
+      .where(eq(calendarSchedules.id, job.data.calendarScheduleId));
   }
   if (jobState === "waiting" || jobState === "delayed") {
     await job.remove();

@@ -7,6 +7,11 @@ const botConfig = {
   MAX_DURATION_MINUTES: process.env.MAX_DURATION_MINUTES
     ? Number(process.env.MAX_DURATION_MINUTES)
     : null,
+  SCHEDULED_START_MS: process.env.SCHEDULED_START_MS
+    ? Number(process.env.SCHEDULED_START_MS)
+    : null,
+  SCHEDULED_ALONE_DELAY_MS:
+    Number(process.env.SCHEDULED_ALONE_DELAY_MS) || 2 * 60 * 1000,
   HEADLESS: process.env.HEADLESS === "true",
 
   R2_ENDPOINT: process.env.R2_ENDPOINT || "",

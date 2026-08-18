@@ -35,6 +35,71 @@ export const users = pgTable(
   (table) => [uniqueIndex("users_email_uq").on(table.email)]
 );
 
+export const calendarAccounts = pgTable("calendar_accounts", {
+  ownerId: uuid("owner_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  refreshToken: text("refresh_token"),
+  mode: text("mode").notNull().default("manual"),
+  status: text("status").notNull().default("connected"),
+  lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  connectedAt: timestamp("connected_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const calendarOauthStates = pgTable(
+  "calendar_oauth_states",
+  {
+    stateHash: text("state_hash").primaryKey(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("calendar_oauth_states_owner_id").on(table.ownerId)]
+);
+
+export const calendarSchedules = pgTable(
+  "calendar_schedules",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventId: text("event_id").notNull(),
+    occurrenceStart: timestamp("occurrence_start", { withTimezone: true }).notNull(),
+    occurrenceEnd: timestamp("occurrence_end", { withTimezone: true }),
+    title: text("title"),
+    meetUrl: text("meet_url").notNull(),
+    jobId: text("job_id").notNull(),
+    status: text("status").notNull().default("scheduled"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("calendar_schedules_occurrence_uq").on(
+      table.ownerId,
+      table.eventId,
+      table.occurrenceStart
+    ),
+    uniqueIndex("calendar_schedules_job_id_uq").on(table.jobId),
+    index("calendar_schedules_owner_start").on(table.ownerId, table.occurrenceStart),
+  ]
+);
+
 export const meetings = pgTable(
   "meetings",
   {

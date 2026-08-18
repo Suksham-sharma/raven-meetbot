@@ -38,11 +38,13 @@ export interface RealMeeting {
 export function buildRealMeeting(
   segments: TranscriptSegment[],
   idOrPath: string,
-  title: string | null = null
+  title: string | null = null,
+  scheduledStart: Date | null = null
 ): RealMeeting {
   if (segments.length === 0) throw new Error(`no segments for ${idOrPath}`);
 
-  const { meetingId, startedAt } = parseStem(idOrPath);
+  const { meetingId, startedAt: parsedStart } = parseStem(idOrPath);
+  const startedAt = scheduledStart ?? parsedStart;
   const durationS = Math.round(segments[segments.length - 1].end);
   const participants = [
     ...new Set(segments.map((s) => s.speaker).filter(Boolean)),

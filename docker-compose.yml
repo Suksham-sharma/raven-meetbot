@@ -80,6 +80,15 @@ services:
       - redis
       - postgres
 
+  worker-calendar:
+    build: ./api-server
+    command: ["node", "dist/workers/calendar.worker.js"]
+    env_file: *api-env
+    environment: *network-env
+    depends_on:
+      - redis
+      - postgres
+
   # Its own image because both of these shell out to ffmpeg (docs/decisions.md D6).
   media-transcode:
     build: ./media-worker

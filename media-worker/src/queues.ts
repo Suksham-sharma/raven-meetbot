@@ -6,6 +6,8 @@ export interface DiarizeJob {
   recordingKey: string;
   speakersKey?: string | null;
   ownerId?: string | null;
+  title?: string | null;
+  scheduledStartMs?: number | null;
 }
 
 export interface TranscodeJob {
@@ -16,6 +18,8 @@ export interface TranscodeJob {
 export interface MemoryJob {
   meetingId: string;
   ownerId?: string | null;
+  title?: string | null;
+  scheduledStartMs?: number | null;
 }
 
 const connection = { url: config.REDIS_URL };

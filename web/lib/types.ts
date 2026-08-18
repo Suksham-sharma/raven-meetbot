@@ -4,6 +4,21 @@ export interface User {
   name: string | null;
 }
 
+export type CalendarMode = "manual" | "all";
+
+export interface CalendarConnection {
+  email: string;
+  mode: CalendarMode;
+  status: "connected" | "disconnected";
+  lastCheckedAt: string | null;
+  lastError: string | null;
+  connectedAt: string;
+}
+
+export interface CalendarResponse {
+  calendar: CalendarConnection | null;
+}
+
 export interface MeetingSummary {
   id: string;
   title: string | null;

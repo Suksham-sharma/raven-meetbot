@@ -8,7 +8,14 @@ import { diarizeRecording, diarizeWithoutTimeline, serializeNamedTranscript } fr
 const worker = new Worker<DiarizeJob>(
   "diarize",
   async (job) => {
-    const { meetingId, recordingKey, speakersKey, ownerId } = job.data;
+    const {
+      meetingId,
+      recordingKey,
+      speakersKey,
+      ownerId,
+      title,
+      scheduledStartMs,
+    } = job.data;
     const log = (m: string) => console.log(`[diarize] ${meetingId}: ${m}`);
     log(`start (job ${job.id})`);
 
@@ -57,7 +64,11 @@ const worker = new Worker<DiarizeJob>(
     }
 
     if (config.INGEST_AFTER_DIARIZE) {
-      await memoryQueue.add("ingest", { meetingId, ownerId }, { jobId: meetingId });
+      await memoryQueue.add(
+        "ingest",
+        { meetingId, ownerId, title, scheduledStartMs },
+        { jobId: meetingId }
+      );
       log("enqueued memory ingest");
     } else {
       log("INGEST_AFTER_DIARIZE=false — skipping memory ingest");

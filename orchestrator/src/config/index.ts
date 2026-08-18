@@ -6,6 +6,8 @@ const systemConfig = {
   BOT_IMAGE: process.env.BOT_IMAGE || "meet-bot:latest",
   SCREENSHOTS_HOST_PATH: process.env.SCREENSHOTS_HOST_PATH || "./screenshots",
   MAX_CONCURRENT_BOTS: Number(process.env.MAX_CONCURRENT_BOTS) || 10,
+  CALENDAR_MAX_LATE_MS:
+    Number(process.env.CALENDAR_MAX_LATE_MS) || 5 * 60 * 1000,
 
   AUTH_STATE_HOST_PATH: process.env.AUTH_STATE_HOST_PATH || "",
   RECORDINGS_HOST_PATH: process.env.RECORDINGS_HOST_PATH || "",

@@ -3,6 +3,9 @@ export interface MeetBotJob {
   botName: string;
   maxDurationMinutes: number | null;
   ownerId?: string | null;
+  title?: string | null;
+  scheduledStartMs?: number | null;
+  calendarScheduleId?: number | null;
 }
 
 export interface StatusEvent {

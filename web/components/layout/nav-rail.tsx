@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  GearSix,
   MagnifyingGlass,
   SidebarSimple,
   SignOut,
@@ -125,6 +126,23 @@ export function NavRail({
       </nav>
 
       <div className={cn("mt-auto w-full", collapsed ? "" : "px-3")}>
+        <Link
+          href="/settings/integrations"
+          aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+          title={collapsed ? "Settings" : undefined}
+          className={cn(
+            "mb-2 flex items-center gap-2.5 rounded-sm text-[13.5px]",
+            "transition-colors duration-150 ease-out",
+            collapsed ? "justify-center p-2.5" : "-mx-1 px-3 py-2",
+            pathname.startsWith("/settings")
+              ? "bg-accent-tint font-medium text-accent"
+              : "text-ink-2 hover:bg-card hover:text-ink-1",
+          )}
+        >
+          <GearSix weight={pathname.startsWith("/settings") ? "fill" : "regular"} />
+          {!collapsed && "Settings"}
+        </Link>
+
         {canToggle && collapsed && (
           <button
             type="button"
