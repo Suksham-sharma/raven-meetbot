@@ -90,7 +90,20 @@ export const api = {
 
   logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
+  bots: () => request<{ bots: import("./types").BotSummary[] }>("/bots"),
+
+  stopBot: (jobId: string) =>
+    request<{ jobId: string; status: "cancelled" | "stopping" }>(
+      `/bots/${encodeURIComponent(jobId)}/stop`,
+      { method: "POST" }
+    ),
+
   calendar: () => request<CalendarResponse>("/calendar"),
+
+  upcoming: () =>
+    request<{ upcoming: import("./types").UpcomingMeeting[] }>(
+      "/calendar/upcoming"
+    ),
 
   updateCalendar: (mode: CalendarMode) =>
     request<{ calendar: { mode: CalendarMode } }>("/calendar", {
@@ -120,6 +133,24 @@ export const api = {
     fetch(`/api/v1/meetings/${encodeURIComponent(id)}/export?format=${format}`, { credentials: "same-origin" }).then((r) => {
       if (!r.ok) throw new Error("export failed");
       return r;
+    }),
+
+  meetingActions: (id: string) =>
+    request<{ meeting_id: string; actions: import("./types").AgentAction[] }>(
+      `/meetings/${encodeURIComponent(id)}/actions`
+    ),
+
+  approveAction: (id: number) =>
+    request<{
+      executed: boolean;
+      dry_run?: boolean;
+      action: import("./types").AgentAction;
+    }>(`/actions/${id}/approve`, { method: "POST", body: JSON.stringify({}) }),
+
+  rejectAction: (id: number) =>
+    request<{ action: import("./types").AgentAction }>(`/actions/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({}),
     }),
 
   retryMeeting: (id: string) =>
@@ -193,9 +224,6 @@ export const api = {
     );
     return { meetings: results };
   },
-
-  search: (params: { q: string; k?: number; speaker?: string; meeting_id?: string; type?: string; participant?: string; from?: string; to?: string }) =>
-    request<{ query: string; hits: import("./types").SearchHit[] }>(`/search${query(params as Record<string, string | number | undefined>)}`),
 
   actionItems: (params: { limit?: number } = {}) =>
     request<{ items: OpenAction[] }>(`/action-items${query(params)}`),

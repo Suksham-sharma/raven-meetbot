@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, lt } from "drizzle-orm";
 import { Request, Response } from "express";
 import { db } from "../../platform/db/client";
 import {
@@ -29,6 +29,7 @@ import {
 import { asyncHandler } from "../../platform/utils/asyncHandler";
 
 const STATE_TTL_MS = 10 * 60 * 1000;
+const RUNNING_GRACE_MS = 4 * 60 * 60 * 1000;
 
 function requireOwnerId(req: Request): string {
   if (!req.userId) throw new UnauthorizedError();
@@ -138,6 +139,40 @@ export const getCalendar = asyncHandler(async (req: Request, res: Response) => {
     .where(eq(calendarAccounts.ownerId, ownerId));
   res.status(200).json({ calendar: account ?? null });
 });
+
+export const getUpcomingMeetings = asyncHandler(
+  async (req: Request, res: Response) => {
+    const ownerId = requireOwnerId(req);
+    const rows = await db
+      .select({
+        id: calendarSchedules.id,
+        jobId: calendarSchedules.jobId,
+        title: calendarSchedules.title,
+        meetUrl: calendarSchedules.meetUrl,
+        startsAt: calendarSchedules.occurrenceStart,
+        endsAt: calendarSchedules.occurrenceEnd,
+        status: calendarSchedules.status,
+      })
+      .from(calendarSchedules)
+      .where(
+        and(
+          eq(calendarSchedules.ownerId, ownerId),
+          inArray(calendarSchedules.status, [
+            "scheduled",
+            "running",
+            "skipped",
+          ]),
+          gte(
+            calendarSchedules.occurrenceStart,
+            new Date(Date.now() - RUNNING_GRACE_MS)
+          )
+        )
+      )
+      .orderBy(asc(calendarSchedules.occurrenceStart))
+      .limit(5);
+    res.status(200).json({ upcoming: rows });
+  }
+);
 
 export const updateCalendar = asyncHandler(async (req: Request, res: Response) => {
   const ownerId = requireOwnerId(req);

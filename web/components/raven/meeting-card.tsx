@@ -78,16 +78,6 @@ export function MeetingCard({
           {title}
         </span>
 
-        {/* The line the card exists for, and the one the row omits — what was
-            said, so it is set in serif like every other stretch of speech
-            (§4). Two lines, then it yields; the card decides a click, it does
-            not reproduce the summary. */}
-        {meeting.summary && (
-          <span className="line-clamp-2 font-serif text-[14px] leading-[1.5] font-light text-ink-2">
-            {meeting.summary}
-          </span>
-        )}
-
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12.5px] text-ink-3">
           {meeting.state !== "ok" ? (
             <>

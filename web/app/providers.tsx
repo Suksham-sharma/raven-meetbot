@@ -4,6 +4,7 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { IconContext } from "@phosphor-icons/react";
 import { ApiError } from "@/lib/api";
+import { Toaster } from "@/components/ui/toast";
 
 // Never set an icon in ink-4: at 2.33:1 it fails the 3:1 contrast floor.
 // aria-hidden by default, so an icon that ever stands alone must name itself.
@@ -28,7 +29,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
-      <IconContext.Provider value={ICONS}>{children}</IconContext.Provider>
+      <IconContext.Provider value={ICONS}>
+        {children}
+        <Toaster />
+      </IconContext.Provider>
     </QueryClientProvider>
   );
 }

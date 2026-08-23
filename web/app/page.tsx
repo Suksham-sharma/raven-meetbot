@@ -1,55 +1,60 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowRight } from "@phosphor-icons/react";
 import { AppShell } from "@/components/layout/app-shell";
 import { AskPanel } from "@/components/raven/ask-panel";
 import { FollowUps } from "@/components/raven/follow-ups";
+import { JoinMeetingDialog } from "@/components/raven/join-meeting";
+import { LiveSessions } from "@/components/raven/live-session";
 import { MeetingCard } from "@/components/raven/meeting-card";
-import { DayHeading, MeetingRow } from "@/components/raven/meeting-row";
-import { EmptyState, SkeletonCard, SkeletonRow } from "@/components/raven/states";
+import { EmptyState, SkeletonCard } from "@/components/raven/states";
+import { UpNext, UpNextEmpty } from "@/components/raven/up-next";
 import { Button } from "@/components/ui/button";
 import {
   useActionItems,
-  useBotStatus,
-  useBulkUpload,
-  useJoinMeet,
+  useCalendar,
   useMeetings,
-  usePlainSearch,
   useRetryMeeting,
   useSession,
   useToggleActionItem,
-  useUploadMeeting,
+  useUpcoming,
+  useActiveBots,
 } from "@/lib/queries";
-import { corpusLabel, groupByDay, toRow } from "@/lib/meetings";
-import type { MeetingSummary, OpenAction } from "@/lib/types";
+import { cn } from "@/lib/cn";
+import { corpusLabel, toRow } from "@/lib/meetings";
+import type { OpenAction, User } from "@/lib/types";
 
 const RECENT = 3;
+const CARD_GRID = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3";
+const EYEBROW =
+  "text-[11.5px] font-semibold uppercase tracking-[0.11em] text-ink-3";
 
-export default function MeetingsPage() {
+function firstNameOf(user: User | undefined): string {
+  const from = user?.name?.trim() || user?.email?.split("@")[0] || "";
+  const first = from.split(/[\s._-]+/)[0] ?? "";
+  return first ? first[0].toUpperCase() + first.slice(1) : "";
+}
+
+export default function HomePage() {
   const router = useRouter();
   const { data: session } = useSession();
   const actions = useActionItems();
   const toggle = useToggleActionItem();
-  const [q, setQ] = React.useState("");
-  const [type, setType] = React.useState("");
-  const [participant, setParticipant] = React.useState("");
-  const [plainQ, setPlainQ] = React.useState("");
-  const [speaker, setSpeaker] = React.useState("");
-  const plain = usePlainSearch(plainQ, { speaker: speaker || undefined, enabled: Boolean(plainQ) });
+  const retry = useRetryMeeting();
+  const upcoming = useUpcoming();
+  const calendar = useCalendar();
+  const { active: liveBots } = useActiveBots();
   const [joinOpen, setJoinOpen] = React.useState(false);
-  const [uploadOpen, setUploadOpen] = React.useState(false);
-  const {
-    data,
-    error,
-    isPending,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-    refetch,
-  } = useMeetings({ q, type, participant });
+  const firstName = firstNameOf(session?.user);
+  const { data, error, isPending, refetch } = useMeetings();
 
   const meetings = data?.meetings ?? [];
+  const recent = meetings.slice(0, RECENT);
+  const next = upcoming.data?.upcoming ?? [];
+  const followUps = actions.data?.items ?? [];
 
   function open(id: string, at?: number) {
     const t = at ? `?t=${Math.floor(at)}` : "";
@@ -62,10 +67,10 @@ export default function MeetingsPage() {
         data?.corpus.total ? (
           <div className="flex flex-col gap-7 px-7 py-11">
             <AskPanel corpus={corpusLabel(data.corpus)} />
-            {actions.data && actions.data.items.length > 0 && (
+            {followUps.length > 0 && (
               <div className="border-t border-rule pt-6">
                 <FollowUps
-                  items={actions.data.items}
+                  items={followUps}
                   me={session?.user.name}
                   onOpen={(a: OpenAction) => open(a.meeting_id, a.start_s)}
                   onToggle={(a, completed) =>
@@ -81,44 +86,40 @@ export default function MeetingsPage() {
       <div className="px-12 py-11">
         <header className="mb-9">
           <h1 className="font-serif text-[34px] leading-[1.1] font-normal tracking-[-0.018em] text-balance">
-            Everything you&rsquo;ve been in
+            Welcome back{firstName ? `, ${firstName}` : ""}
           </h1>
-          {data && (
-            <p className="mt-1.5 text-[13px] text-ink-3">
-              {corpusLabel(data.corpus)}
-            </p>
-          )}
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Button variant="primary" size="sm" onClick={() => setJoinOpen(true)}>Join a meeting</Button>
-            <Button variant="secondary" size="sm" onClick={() => setUploadOpen(true)}>Upload recording</Button>
+          <p className="mt-1.5 text-[13px] text-ink-3">
+            {meetings.length > 0
+              ? "Here's a recap of some of your last meetings."
+              : "Raven keeps what was said, so you don't have to."}
+          </p>
+          <div className="mt-5">
+            <Button variant="primary" size="sm" onClick={() => setJoinOpen(true)}>
+              Join a meeting
+            </Button>
           </div>
         </header>
-        {joinOpen && <JoinDialog onClose={() => setJoinOpen(false)} />}
-        {uploadOpen && <UploadDialog onClose={() => setUploadOpen(false)} />}
-        <div className="mb-6 flex flex-wrap gap-2">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search meetings…" className="h-8 w-48 rounded-md border border-rule bg-paper px-2 text-sm" />
-          <input value={type} onChange={(e) => setType(e.target.value)} placeholder="Type" className="h-8 w-28 rounded-md border border-rule bg-paper px-2 text-sm" />
-          <input value={participant} onChange={(e) => setParticipant(e.target.value)} placeholder="Participant" className="h-8 w-32 rounded-md border border-rule bg-paper px-2 text-sm" />
-        </div>
-        <div className="mb-6 rounded-md border border-rule bg-sunk p-3">
-          <div className="flex flex-wrap gap-2">
-            <input value={plainQ} onChange={(e) => setPlainQ(e.target.value)} placeholder="Plain search (no LLM) — find where we said X" className="h-8 flex-1 min-w-48 rounded-md border border-rule bg-paper px-2 text-sm" />
-            <input value={speaker} onChange={(e) => setSpeaker(e.target.value)} placeholder="Speaker (e.g. Ankur)" className="h-8 w-32 rounded-md border border-rule bg-paper px-2 text-sm" />
-          </div>
-          {plain.data && plain.data.hits.length > 0 && (
-            <div className="mt-3 divide-y divide-rule">
-              {plain.data.hits.slice(0, 8).map((h) => (
-                <button key={h.chunk_id} onClick={() => open(h.meeting_id, h.start_s)} className="block w-full py-2 text-left">
-                  <span className="text-xs text-ink-3">{h.speaker ?? "?"} · {h.meeting_id} · {Math.floor(h.start_s)}s</span>
-                  <span className="line-clamp-2 text-sm">{h.text}</span>
-                </button>
+
+        <JoinMeetingDialog open={joinOpen} onOpenChange={setJoinOpen} />
+
+        {/* Exception-only, per DESIGN.md §7: nothing renders unless a bot is
+            actually in flight. */}
+        {liveBots.length > 0 && (
+          <section className="rise mb-11 max-w-[46rem]">
+            <h2 className={cn(EYEBROW, "mb-3")}>Right now</h2>
+            <LiveSessions bots={liveBots} />
+          </section>
+        )}
+
+        {isPending && (
+          <div aria-busy="true" aria-label="Loading your meetings">
+            <div className={CARD_GRID}>
+              {[0, 1, 2].map((i) => (
+                <SkeletonCard key={i} />
               ))}
             </div>
-          )}
-          {plain.data && plain.data.hits.length === 0 && <p className="mt-2 text-xs text-ink-3">No matches</p>}
-        </div>
-
-        {isPending && <Loading />}
+          </div>
+        )}
 
         {error && (
           <EmptyState
@@ -133,213 +134,49 @@ export default function MeetingsPage() {
             title="No meetings yet"
             body="Invite Raven to a Google Meet call and it will join, record, and remember it."
             boundary="Raven joins as a visible participant. Everyone in the call can see it."
+            action={{ label: "Join a meeting", onClick: () => setJoinOpen(true) }}
           />
         )}
 
-        {meetings.length > 0 && (
-          <Archive
-            meetings={meetings}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            onLoadMore={fetchNextPage}
-            onOpen={open}
-          />
-        )}
-      </div>
-
-    </AppShell>
-  );
-}
-
-function Archive({
-  meetings,
-  hasNextPage,
-  isFetchingNextPage,
-  onLoadMore,
-  onOpen,
-}: {
-  meetings: MeetingSummary[];
-  hasNextPage: boolean;
-  isFetchingNextPage: boolean;
-  onLoadMore: () => void;
-  onOpen: (id: string) => void;
-}) {
-  const retry = useRetryMeeting();
-  const recent = meetings.slice(0, RECENT);
-  const rest = meetings.slice(RECENT);
-
-  return (
-    <div className="rise">
-      <div className={CARD_GRID}>
-        {recent.map((m) => (
-          <MeetingCard
-            key={m.id}
-            meeting={toRow(m)}
-            onClick={() => onOpen(m.id)}
-            onRetry={() => retry.mutate(m.id)}
-          />
-        ))}
-      </div>
-
-      {rest.length > 0 && (
-        <div className="mt-10 border-t border-rule-lo pt-2">
-          {groupByDay(rest).map((group) => (
-            <section key={group.key} className="mb-8 last:mb-0">
-              <DayHeading>{group.label}</DayHeading>
-              <div className="divide-y divide-rule-lo">
-                {group.meetings.map((m) => (
-                  <MeetingRow
-                    key={m.id}
-                    meeting={toRow(m)}
-                    onClick={() => onOpen(m.id)}
-                    onRetry={() => retry.mutate(m.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
-
-      {hasNextPage && (
-        <div className="mt-10 flex justify-center">
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={isFetchingNextPage}
-            onClick={onLoadMore}
-          >
-            Load older meetings
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(232px,300px))] gap-4";
-
-function JoinDialog({ onClose }: { onClose: () => void }) {
-  const [url, setUrl] = React.useState("");
-  const [err, setErr] = React.useState("");
-  const join = useJoinMeet();
-  const [jobId, setJobId] = React.useState<string | null>(null);
-  const status = useBotStatus(jobId ?? "", Boolean(jobId));
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr("");
-    if (!url.trim()) { setErr("Paste a Google Meet link"); return; }
-    try {
-      const res = await join.mutateAsync({ url: url.trim() });
-      setJobId(res.jobId);
-    } catch (ex) {
-      setErr(ex instanceof Error ? ex.message : String(ex));
-    }
-  }
-
-  return (
-    <div className="mb-6 rounded-lg border border-rule bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium">Join a meeting</h3>
-        <button onClick={onClose} className="text-xs text-ink-3 hover:text-ink-1">Close</button>
-      </div>
-      {!jobId ? (
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://meet.google.com/abc-defg-hij" className="h-9 w-full rounded-md border border-rule bg-paper px-3 text-sm" />
-          {err && <p className="text-xs text-live">{err}</p>}
-          <div className="flex gap-2">
-            <Button type="submit" variant="primary" size="sm" loading={join.isPending}>Dispatch bot</Button>
-            <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          </div>
-          <p className="text-xs text-ink-3">Raven joins as a visible participant. Everyone in the call can see it.</p>
-        </form>
-      ) : (
-        <div className="space-y-2">
-          <p className="text-sm">Bot dispatched <span className="font-mono text-xs">{jobId}</span></p>
-          <p className="text-xs text-ink-3">Status: {status.data?.status ?? "queued"} · {status.data?.timeline?.slice(-1)[0]?.state ?? ""}</p>
-          {status.data?.timeline && status.data.timeline.length > 0 && (
-            <ul className="space-y-1">
-              {status.data.timeline.slice(-4).map((t) => (
-                <li key={t.timestamp} className="text-xs text-ink-3">{t.state} · {new Date(t.timestamp).toLocaleTimeString()}</li>
+        {recent.length > 0 && (
+          <section className="rise">
+            <div className="mb-3.5 flex items-baseline justify-between gap-4">
+              <h2 className={EYEBROW}>Recent</h2>
+              <Link
+                href="/meetings"
+                className="group inline-flex items-center gap-1.5 text-[13px] text-ink-2 transition-colors duration-150 hover:text-accent"
+              >
+                All meetings
+                <ArrowRight
+                  size={13}
+                  className="transition-transform duration-150 ease-out group-hover:translate-x-0.5"
+                />
+              </Link>
+            </div>
+            <div className={CARD_GRID}>
+              {recent.map((m) => (
+                <MeetingCard
+                  key={m.id}
+                  meeting={toRow(m)}
+                  onClick={() => open(m.id)}
+                  onRetry={() => retry.mutate(m.id)}
+                />
               ))}
-            </ul>
-          )}
-          {status.error && <p className="text-xs text-live">{(status.error as Error).message}</p>}
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setJobId(null)}>Join another</Button>
-            <Button variant="ghost" size="sm" onClick={onClose}>Done</Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+            </div>
+          </section>
+        )}
 
-function UploadDialog({ onClose }: { onClose: () => void }) {
-  const upload = useUploadMeeting();
-  const bulk = useBulkUpload();
-  const [dragOver, setDragOver] = React.useState(false);
-  const [msg, setMsg] = React.useState("");
-  const [title, setTitle] = React.useState("");
-
-  async function handleFiles(files: FileList | File[]) {
-    const arr = Array.from(files);
-    if (arr.length === 0) return;
-    setMsg("");
-    try {
-      if (arr.length === 1) {
-        const res = await upload.mutateAsync({ file: arr[0], title: title.trim() || undefined });
-        setMsg(`Uploaded → ${res.meeting_id}`);
-      } else {
-        const res = await bulk.mutateAsync(arr);
-        setMsg(`${res.meetings.length} files queued — ${res.meetings.map((m) => m.meeting_id).join(", ")}`);
-      }
-    } catch (ex) {
-      setMsg(ex instanceof Error ? ex.message : String(ex));
-    }
-  }
-
-  return (
-    <div className="mb-6 rounded-lg border border-rule bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium">Upload recording</h3>
-        <button onClick={onClose} className="text-xs text-ink-3 hover:text-ink-1">Close</button>
+        {data && meetings.length > 0 && (
+          <section className="rise mt-11 max-w-[46rem]">
+            <h2 className={cn(EYEBROW, "mb-3")}>Up next</h2>
+            {next.length > 0 ? (
+              <UpNext items={next} />
+            ) : (
+              <UpNextEmpty calendar={calendar.data?.calendar} />
+            )}
+          </section>
+        )}
       </div>
-      <div className="space-y-3">
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional, defaults to filename)" className="h-9 w-full rounded-md border border-rule bg-paper px-3 text-sm" />
-        <label
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files) handleFiles(e.dataTransfer.files); }}
-          className={`flex flex-col items-center justify-center rounded-md border border-dashed px-4 py-8 text-center ${dragOver ? "border-accent bg-accent/5" : "border-rule bg-sunk"}`}
-        >
-          <span className="text-sm">Drop video/audio here or click to choose</span>
-          <span className="mt-1 text-xs text-ink-3">webm, mp4, mov, wav, mp3 — up to 500MB, max 20 files</span>
-          <input type="file" accept="video/*,audio/*" multiple className="hidden" onChange={(e) => e.target.files && handleFiles(e.target.files)} />
-          <span className="mt-3 inline-flex h-8 items-center rounded-full border border-rule bg-paper px-4 text-xs">Choose files</span>
-        </label>
-        {(upload.isPending || bulk.isPending) && <p className="text-xs text-ink-3">Uploading…</p>}
-        {msg && <p className="text-xs text-ink-2">{msg}</p>}
-        <p className="text-xs text-ink-3">Stored as your meeting — transcode + transcription run automatically. Watch the list for the new row.</p>
-      </div>
-    </div>
-  );
-}
-
-function Loading() {
-  return (
-    <div aria-busy="true" aria-label="Loading your meetings">
-      <div className={CARD_GRID}>
-        {[0, 1, 2].map((i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
-      <div className="mt-10 border-t border-rule-lo pt-4">
-        {[0, 1, 2, 3].map((i) => (
-          <SkeletonRow key={i} />
-        ))}
-      </div>
-    </div>
+    </AppShell>
   );
 }

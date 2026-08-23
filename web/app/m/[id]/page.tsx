@@ -1,15 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Play } from "@phosphor-icons/react";
+import Link from "next/link";
+import { ArrowLeft, Play } from "@phosphor-icons/react";
 import { AppShell } from "@/components/layout/app-shell";
 import { AskPanel } from "@/components/raven/ask-panel";
 import { CitationChip } from "@/components/raven/evidence";
 import { Player } from "@/components/raven/player";
 import { Participants } from "@/components/raven/speaker";
 import { EmptyState, Processing, SkeletonCard } from "@/components/raven/states";
+import { Proposals } from "@/components/raven/proposals";
+import { Button } from "@/components/ui/button";
+import { Confirm } from "@/components/ui/confirm";
+import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
+import { toast } from "@/components/ui/toast";
 import { TaskRow } from "@/components/raven/task-row";
 import { TranscriptView } from "@/components/raven/transcript";
 import { api, ApiError } from "@/lib/api";
@@ -21,6 +27,7 @@ import {
   keys,
   useDeleteMeeting,
   useMeeting,
+  useMeetingActions,
   useMeetings,
   useRecording,
   useRetryMeeting,
@@ -74,7 +81,9 @@ function MeetingView() {
   const retry = useRetryMeeting();
   const del = useDeleteMeeting();
   const upd = useUpdateMeeting();
+  const router = useRouter();
   const [editing, setEditing] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   const [titleDraft, setTitleDraft] = React.useState("");
 
   // Position is per-meeting: carrying it across highlights a turn that is gone.
@@ -156,6 +165,19 @@ function MeetingView() {
         {m && (
           <>
             <header className="mb-9">
+              <Link
+                href="/meetings"
+                className={cn(
+                  "group mb-4 inline-flex items-center gap-1.5 text-[13px] text-ink-3",
+                  "transition-colors duration-150 hover:text-ink-1",
+                )}
+              >
+                <ArrowLeft
+                  size={13}
+                  className="transition-transform duration-150 ease-out group-hover:-translate-x-0.5"
+                />
+                All meetings
+              </Link>
               <div className="flex items-start justify-between gap-2">
                 {editing ? (
                   <input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} className="flex-1 rounded-md border border-rule bg-paper px-2 py-1 font-serif text-[24px]" autoFocus />
@@ -164,19 +186,82 @@ function MeetingView() {
                     {title(m)}
                   </h1>
                 )}
-                <div className="flex shrink-0 gap-1">
+                <div className="flex shrink-0 items-center gap-1">
                   {editing ? (
                     <>
-                      <button onClick={() => { upd.mutate({ id: m.id, title: titleDraft }); setEditing(false); }} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs">Save</button>
-                      <button onClick={() => setEditing(false)} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs">Cancel</button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          upd.mutate(
+                            { id: m.id, title: titleDraft },
+                            {
+                              onSuccess: () => toast.success("Renamed."),
+                              onError: (e) =>
+                                toast.error("Couldn't rename this meeting.", {
+                                  description:
+                                    e instanceof Error ? e.message : String(e),
+                                }),
+                            },
+                          );
+                          setEditing(false);
+                        }}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditing(false)}
+                      >
+                        Cancel
+                      </Button>
                     </>
                   ) : (
-                    <button onClick={() => { setTitleDraft(title(m)); setEditing(true); }} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs">Rename</button>
+                    <Menu bordered>
+                      <MenuItem
+                        onClick={() => {
+                          setTitleDraft(title(m));
+                          setEditing(true);
+                        }}
+                      >
+                        Rename
+                      </MenuItem>
+                      <MenuItem onClick={() => exportMeeting(m.id)}>
+                        Export as Markdown
+                      </MenuItem>
+                      <MenuSeparator />
+                      <MenuItem destructive onClick={() => setDeleting(true)}>
+                        Delete meeting
+                      </MenuItem>
+                    </Menu>
                   )}
-                  <button onClick={async () => { const r = await fetch(`/api/v1/meetings/${encodeURIComponent(m.id)}/export?format=md`, { credentials: "same-origin" }); const blob = await r.blob(); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${m.id}.md`; a.click(); URL.revokeObjectURL(url); }} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs">Export</button>
-                  <button onClick={async () => { if (!confirm("Delete this meeting?")) return; await del.mutateAsync(m.id); window.location.href = "/"; }} className="rounded-md border border-rule bg-paper px-2 py-1 text-xs text-warn">Delete</button>
                 </div>
               </div>
+              <Confirm
+                open={deleting}
+                onOpenChange={setDeleting}
+                title="Delete this meeting?"
+                body="The recording, transcript, summary, decisions and action items all go with it. This cannot be undone."
+                confirmLabel="Delete meeting"
+                destructive
+                pending={del.isPending}
+                onConfirm={() =>
+                  del.mutate(m.id, {
+                    onSuccess: () => {
+                      toast.success("Meeting deleted.");
+                      router.replace("/meetings");
+                    },
+                    onError: (e) => {
+                      setDeleting(false);
+                      toast.error("Couldn't delete this meeting.", {
+                        description: e instanceof Error ? e.message : String(e),
+                      });
+                    },
+                  })
+                }
+              />
+
               <p className="mt-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] leading-[1.5] text-ink-3">
                 <span>{longDate(m.started_at ?? "")}</span>
                 {m.duration_s ? <span>· {duration(m.duration_s)}</span> : null}
@@ -344,6 +429,8 @@ function Happened({
         </section>
       )}
 
+      <ProposalSection meetingId={meeting.id} />
+
       {meeting.action_items.length > 0 && (
         <section className="mb-10">
           <SectionHead>Someone needs to</SectionHead>
@@ -352,6 +439,46 @@ function Happened({
       )}
     </div>
   );
+}
+
+function ProposalSection({ meetingId }: { meetingId: string }) {
+  const requestSeek = usePlayer((s) => s.requestSeek);
+  const { data } = useMeetingActions(meetingId);
+  const actions = data?.actions ?? [];
+
+  if (actions.length === 0) return null;
+
+  return (
+    <section className="mb-10">
+      <SectionHead>Raven would like to</SectionHead>
+      <Proposals
+        meetingId={meetingId}
+        actions={actions}
+        onEvidence={(startS) => requestSeek(startS)}
+      />
+    </section>
+  );
+}
+
+async function exportMeeting(id: string) {
+  try {
+    const res = await fetch(
+      `/api/v1/meetings/${encodeURIComponent(id)}/export?format=md`,
+      { credentials: "same-origin" },
+    );
+    if (!res.ok) throw new Error(`Export failed (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${id}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    toast.error("Couldn't export this meeting.", {
+      description: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 function SectionHead({ children }: { children: React.ReactNode }) {

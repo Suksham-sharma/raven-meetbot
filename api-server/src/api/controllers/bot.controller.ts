@@ -65,18 +65,24 @@ export const listBots = asyncHandler(async (req: Request, res: Response) => {
     100,
   );
 
-  const bots = jobs
-    .filter((job) => job.data.ownerId === userId)
-    .map((job) => {
-    const progress = (job.progress as { state?: string }) || {};
-    return {
-      jobId: job.id,
-      status: progress.state || "queued",
-      meetingUrl: job.data.url,
-      botName: job.data.botName,
-      createdAt: new Date(job.timestamp).toISOString(),
-    };
-  });
+  // queueState is the authority on whether a bot is still in flight. The bot's
+  // own progress vocabulary changes as the pipeline grows ("ended" precedes
+  // upload; "complete" ends it), so callers must not infer liveness from it.
+  const bots = await Promise.all(
+    jobs
+      .filter((job) => job.data.ownerId === userId)
+      .map(async (job) => {
+        const progress = (job.progress as { state?: string }) || {};
+        return {
+          jobId: job.id,
+          status: progress.state || "queued",
+          queueState: await job.getState(),
+          meetingUrl: job.data.url,
+          botName: job.data.botName,
+          createdAt: new Date(job.timestamp).toISOString(),
+        };
+      }),
+  );
 
   res.status(200).json({ bots });
 });
