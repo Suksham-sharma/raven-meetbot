@@ -94,11 +94,22 @@ class DockerManager {
     const rawStream = await container.attach({ stream: true, stdout: true, stderr: true });
     this.docker.modem.demuxStream(rawStream, stdout, stdout);
 
+    // demuxStream forwards data but never end-of-stream, so the PassThrough
+    // stays open after the container dies. Consumers read stdout to completion
+    // before awaiting wait(), and wait() is what used to end it — a deadlock
+    // that left every finished job stuck in "active" forever.
+    const endStdout = () => {
+      if (!stdout.writableEnded) stdout.end();
+    };
+    rawStream.on("end", endStdout);
+    rawStream.on("close", endStdout);
+    rawStream.on("error", endStdout);
+
     await container.start();
 
     const wait = async (): Promise<number> => {
       const { StatusCode } = await container.wait();
-      stdout.end();
+      endStdout();
       console.log(`[DockerManager] Container ${containerId.slice(0, 12)} exited with code ${StatusCode}`);
       this.runningContainers.delete(containerId);
       this.jobToContainer.delete(jobId);

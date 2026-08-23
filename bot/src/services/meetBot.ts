@@ -502,6 +502,10 @@ class MeetBot {
           return;
         }
       } else {
+        // Announce the way back too. Without this the last reported state stays
+        // "alone_detected" for the rest of the call, and every consumer treats
+        // the last state as the current condition.
+        if (aloneStartTime) this.reportStatus("recording");
         aloneStartTime = null;
         gracePeriodPassed = false;
       }

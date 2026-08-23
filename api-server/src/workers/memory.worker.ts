@@ -14,8 +14,6 @@ async function resolveMeeting(
   title?: string | null,
   scheduledStartMs?: number | null
 ) {
-  if (!systemConfig.R2_ENDPOINT) return loadSeedMeeting(meetingId);
-
   try {
     const { path, cleanup } = await getArtifactStore().resolve(
       `${meetingId}.named-transcript.jsonl`
