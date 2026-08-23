@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   GearSix,
+  House,
   MagnifyingGlass,
   SidebarSimple,
   SignOut,
@@ -18,7 +19,8 @@ import { useCommandPalette } from "@/components/layout/app-shell";
 import { Mark, Wordmark } from "@/components/brand/wordmark";
 
 const NAV: { href: string; label: string; icon: Icon }[] = [
-  { href: "/", label: "Meetings", icon: VideoCamera },
+  { href: "/", label: "Home", icon: House },
+  { href: "/meetings", label: "Meetings", icon: VideoCamera },
 ];
 
 export function NavRail({
@@ -77,7 +79,10 @@ export function NavRail({
 
       <nav className="flex w-full flex-col gap-0.5">
         {NAV.map(({ href, label, icon: Glyph }) => {
-          const active = pathname === href;
+          const active =
+            href === "/meetings"
+              ? pathname.startsWith("/meetings") || pathname.startsWith("/m/")
+              : pathname === href;
           return (
             <Link
               key={href}

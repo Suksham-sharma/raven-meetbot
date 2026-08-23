@@ -6,6 +6,69 @@ export interface User {
 
 export type CalendarMode = "manual" | "all";
 
+export type BotState =
+  | "queued"
+  | "dispatched"
+  | "joining_meeting"
+  | "waiting_admission"
+  | "admitted"
+  | "recording"
+  | "alone_detected"
+  | "alone_too_long"
+  | "suspended"
+  | "finalizing_upload"
+  | "stopping"
+  | "ended"
+  | "error"
+  | (string & {});
+
+export type BotQueueState =
+  | "active"
+  | "waiting"
+  | "delayed"
+  | "prioritized"
+  | "completed"
+  | "failed"
+  | "unknown";
+
+export interface BotSummary {
+  jobId: string;
+  status: BotState;
+  queueState: BotQueueState;
+  meetingUrl: string;
+  botName: string;
+  createdAt: string;
+}
+
+export interface AgentAction {
+  id: number;
+  meeting_id: string;
+  kind: "linear_issue" | "slack_message";
+  title: string;
+  payload: Record<string, unknown>;
+  reasoning: string | null;
+  status: "proposed" | "executing" | "executed" | "failed" | "rejected";
+  result: { url?: string; externalId?: string; error?: string } | null;
+  evidence: {
+    quote: string;
+    start_s: number | null;
+    end_s: number | null;
+    clip: string | null;
+  } | null;
+  created_at: string;
+  executed_at: string | null;
+}
+
+export interface UpcomingMeeting {
+  id: number;
+  jobId: string;
+  title: string | null;
+  meetUrl: string;
+  startsAt: string;
+  endsAt: string | null;
+  status: "scheduled" | "running" | "skipped";
+}
+
 export interface CalendarConnection {
   email: string;
   mode: CalendarMode;
@@ -150,21 +213,6 @@ export type AskStreamEvent =
       iterations: number;
     }
   | { type: "error"; message: string };
-
-export interface SearchHit {
-  chunk_id: number;
-  meeting_id: string;
-  meeting_title: string | null;
-  meeting_type: string | null;
-  meeting_date: string | null;
-  seq: number;
-  speaker: string | null;
-  text: string;
-  start_s: number;
-  end_s: number;
-  recording_offset_s: number;
-  score: number;
-}
 
 export interface AskStep {
   id: string;

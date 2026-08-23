@@ -12,9 +12,12 @@ import type { CalendarMode, CalendarResponse, OpenAction } from "./types";
 export const keys = {
   session: ["session"] as const,
   calendar: ["calendar"] as const,
+  upcoming: ["calendar", "upcoming"] as const,
+  bots: ["bots"] as const,
   meetings: ["meetings"] as const,
   actionItems: ["action-items"] as const,
   meeting: (id: string) => ["meeting", id] as const,
+  meetingActions: (id: string) => ["meeting-actions", id] as const,
   transcript: (id: string) => ["transcript", id] as const,
   recording: (id: string) => ["recording", id] as const,
   botStatus: (id: string) => ["bot-status", id] as const,
@@ -25,6 +28,54 @@ export function useSession() {
     queryKey: keys.session,
     queryFn: api.me,
     staleTime: 5 * 60_000,
+  });
+}
+
+// Liveness comes from the queue, never from the bot's own status vocabulary:
+// that vocabulary has grown twice ("alone_detected" mid-record, "complete"
+// after "ended") and every guess at it has been wrong in one direction or the
+// other. BullMQ knows whether the job is still running.
+const FINISHED_QUEUE_STATES = new Set(["completed", "failed", "unknown"]);
+
+export function useActiveBots() {
+  const { data: session } = useSession();
+
+  const query = useQuery({
+    queryKey: keys.bots,
+    queryFn: api.bots,
+    enabled: Boolean(session),
+    staleTime: 0,
+    refetchInterval: 5_000,
+  });
+
+  const active = (query.data?.bots ?? []).filter(
+    (b) => !FINISHED_QUEUE_STATES.has(b.queueState),
+  );
+
+  return { ...query, active };
+}
+
+export function useStopBot() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (jobId: string) => api.stopBot(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.bots });
+      queryClient.invalidateQueries({ queryKey: keys.meetings });
+      queryClient.invalidateQueries({ queryKey: keys.upcoming });
+    },
+  });
+}
+
+export function useUpcoming() {
+  const { data: session } = useSession();
+
+  return useQuery({
+    queryKey: keys.upcoming,
+    queryFn: api.upcoming,
+    enabled: Boolean(session),
+    staleTime: 60_000,
   });
 }
 
@@ -166,6 +217,32 @@ export function useRecording(id: string) {
   });
 }
 
+export function useMeetingActions(id: string) {
+  return useQuery({
+    queryKey: keys.meetingActions(id),
+    queryFn: () => api.meetingActions(id),
+    enabled: Boolean(id),
+  });
+}
+
+export function useApproveAction(meetingId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.approveAction(id),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: keys.meetingActions(meetingId) }),
+  });
+}
+
+export function useRejectAction(meetingId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.rejectAction(id),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: keys.meetingActions(meetingId) }),
+  });
+}
+
 export function useRetryMeeting() {
   const qc = useQueryClient();
   return useMutation({
@@ -193,14 +270,6 @@ export function useUpdateMeeting() {
       qc.invalidateQueries({ queryKey: keys.meeting(v.id) });
       qc.invalidateQueries({ queryKey: keys.meetings });
     },
-  });
-}
-
-export function usePlainSearch(q: string, opts: { speaker?: string; enabled?: boolean } = {}) {
-  return useQuery({
-    queryKey: ["plain-search", q, opts.speaker],
-    queryFn: () => api.search({ q, speaker: opts.speaker }),
-    enabled: Boolean(q) && (opts.enabled ?? true),
   });
 }
 

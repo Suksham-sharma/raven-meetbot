@@ -5,6 +5,12 @@ import { Button, IconButton } from "@/components/ui/button";
 import { Pill, StatusFlag } from "@/components/ui/pill";
 import { Field } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog } from "@/components/ui/dialog";
+import { Sheet } from "@/components/ui/sheet";
+import { Confirm } from "@/components/ui/confirm";
+import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
+import { toast } from "@/components/ui/toast";
+import { UpNext, UpNextEmpty } from "@/components/raven/up-next";
 import { SpeakerName, Participants } from "@/components/raven/speaker";
 import { EvidenceFootnote, type Source } from "@/components/raven/evidence";
 import { MeetingCard } from "@/components/raven/meeting-card";
@@ -39,9 +45,12 @@ const SECTIONS = [
   { id: "buttons", label: "Buttons" },
   { id: "inputs", label: "Inputs" },
   { id: "pills", label: "Pills & status" },
+  { id: "overlays", label: "Dialog & sheet" },
+  { id: "feedback", label: "Menu, confirm & toast" },
   { id: "people", label: "Speakers" },
   { id: "evidence", label: "Evidence" },
   { id: "ask", label: "Ask & answer" },
+  { id: "upnext", label: "Up next" },
   { id: "meetings", label: "Rows & cards" },
   { id: "proposals", label: "Proposals" },
   { id: "tasks", label: "Action items" },
@@ -75,9 +84,12 @@ export default function DesignSystem() {
         <Buttons />
         <Inputs />
         <Pills />
+        <Overlays />
+        <Feedback />
         <People />
         <Evidence />
         <Ask />
+        <UpNextSection />
         <Meetings />
         <Proposals />
         <Tasks />
@@ -556,6 +568,223 @@ function Pills() {
           <span className="font-mono text-[12px]">{`<StatusFlag state="ok" />`}</span>{" "}
           returns null
         </span>
+      </Row>
+    </Section>
+  );
+}
+
+const GALLERY_NOW = Date.now();
+
+function Feedback() {
+  const [confirming, setConfirming] = React.useState(false);
+
+  return (
+    <Section
+      id="feedback"
+      title="Menu, confirm & toast"
+      note="The three pieces every mutation needs: somewhere to live, a gate before anything irreversible, and word of what happened. A destructive action pairs the menu item with a confirm whose cancel is the resting choice."
+    >
+      <Row label="Menu">
+        <Menu>
+          <MenuItem>Rename</MenuItem>
+          <MenuItem>Export as Markdown</MenuItem>
+          <MenuSeparator />
+          <MenuItem destructive>Delete meeting</MenuItem>
+        </Menu>
+      </Row>
+
+      <Row label="Confirm">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setConfirming(true)}
+        >
+          Delete meeting
+        </Button>
+        <Confirm
+          open={confirming}
+          onOpenChange={setConfirming}
+          title="Delete this meeting?"
+          body="The recording, transcript, summary, decisions and action items all go with it. This cannot be undone."
+          confirmLabel="Delete meeting"
+          destructive
+          onConfirm={() => {
+            setConfirming(false);
+            toast.success("Meeting deleted.");
+          }}
+        />
+      </Row>
+
+      <Row label="Toast">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              toast.success("Linear issue created.", { description: "RAV-128" })
+            }
+          >
+            Success
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              toast.error("Couldn't stop the bot.", {
+                description: "Bot already completed",
+              })
+            }
+          >
+            Error
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              toast("Raven is leaving the call.", {
+                description: "The recording so far is kept.",
+              })
+            }
+          >
+            Neutral
+          </Button>
+        </div>
+      </Row>
+    </Section>
+  );
+}
+
+function UpNextSection() {
+  const iso = (minsFromNow: number) =>
+    new Date(GALLERY_NOW + minsFromNow * 60_000).toISOString();
+
+  return (
+    <Section
+      id="upnext"
+      title="Up next"
+      note="What Raven is scheduled to join, from the connected calendar. Rows, not cards — this is a glance, and nothing has happened yet to show a thumbnail of. Status is exception-only, so a normal scheduled call says only that Raven will join."
+    >
+      <div className="max-w-[680px]">
+        <UpNext
+          items={[
+            {
+              id: 1,
+              jobId: "cal-demo-1",
+              title: "Standup",
+              meetUrl: "https://meet.google.com/abc-defg-hij",
+              startsAt: iso(-4),
+              endsAt: iso(11),
+              status: "running",
+            },
+            {
+              id: 2,
+              jobId: "cal-demo-2",
+              title: "Design review — transcript polish",
+              meetUrl: "https://meet.google.com/abc-defg-hij",
+              startsAt: iso(95),
+              endsAt: iso(155),
+              status: "scheduled",
+            },
+            {
+              id: 3,
+              jobId: "cal-demo-3",
+              title: null,
+              meetUrl: "https://meet.google.com/abc-defg-hij",
+              startsAt: iso(1520),
+              endsAt: iso(1550),
+              status: "scheduled",
+            },
+          ]}
+        />
+      </div>
+      <p className="mt-2.5 max-w-[680px] text-[12.5px] text-ink-3">
+        Three cases in order: a call in progress, one later today, and an
+        untitled one tomorrow. Times are mono and tabular so the column aligns.
+      </p>
+
+      <div className="mt-9 max-w-[680px]">
+        <Label>Empty — the reason differs, so the copy does too</Label>
+        <div className="grid gap-5">
+          <UpNextEmpty calendar={null} />
+          <UpNextEmpty
+            calendar={{
+              email: "you@example.com",
+              mode: "manual",
+              status: "connected",
+              lastCheckedAt: null,
+              lastError: null,
+              connectedAt: new Date(GALLERY_NOW).toISOString(),
+            }}
+          />
+          <UpNextEmpty
+            calendar={{
+              email: "you@example.com",
+              mode: "all",
+              status: "connected",
+              lastCheckedAt: null,
+              lastError: null,
+              connectedAt: new Date(GALLERY_NOW).toISOString(),
+            }}
+          />
+        </div>
+        <p className="mt-2.5 text-[12.5px] text-ink-3">
+          Never connected, connected but auto-join off, and connected with
+          nothing scheduled. Only the first two can be acted on, so only they
+          carry a link — the third is a fact, not a problem.
+        </p>
+      </div>
+    </Section>
+  );
+}
+
+function Overlays() {
+  const [dialog, setDialog] = React.useState(false);
+  const [sheet, setSheet] = React.useState(false);
+
+  return (
+    <Section
+      id="overlays"
+      title="Dialog & sheet"
+      note="Both are base-ui primitives (DESIGN.md §11). A dialog is for one short decision that blocks; a sheet is for a task with room to breathe, and keeps the page visible behind it."
+    >
+      <Row label="Dialog">
+        <Button variant="secondary" size="sm" onClick={() => setDialog(true)}>
+          Open dialog
+        </Button>
+        <Dialog
+          open={dialog}
+          onOpenChange={setDialog}
+          title="Join a meeting"
+          description="Raven joins as a visible participant. Everyone in the call can see it."
+        >
+          <div className="flex flex-col gap-4">
+            <Field label="Meet link" placeholder="https://meet.google.com/abc-defg-hij" />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setDialog(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setDialog(false)}>
+                Dispatch bot
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      </Row>
+
+      <Row label="Sheet">
+        <Button variant="secondary" size="sm" onClick={() => setSheet(true)}>
+          Open sheet
+        </Button>
+        <Sheet
+          open={sheet}
+          onOpenChange={setSheet}
+          title="Upload recording"
+          description="Transcode and transcription run automatically once the file lands."
+        >
+          <p className="text-[14.5px] text-ink-2">
+            Sheet body. Swipe right or press Escape to dismiss.
+          </p>
+        </Sheet>
       </Row>
     </Section>
   );
@@ -1126,6 +1355,36 @@ function States() {
       note="Neutral, never errors. No red, no warning triangle, no sad illustration — a refusal styled like an error reads as a bug rather than an honest answer."
     >
       <div className="grid max-w-[680px] gap-10">
+        <div>
+          <Label>Home — first run, before any meeting exists</Label>
+          <div className="rounded-lg border border-rule-lo bg-paper px-8 py-9">
+            <h1 className="font-serif text-[34px] leading-[1.1] font-normal tracking-[-0.018em] text-balance">
+              Welcome back, Suksham
+            </h1>
+            <p className="mt-1.5 text-[13px] text-ink-3">
+              Raven keeps what was said, so you don&rsquo;t have to.
+            </p>
+            <div className="mt-5">
+              <Button variant="primary" size="sm">
+                Join a meeting
+              </Button>
+            </div>
+            <div className="mt-9">
+              <EmptyState
+                title="No meetings yet"
+                body="Invite Raven to a Google Meet call and it will join, record, and remember it."
+                boundary="Raven joins as a visible participant. Everyone in the call can see it."
+                action={{ label: "Join a meeting" }}
+              />
+            </div>
+          </div>
+          <p className="mt-2.5 text-[12.5px] text-ink-3">
+            The greeting carries the personal register; the empty state stays
+            neutral and offers the one move that fixes it. The ask rail is absent
+            on purpose — there is nothing yet to ask about.
+          </p>
+        </div>
+
         <div>
           <Label>Processing — honestly indeterminate</Label>
           <div className="grid gap-2.5">

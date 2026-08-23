@@ -28,6 +28,7 @@ import {
   connectCalendar,
   disconnectCalendar,
   getCalendar,
+  getUpcomingMeetings,
   googleCalendarCallback,
   syncCalendar,
   updateCalendar,
@@ -45,6 +46,7 @@ apiRouter.use(requireAuth);
 
 apiRouter.get("/auth/me", me);
 apiRouter.get("/calendar", getCalendar);
+apiRouter.get("/calendar/upcoming", getUpcomingMeetings);
 apiRouter.get("/calendar/connect", connectCalendar);
 apiRouter.patch("/calendar", updateCalendar);
 apiRouter.post("/calendar/disconnect", disconnectCalendar);
