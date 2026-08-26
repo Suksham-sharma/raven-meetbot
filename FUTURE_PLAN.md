@@ -52,9 +52,11 @@ lives in `docs/decisions.md`; endpoint contracts come from `api-server/src/route
 
 ## 1. Position
 
-**Branch:** `main` = `78f4c2f` (calendar auto-join landed). The Home/Meetings
-split, the `Up next` block, the overlay/menu/toast primitives, the live-session
-surface and the proposal wiring are all uncommitted in the working tree.
+**Branch:** `main` = `ab5a909`. The Home/Meetings split, the `Up next` block, the
+overlay/menu/toast primitives, the live-session surface and the proposal wiring
+all landed in PR #4. Two PRs are open against `main` and neither needs a live
+meeting to review: **#5** creates the `meetings` row the moment processing starts,
+**#6** makes a misconfigured deploy fail at boot instead of at the first call.
 
 **What works end to end today:** bot joins a real Google Meet → records →
 transcode to a seekable mp4 → batch diarization with real speaker names → memory
@@ -71,6 +73,23 @@ against the mp4's own audio, so a cited second is the second you land on.
 
 **Ask now streams.** `POST /ask/stream` emits `tool_call` → `tool_result` via SSE; the panel shows live steps instead of a fake spinner. Tool-step streaming only — token streaming + inline markers still open.
 
+**A captured meeting is no longer invisible while it processes** (PR #5). The bot
+path created no `meetings` row until `ingestMeeting` succeeded, so a capture was
+missing from every surface for the whole encode-plus-diarize window and missing
+*forever* if any stage failed — the row that would have carried the error did not
+exist yet. Both media workers now open with an idempotent `beginProcessing` upsert.
+The same change moved each worker's first `store.resolve` inside the try, which had
+been letting a missing artifact throw past `markFailed` and park the row at
+`transcoding` with a null `status_error`.
+
+**A misconfigured deploy now fails at boot** (PR #6). Every config key defaulted to
+`""` or a working localhost value, so a missing secret surfaced later as an error
+naming Google or R2 rather than the config. `assertConfig()` runs on the API and all
+three workers and reports every problem at once: production secrets unset or still
+the committed dev value, half-configured R2/Google/Linear groups, a
+`CALENDAR_TOKEN_KEY` that is not 32 bytes, and numeric settings that would silently
+coerce to a default.
+
 **Bot image rebuilt.** `meet-bot:latest` rebuilt `2026-08-15` (`20c8d65b`, `--no-cache`) and verified `encoding`/`sample_rate` are omitted so Deepgram auto-detects `audio/webm;codecs=opus`. Owner can now stop their bot via `POST /bots/:jobId/stop` (queued `bot-control` → `docker stop` → graceful finalize).
 
 **Calendar position:** OAuth is real and working as of 2026-08-21. A live sync
@@ -83,7 +102,8 @@ then unattended admission, title propagation, empty-room suppression, and live
 Deepgram segments.** Still no event overrides, no incremental sync tokens, no more
 integration UI before that proof.
 
-**Next session starts here:** two things, and the second depends on nothing.
+**Next session starts here:** both of these need a real meeting, which is the only
+reason they are still open. Everything reachable without one has been done.
 
 1. **The scheduled-Meet proof.** Credentials, migration and OAuth are all done —
    start Postgres/Redis/API/web/orchestrator plus the calendar worker, put a real
@@ -106,7 +126,8 @@ everything fails to connect. Postgres is on **5434** and Redis on **6380** via
 **The one-line summary:** Phase 0 and Phase 1 are done. Phase 2's live capture
 re-verification remains the oldest open risk. Phase 3 Calendar now has a proven
 OAuth and sync path; only the scheduled-Meet leg is unproven. A surface audit
-(§6b) closed four capabilities that had shipped with no way to reach them.
+(§6b) closed four capabilities that had shipped with no way to reach them. What
+is left in every open phase either needs a live meeting or is Phase 4 and beyond.
 
 ---
 
@@ -280,7 +301,7 @@ without it.*
 
 - [x] **Rebuilt `meet-bot:latest`** — `2026-08-15` `20c8d65b` (`--no-cache`); verified `dist/services/transcriber.js` omits `encoding`/`sample_rate` so Deepgram auto-detects `audio/webm;codecs=opus`. Image is fresh.
 - [ ] ⚠️ **Re-verify the live-transcription fix (`40dc3c0`) on a fresh meeting.** Oldest outstanding risk in the project — the fix has sat built-but-unproven since 2026-06-27; the rebuild alone does not prove it. Needs a real Meet with Deepgram segments.
-- [ ] ⚠️ **Owner-controlled exit — `POST /bots/:jobId/stop`** — owner-scoped (404 if not owned; 400 if `completed`/`failed`; 200 `cancelled` for `waiting`/`delayed` via `job.remove()`; 202 `stopping` for `active` via `bot-control` queue). Orchestrator `bot-control` worker → `dockerManager.stopByJobId` (label `com.meetbot.jobId`, `stop({t:10})` → bot `SIGTERM` → graceful `cleanup()` + `finalizing_upload`). `dockerManager` now tracks `jobId→containerId`, labels containers, and falls back to `listContainers` by label. Built + typechecked, not yet verified against a live container. Uncommitted.
+- [ ] ⚠️ **Owner-controlled exit — `POST /bots/:jobId/stop`** — owner-scoped (404 if not owned; 400 if `completed`/`failed`; 200 `cancelled` for `waiting`/`delayed` via `job.remove()`; 202 `stopping` for `active` via `bot-control` queue). Orchestrator `bot-control` worker → `dockerManager.stopByJobId` (label `com.meetbot.jobId`, `stop({t:10})` → bot `SIGTERM` → graceful `cleanup()` + `finalizing_upload`). `dockerManager` now tracks `jobId→containerId`, labels containers, and falls back to `listContainers` by label. Committed and given a surface in `ab5a909` (the "Right now" block on Home, behind a confirm). Still not verified against a live container.
 - [ ] **Recording consent** — **decided: not building auto-announce.** Per session decision 2026-08-15: keep it user-based — if the owner wants the bot to exit they can call `POST /bots/:jobId/stop`; no automatic chat announcement. Two-party risk is acknowledged but deferred in favour of explicit owner control.
 - [ ] End-detection: the bot stayed ~12 min after a meeting ended — only
       `alone_too_long` fired.

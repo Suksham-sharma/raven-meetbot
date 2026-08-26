@@ -12,7 +12,7 @@ same day from the design review of the Integrations surface.
 
 ## Calendar implementation handoff — next session
 
-**Implemented, uncommitted:** migration `0009`; `calendar_accounts`, OAuth-state,
+**Implemented, landed in `78f4c2f`:** migration `0009`; `calendar_accounts`, OAuth-state,
 and schedule tables; AES-256-GCM refresh-token storage; Google connect/callback,
 read/update/disconnect/sync endpoints; rolling 48-hour reconciliation; deterministic
 owner-scoped delayed jobs; cancellation and late-join protection; scheduled start and
@@ -22,20 +22,15 @@ the Calendar-only `/settings/integrations` page.
 **Verified locally:** temporary Postgres migration; 22 API tests; a real-Redis
 duplicate-enqueue proof; API, orchestrator, bot, and media-worker typechecks; targeted
 web lint; Next production build; empty, connected, denied, and join-mode browser
-states at desktop and 640px; React Doctor 100/100. The browser used a temporary
-database only. No real Google account or real scheduled meeting has exercised the
-feature.
+states at desktop and 640px; React Doctor 100/100.
 
-**Next execution order:**
+**Verified against a real Google account 2026-08-21:** migration `0009` applied to the
+dev database, OAuth connect end to end, the refresh token on disk as AES-256-GCM
+ciphertext, a live sync listing real events, and cancellation of rows Google no longer
+returns inside the 48-hour window. Steps 1–4 below are therefore closed.
 
-1. Start OrbStack and Raven's Postgres on the configured port, Redis, API, web,
-   orchestrator, Calendar worker, and the current bot image.
-2. Apply migration `0009` to Raven's actual dev database.
-3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, the exact Google callback URL,
-   `WEB_APP_URL`, and a base64-encoded 32-byte `CALENDAR_TOKEN_KEY`.
-4. Connect a real Google account from `/settings/integrations`; verify the account
-   row holds ciphertext, the callback returns to the web app, and `manual`, `all`,
-   sync, disconnect, and reconnect behave correctly.
+**What is left, and it all needs one real scheduled meeting:**
+
 5. Create a Meet event starting within the rolling window. Run reconciliation more
    than once and prove one schedule row and one delayed BullMQ job.
 6. Let the job fire and verify unattended lobby admission, title propagation,
@@ -136,13 +131,13 @@ Phase A launch gate and should run in parallel with implementation.
 
 ---
 
-## 4. Config boot-time validation
+## 4. Config boot-time validation — **done** (PR #6)
 
 **What:** Assert required secrets are present and non-default at process start
-rather than defaulting them to `""` in `api-server/src/config/index.ts`.
+rather than defaulting them to `""` in `api-server/src/platform/config/index.ts`.
 
 **Why:** Every secret currently defaults to empty string, and `JWT_SECRET` has a
-live insecure default (`config/index.ts:17`) with nothing asserting it changed in
+live insecure default with nothing asserting it changed in
 production. Adding five `GOOGLE_*` keys with the same pattern means a misconfigured
 deploy fails at the first API call rather than at boot, with an error that points at
 Google rather than at the config.
@@ -153,8 +148,15 @@ Google rather than at the config.
 means touching every key, which is a separate change from this feature.
 
 **Context:** Flagged as adjacent during the 2026-08-17 review, deliberately kept out
-of the calendar PR to avoid mixing a config refactor into a feature. Good candidate
-for a standalone cleanup commit.
+of the calendar PR to avoid mixing a config refactor into a feature. Shipped as the
+standalone cleanup it wanted to be.
+
+**Shipped:** `assertConfig()` in `platform/config/validate.ts`, called from the API
+entrypoint and all three workers. It reports every problem at once rather than the
+first: production secrets unset or still the committed dev value, half-configured
+R2/Google/Linear groups, a `CALENDAR_TOKEN_KEY` that is not 32 bytes, and numeric
+settings that would silently coerce to a default. `COOKIE_SECURE` was deliberately
+left out — requiring it in production is a policy change, not a presence check.
 
 **Depends on:** nothing.
 
