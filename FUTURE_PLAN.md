@@ -112,10 +112,11 @@ reason they are still open. Everything reachable without one has been done.
    admission → title propagation → empty-room suppression → **live Deepgram
    segments**. That last one also closes `40dc3c0`, the oldest unproven fix in the
    project. Record the exact failure if lobby admission or transcription breaks.
-2. **Look at the new UI.** Everything in §6b is typechecked and built but has never
-   been rendered in a browser. `/design` carries every new primitive and state
-   without needing a login; the live-session block needs a bot actually in flight
-   and the proposal section needs `agent_actions` rows.
+2. **See the new UI against real data.** The `/design` half of this is done — the
+   menu, confirm and toast primitives were exercised in the gallery on 2026-08-27
+   and all three behave. What is left needs the meeting from step 1: the
+   live-session block only appears with a bot actually in flight, and the proposal
+   section only appears with `agent_actions` rows.
 
 **Note for whoever restarts the stack:** the datastores live in OrbStack and go
 down with it. `docker compose up -d postgres redis` before the dev processes, or
@@ -398,9 +399,19 @@ recur: the backend has consistently run ahead of the surfaces.*
       mutation failed silently), **`Confirm`** on base-ui `alert-dialog`, and
       **`Menu`** on base-ui `menu`. Rename/export/delete had been three raw buttons
       using `window.confirm()` and `window.location.href`.
-- [ ] ⚠️ None of the above is verified at runtime. Typecheck, lint and production
-      build pass; the live block needs a real bot in flight and the proposal section
-      needs `agent_actions` rows, neither of which existed when it was written.
+- [x] The three primitives are verified at runtime, in `/design` on 2026-08-27.
+      Menu opens with Rename / Export as Markdown / Delete meeting; Confirm opens
+      with the "cannot be undone" copy, Cancel as the resting choice, and closes on
+      Escape; all three toast variants render. Every section of the gallery renders,
+      including `Up next` and `Proposals`, and the scroll-spy nav tracks.
+- [ ] ⚠️ The **wired** versions are still unverified — the gallery proves the
+      components, not the screens that call them. The live block needs a real bot in
+      flight and the proposal section needs `agent_actions` rows, neither of which
+      existed when it was written.
+- [ ] `/design` overflows horizontally by 68px at a 678px viewport, with no overflow
+      at 1024 or 1440. That is the already-known desktop-only shell showing up on the
+      gallery page; recorded so the responsive item in Phase 1 has one concrete
+      measurement attached to it rather than a general worry.
 - [ ] The **present tense** was the missing surface, and is worth holding onto as a
       principle: Home covered the past (Recent) and the future (Up next) while a bot
       mid-call had nowhere to live. Stop was homeless because "in flight" was.
