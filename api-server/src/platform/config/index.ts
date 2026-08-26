@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import path from "path";
+import { DEV_JWT_SECRET } from "./validate";
 dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), "..", ".env") });
 
@@ -10,8 +11,7 @@ const systemConfig = {
     process.env.DATABASE_URL ||
     "postgresql://postgres:postgres@localhost:5432/meetbot",
 
-  // JWT_SECRET MUST be set in real deployments; this default is insecure.
-  JWT_SECRET: process.env.JWT_SECRET || "dev-insecure-secret-change-me-please-0123456789",
+  JWT_SECRET: process.env.JWT_SECRET || DEV_JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
   JWT_MAX_AGE_MS: Number(process.env.JWT_MAX_AGE_MS) || 7 * 24 * 60 * 60 * 1000,
   COOKIE_SECURE: process.env.COOKIE_SECURE === "true",

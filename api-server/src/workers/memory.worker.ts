@@ -1,11 +1,14 @@
 import { Worker } from "bullmq";
 import systemConfig from "../platform/config/index";
+import { assertConfig } from "../platform/config/validate";
 import { db, pool } from "../platform/db/client";
 import { ArtifactNotFoundError, getArtifactStore } from "../platform/artifacts";
 import { ingestMeeting } from "../domain/ingest/ingestMeeting";
 import { buildRealMeeting, loadNamedTranscript } from "../domain/ingest/realSource";
 import { loadSeedMeeting } from "../domain/ingest/seedSource";
 import { agentQueue, type MemoryJob } from "../platform/queues";
+
+assertConfig();
 
 const CONCURRENCY = Number(process.env.MEMORY_WORKER_CONCURRENCY) || 2;
 
