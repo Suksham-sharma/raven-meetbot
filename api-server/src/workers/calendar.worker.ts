@@ -1,8 +1,11 @@
 import { Worker } from "bullmq";
 import { syncAllCalendarAccounts } from "../domain/calendar/reconcile";
 import systemConfig from "../platform/config";
+import { assertConfig } from "../platform/config/validate";
 import { pool } from "../platform/db/client";
 import { calendarQueue } from "../platform/queues";
+
+assertConfig();
 
 const connection = { url: systemConfig.REDIS_URL };
 

@@ -1,8 +1,11 @@
 import { Worker } from "bullmq";
 import systemConfig from "../platform/config/index";
+import { assertConfig } from "../platform/config/validate";
 import { pool } from "../platform/db/client";
 import { proposeActions } from "../domain/actions/propose";
 import type { AgentJob } from "../platform/queues";
+
+assertConfig();
 
 const CONCURRENCY = Number(process.env.AGENT_WORKER_CONCURRENCY) || 2;
 

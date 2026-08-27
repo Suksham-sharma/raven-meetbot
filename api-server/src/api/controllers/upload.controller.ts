@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../platform/db/client";
 import { meetings } from "../../platform/db/schema";
 import { getArtifactStore } from "../../platform/artifacts";
+import systemConfig from "../../platform/config";
 import { diarizeQueue, memoryQueue, transcodeQueue } from "../../platform/queues";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../../platform/utils/AppError";
 import { asyncHandler } from "../../platform/utils/asyncHandler";
@@ -168,7 +169,7 @@ export const completeUpload = asyncHandler(async (req: Request, res: Response) =
     { jobId: meetingId }
   );
 
-  const hasDeepgram = Boolean(process.env.DEEPGRAM_API_KEY);
+  const hasDeepgram = Boolean(systemConfig.DEEPGRAM_API_KEY);
   if (hasDeepgram) {
     await diarizeQueue.add("diarize", { meetingId, recordingKey, speakersKey: null, ownerId: userId }, { jobId: meetingId });
   } else {
