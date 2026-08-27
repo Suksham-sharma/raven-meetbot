@@ -71,4 +71,7 @@ export interface DiarizeJob {
 export interface TranscodeJob {
   meetingId: string;
   recordingKey: string;
+  ownerId?: string | null;
+  title?: string | null;
+  scheduledStartMs?: number | null;
 }

@@ -39,6 +39,12 @@ function columnsUsedByDb(): string[] {
   for (const stmt of src.matchAll(/UPDATE meetings SET ([\s\S]*?)WHERE ([\s\S]*?)`/g)) {
     for (const m of `${stmt[1]} ${stmt[2]}`.matchAll(/([a-z_][a-z0-9_]*)\s*=/g)) used.add(m[1]);
   }
+  for (const stmt of src.matchAll(/INSERT INTO meetings \(([\s\S]*?)\)/g)) {
+    for (const col of stmt[1].split(",")) {
+      const m = col.trim().match(/^([a-z_][a-z0-9_]*)$/);
+      if (m) used.add(m[1]);
+    }
+  }
   return [...used];
 }
 
@@ -49,7 +55,18 @@ describe("media-worker SQL matches the api-server migrations", () => {
 
   it("touches at least the columns both workers write", () => {
     expect(columnsUsedByDb().sort()).toEqual(
-      ["id", "mp4_key", "poster_key", "status", "status_error"].sort()
+      [
+        "id",
+        "mp4_key",
+        "owner_id",
+        "participants",
+        "poster_key",
+        "recording_url",
+        "started_at",
+        "status",
+        "status_error",
+        "title",
+      ].sort()
     );
   });
 

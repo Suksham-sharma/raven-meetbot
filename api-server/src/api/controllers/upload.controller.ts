@@ -162,7 +162,11 @@ export const completeUpload = asyncHandler(async (req: Request, res: Response) =
     throw new BadRequestError("upload not found — PUT the file to upload_url first");
   }
 
-  await transcodeQueue.add("transcode", { meetingId, recordingKey }, { jobId: meetingId });
+  await transcodeQueue.add(
+    "transcode",
+    { meetingId, recordingKey, ownerId: userId, title: meeting.title },
+    { jobId: meetingId }
+  );
 
   const hasDeepgram = Boolean(process.env.DEEPGRAM_API_KEY);
   if (hasDeepgram) {

@@ -111,7 +111,13 @@ const processJob = async (job: Job<MeetBotJob>) => {
 
     if (recording && !emptyRoom) {
       const meetingId = recording.replace(/\.webm$/, "");
-      await redisManager.enqueueTranscode({ meetingId, recordingKey: recording });
+      await redisManager.enqueueTranscode({
+        meetingId,
+        recordingKey: recording,
+        ownerId,
+        title,
+        scheduledStartMs,
+      });
 
       if (speakers) {
         await redisManager.enqueueDiarize({

@@ -4,7 +4,7 @@ import os from "os";
 import path from "path";
 import { getArtifactStore } from "../artifacts";
 import config from "../config";
-import { markFailed, markStatus, pool, setTranscodeOutputs } from "../db";
+import { beginProcessing, markFailed, pool, setTranscodeOutputs } from "../db";
 import { connection, transcodeQueue, type TranscodeJob } from "../queues";
 import { posterFrame, probeDuration, toMp4 } from "./transcode";
 
@@ -21,18 +21,24 @@ export function posterKeyFor(meetingId: string): string {
 const worker = new Worker<TranscodeJob>(
   "transcode",
   async (job) => {
-    const { meetingId, recordingKey } = job.data;
+    const { meetingId, recordingKey, ownerId, title, scheduledStartMs } = job.data;
     const log = (m: string) => console.log(`[transcode] ${meetingId}: ${m}`);
     log(`start (job ${job.id})`);
 
-    await markStatus(meetingId, "transcoding");
+    await beginProcessing(meetingId, "transcoding", {
+      ownerId,
+      title,
+      recordingKey,
+      scheduledStartMs,
+    });
 
     const store = getArtifactStore();
-    const src = await store.resolve(recordingKey);
     const mp4Path = path.join(os.tmpdir(), `${meetingId}.mp4`);
     const jpgPath = path.join(os.tmpdir(), `${meetingId}.poster.jpg`);
+    let src: Awaited<ReturnType<typeof store.resolve>> | null = null;
 
     try {
+      src = await store.resolve(recordingKey);
       let last = -1;
       await toMp4(src.path, mp4Path, (pct) => {
         if (pct >= last + 25) {
@@ -54,7 +60,7 @@ const worker = new Worker<TranscodeJob>(
       log(`wrote ${mp4Key} (${duration.toFixed(0)}s) + ${posterKey}`);
 
       const updated = await setTranscodeOutputs(meetingId, mp4Key, posterKey);
-      log(updated ? "meeting row updated" : "no meeting row yet — ingest will pick it up");
+      if (!updated) log("meeting row vanished — ingest will re-create it");
 
       return { meetingId, mp4Key, posterKey, durationS: duration };
     } catch (err) {
@@ -62,7 +68,7 @@ const worker = new Worker<TranscodeJob>(
       await markFailed(meetingId, `transcode: ${msg}`);
       throw err;
     } finally {
-      await src.cleanup();
+      if (src) await src.cleanup();
       rmSync(mp4Path, { force: true });
       rmSync(jpgPath, { force: true });
     }

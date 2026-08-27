@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { getArtifactStore } from "../artifacts";
 import config from "../config";
-import { markFailed, markStatus, pool } from "../db";
+import { beginProcessing, markFailed, pool } from "../db";
 import { connection, diarizeQueue, memoryQueue, type DiarizeJob } from "../queues";
 import { diarizeRecording, diarizeWithoutTimeline, serializeNamedTranscript } from "./pipeline";
 
@@ -19,16 +19,22 @@ const worker = new Worker<DiarizeJob>(
     const log = (m: string) => console.log(`[diarize] ${meetingId}: ${m}`);
     log(`start (job ${job.id})`);
 
-    await markStatus(meetingId, "diarizing");
+    await beginProcessing(meetingId, "diarizing", {
+      ownerId,
+      title,
+      recordingKey,
+      scheduledStartMs,
+    });
 
     const apiKey = config.DEEPGRAM_API_KEY;
     if (!apiKey) throw new Error("DEEPGRAM_API_KEY not set");
 
     const store = getArtifactStore();
-    const webm = await store.resolve(recordingKey);
+    let webm: Awaited<ReturnType<typeof store.resolve>> | null = null;
     let speakers: Awaited<ReturnType<typeof store.resolve>> | null = null;
     let namedKey: string;
     try {
+      webm = await store.resolve(recordingKey);
       let result;
       if (speakersKey) {
         try {
@@ -59,7 +65,7 @@ const worker = new Worker<DiarizeJob>(
       await markFailed(meetingId, `diarize: ${msg}`);
       throw err;
     } finally {
-      await webm.cleanup();
+      if (webm) await webm.cleanup();
       if (speakers) await speakers.cleanup();
     }
 

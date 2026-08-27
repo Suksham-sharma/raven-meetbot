@@ -557,7 +557,7 @@ export const retryMeeting = asyncHandler(async (req: Request, res: Response) => 
   if (err.startsWith("transcode:")) {
     await transcodeQueue.add(
       "transcode",
-      { meetingId, recordingKey: `${meetingId}.webm` },
+      { meetingId, recordingKey: `${meetingId}.webm`, ownerId: userId, title: meeting.title },
       { jobId: `${meetingId}-retry-${Date.now()}` }
     );
     enqueued = "transcode";
