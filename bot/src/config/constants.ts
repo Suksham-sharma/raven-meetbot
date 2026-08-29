@@ -43,9 +43,19 @@ export const MEET_SELECTORS = {
   WAITING_TEXT: "Please wait until a meeting host brings you into the call",
 
   KICK_INDICATORS: [
-    "Return to home screen",
     "You've been removed from the meeting",
+    "removed you from the meeting",
+    "You can't join this video call",
+  ],
+
+  CALL_ENDED_TEXTS: [
+    "You've left the meeting",
+    "You have left the meeting",
+    "Your call has ended",
+    "This call has ended",
+    "The call ended",
     "The meeting has ended",
+    "Return to home screen",
   ],
 
   LEAVE_BUTTON: '[aria-label="Leave call"]',
@@ -58,9 +68,11 @@ export const TIMEOUTS = {
   MAX_JOIN_ATTEMPTS: 30,
   ADMISSION_TIMEOUT: 5 * 60_000,
   ADMISSION_POLL_INTERVAL: 2_000,
-  MONITOR_INTERVAL: 20_000,
+  MONITOR_INTERVAL: 5_000,
   ALONE_GRACE_PERIOD: 20_000,
   ALONE_EXIT_DELAY: 40_000,
+  CALL_GONE_CONFIRM_MS: 15_000,
+  UNREADABLE_EXIT_DELAY: 180_000,
   RECORDING_STOP_WAIT: 2_000,
 };
 

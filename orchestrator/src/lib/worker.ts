@@ -104,9 +104,7 @@ const processJob = async (job: Job<MeetBotJob>) => {
     console.log(`[Worker] Job ${job.id} completed successfully`);
 
     const emptyRoom = timeline.some(
-      (event) =>
-        event.reason === "alone_too_long" &&
-        event.hadOtherParticipants === false
+      (event) => event.hadOtherParticipants === false
     );
 
     if (recording && !emptyRoom) {

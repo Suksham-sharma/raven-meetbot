@@ -33,16 +33,18 @@ class MeetBot {
   private startTime: number = 0;
   private shouldStop = false;
   private meetingId: string;
+  private meetingCode: string | null;
   private recordingSink: StorageSink | null = null;
   private transcriber: Transcriber | null = null;
   private speakerTimeline: SpeakerTimeline | null = null;
   private hadOtherParticipants = false;
 
   constructor() {
-    const meetingCode = (botConfig.MEET_URL.split("/").pop() || "recording").split("?")[0];
+    const rawCode = (botConfig.MEET_URL.split("/").pop() || "recording").split("?")[0];
+    this.meetingCode = /^[a-z]{3}-[a-z]{4}-[a-z]{3}$/i.test(rawCode) ? rawCode : null;
     const now = new Date();
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}-${String(now.getSeconds()).padStart(2, "0")}`;
-    this.meetingId = `${meetingCode}_${timestamp}`;
+    this.meetingId = `${rawCode}_${timestamp}`;
   }
 
   private reportStatus(state: BotState, extra?: Record<string, unknown>): void {
@@ -442,25 +444,38 @@ class MeetBot {
 
     let aloneStartTime: number | null = null;
     let gracePeriodPassed = false;
+    let callGoneStartTime: number | null = null;
+    let unreadableStartTime: number | null = null;
 
     while (!this.shouldStop) {
       if (botConfig.MAX_DURATION_MINUTES) {
         const elapsed = (Date.now() - this.startTime) / 60_000;
         if (elapsed >= botConfig.MAX_DURATION_MINUTES) {
-          this.reportStatus("timeout");
+          this.reportStatus("timeout", {
+            hadOtherParticipants: this.hadOtherParticipants,
+          });
           return;
         }
       }
 
-      if (await this.isKicked(page)) {
-        this.reportStatus("kicked");
-        return;
+      // Leaving is driven by the call view itself, not by the participant
+      // count. When a call ends the tiles are torn down first, so a counter
+      // that reads them is at its least trustworthy exactly when the exit
+      // decision is being made.
+      if (!(await this.isInCall(page))) {
+        if (!callGoneStartTime) {
+          callGoneStartTime = Date.now();
+          console.log("[Bot] Call controls gone, confirming...");
+        } else if (
+          Date.now() - callGoneStartTime >= TIMEOUTS.CALL_GONE_CONFIRM_MS
+        ) {
+          await this.reportCallGone(page);
+          return;
+        }
+        await page.waitForTimeout(TIMEOUTS.MONITOR_INTERVAL);
+        continue;
       }
-
-      if (page.url().includes("/bye")) {
-        this.reportStatus("ended");
-        return;
-      }
+      callGoneStartTime = null;
 
       const count = await this.getParticipantCount(page);
       if (count !== null) {
@@ -478,11 +493,33 @@ class MeetBot {
       if (aloneCheckNotBefore && Date.now() < aloneCheckNotBefore) {
         aloneStartTime = null;
         gracePeriodPassed = false;
+        unreadableStartTime = null;
         await page.waitForTimeout(TIMEOUTS.MONITOR_INTERVAL);
         continue;
       }
 
-      if (count !== null && count <= 1) {
+      if (count === null) {
+        // In the call view but unable to read it. Never exit on one bad read,
+        // but do not sit here forever either: this is the state the bot used to
+        // idle in for the rest of the meeting.
+        if (!unreadableStartTime) {
+          unreadableStartTime = Date.now();
+          console.log("[Bot] Participant count unreadable, holding...");
+        } else if (
+          Date.now() - unreadableStartTime >= TIMEOUTS.UNREADABLE_EXIT_DELAY
+        ) {
+          this.reportStatus("ended", {
+            reason: "state_unreadable",
+            hadOtherParticipants: this.hadOtherParticipants,
+          });
+          return;
+        }
+        await page.waitForTimeout(TIMEOUTS.MONITOR_INTERVAL);
+        continue;
+      }
+      unreadableStartTime = null;
+
+      if (count <= 1) {
         if (!aloneStartTime) {
           aloneStartTime = Date.now();
           this.reportStatus("alone_detected");
@@ -514,47 +551,49 @@ class MeetBot {
     }
   }
 
-  private async isKicked(page: Page): Promise<boolean> {
-    const bodyText = await page.textContent("body").catch(() => "");
-    if (!bodyText) return false;
+  private async isInCall(page: Page): Promise<boolean> {
+    if (this.meetingCode && !page.url().includes(this.meetingCode)) {
+      return false;
+    }
 
-    return MEET_SELECTORS.KICK_INDICATORS.some((text) =>
-      bodyText.includes(text)
+    return page.evaluate((selectors: string[]) => {
+      return selectors.some((selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+    }, [MEET_SELECTORS.LEAVE_BUTTON, ...MEET_SELECTORS.IN_MEETING_INDICATORS]);
+  }
+
+  private async reportCallGone(page: Page): Promise<void> {
+    // innerText, not textContent: Meet keeps a lot of offscreen copy in the DOM
+    // and matching against all of it turns any hidden menu string into an exit.
+    const bodyText = await page.innerText("body").catch(() => "");
+
+    if (MEET_SELECTORS.KICK_INDICATORS.some((t) => bodyText.includes(t))) {
+      this.reportStatus("kicked", {
+        hadOtherParticipants: this.hadOtherParticipants,
+      });
+      return;
+    }
+
+    const matched = MEET_SELECTORS.CALL_ENDED_TEXTS.find((t) =>
+      bodyText.includes(t)
     );
+    this.reportStatus("ended", {
+      reason: matched ? "call_ended" : "call_view_gone",
+      hadOtherParticipants: this.hadOtherParticipants,
+    });
   }
 
   private async getParticipantCount(page: Page): Promise<number | null> {
+    // Tiles only. Every other number on the page (the people badge, the clock)
+    // is chrome that outlives what it describes, and reading one of those as a
+    // participant count is what kept the bot in an ended call.
     return page.evaluate(() => {
-      const participantEls = document.querySelectorAll(
-        "[data-participant-id]"
-      );
-      if (participantEls.length > 0) return participantEls.length;
-
-      const buttons = document.querySelectorAll("button");
-      for (const btn of buttons) {
-        const text = btn.textContent?.trim() || "";
-        if (/^\d+$/.test(text)) {
-          const num = parseInt(text, 10);
-          if (num > 0 && num < 500) return num;
-        }
-      }
-
-      const allElements = document.querySelectorAll("[aria-label]");
-      for (const el of allElements) {
-        const label = el.getAttribute("aria-label") || "";
-        const patterns = [
-          /\((\d+)\)/,
-          /(\d+)\s*participant/i,
-          /(\d+)\s*person/i,
-          /(\d+)\s*people/i,
-        ];
-        for (const pattern of patterns) {
-          const match = label.match(pattern);
-          if (match) return parseInt(match[1], 10);
-        }
-      }
-
-      return null;
+      const tiles = document.querySelectorAll("[data-participant-id]");
+      return tiles.length > 0 ? tiles.length : null;
     });
   }
 
