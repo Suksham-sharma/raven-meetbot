@@ -304,8 +304,26 @@ without it.*
 - [ ] ⚠️ **Re-verify the live-transcription fix (`40dc3c0`) on a fresh meeting.** Oldest outstanding risk in the project — the fix has sat built-but-unproven since 2026-06-27; the rebuild alone does not prove it. Needs a real Meet with Deepgram segments.
 - [ ] ⚠️ **Owner-controlled exit — `POST /bots/:jobId/stop`** — owner-scoped (404 if not owned; 400 if `completed`/`failed`; 200 `cancelled` for `waiting`/`delayed` via `job.remove()`; 202 `stopping` for `active` via `bot-control` queue). Orchestrator `bot-control` worker → `dockerManager.stopByJobId` (label `com.meetbot.jobId`, `stop({t:10})` → bot `SIGTERM` → graceful `cleanup()` + `finalizing_upload`). `dockerManager` now tracks `jobId→containerId`, labels containers, and falls back to `listContainers` by label. Committed and given a surface in `ab5a909` (the "Right now" block on Home, behind a confirm). Still not verified against a live container.
 - [ ] **Recording consent** — **decided: not building auto-announce.** Per session decision 2026-08-15: keep it user-based — if the owner wants the bot to exit they can call `POST /bots/:jobId/stop`; no automatic chat announcement. Two-party risk is acknowledged but deferred in favour of explicit owner control.
-- [ ] End-detection: the bot stayed ~12 min after a meeting ended — only
-      `alone_too_long` fired.
+- [x] **End-detection rebuilt.** Root cause: there was no end-of-call detector.
+      Of the three exits, `page.url().includes("/bye")` matches a path Meet no
+      longer uses and `isKicked` matched post-call copy against
+      `textContent("body")`, so `alone_too_long` was the only path that could
+      fire — and it was gated behind a participant counter that broke exactly
+      when a call ends. `getParticipantCount` skipped its
+      `[data-participant-id]` read whenever the tiles were gone, then fell
+      through to "any button whose text is digits" and "any aria-label
+      containing a number". Verified in real Chromium: an ended call with a
+      stale people badge returned 3, and a bare post-call screen returned
+      `null` — which the monitor loop handled by taking neither branch, freezing
+      the alone timer indefinitely. Now the exit is driven by the call view
+      (leave button / in-meeting controls / URL), the counter reads tiles only
+      and says `null` rather than guessing, and every path is bounded: call view
+      gone → 15s, alone → 60s, unreadable → 180s. Poll dropped 20s → 5s.
+      Empty-room suppression in the orchestrator now keys on
+      `hadOtherParticipants`, not on one specific reason.
+- [ ] ⚠️ End-detection is proven against reconstructed DOM states, not a live
+      meeting. Real Meet teardown is the remaining unknown, and it rides along
+      with the Phase 3 scheduled-Meet proof.
 - [ ] Filter the bot's own tile from name events (the "shadow note" tile).
 - [ ] Sturdier login-wall / anti-bot detection; auth-session refresh path.
 - [ ] Concurrent meetings — orchestrator container-per-meeting under real load.
@@ -404,10 +422,54 @@ recur: the backend has consistently run ahead of the surfaces.*
       with the "cannot be undone" copy, Cancel as the resting choice, and closes on
       Escape; all three toast variants render. Every section of the gallery renders,
       including `Up next` and `Proposals`, and the scroll-spy nav tracks.
-- [ ] ⚠️ The **wired** versions are still unverified — the gallery proves the
-      components, not the screens that call them. The live block needs a real bot in
-      flight and the proposal section needs `agent_actions` rows, neither of which
-      existed when it was written.
+- [x] The **wired** versions are verified too, on 2026-08-30, against the local
+      fixture account and the seeded corpus. The proposal section on
+      `/m/arch-review_2026-06-17_10-00-00` renders all four `agent_actions` rows
+      between Decided and Someone needs to, and rejecting one moves the card to its
+      dismissed treatment, fires the Sonner toast, and writes `rejected` to the
+      table. The live block was exercised by enqueueing a bot job with the
+      orchestrator down, so it parks at `waiting`: "Right now" appeared with the
+      meet code and a running clock, Stop opened the confirm, and confirming removed
+      the job and cleared the block.
+- [x] Stop's copy assumed a bot that had already joined. A queued bot was offered
+      "Stop recording?" / "Raven leaves the call and finishes uploading what it has",
+      and cancelling it produced a toast whose headline said it never joined while
+      the line under it promised the recording would be processed. The toast branched
+      on the API's `cancelled` vs `stopping`; the description did not. Both now
+      branch, and the confirm asks "Cancel this bot?" for anything that has not
+      reached the call.
+- [x] A meeting with no media claimed to be preparing a recording forever. Both
+      `GET /meetings/:id/recording` and `/transcript` now answer 409 with a `reason`
+      of `preparing` or `no_media`/`no_transcript`, decided by the meeting's own
+      status, and the page renders nothing for the player (§7, exception-only) and an
+      honest "No transcript" for the tab. `useRecording` also polled that dead 409
+      every 20s forever; it now polls only while `reason` is `preparing`. Verified
+      both branches by flipping the row's status and reading the endpoint.
+- [x] **Approve recorded a failure for an integration that was never connected.**
+      `execute()` threw `AdapterConfigError` for a missing `LINEAR_API_KEY`, the
+      catch wrote `status: failed` with the error onto a row nothing had been
+      attempted for, and returned 409. The client then made it worse: `errorMessage`
+      reads `.message`, the action endpoints answer with `.error`, so the reason was
+      dropped and the user saw "Couldn't run that action. / Conflict". Approve now
+      checks `adapter.configured()` before executing and returns
+      `reason: "not_connected"` without touching the row; `ApiError` carries `reason`
+      through; the toast reads "Linear is not connected yet. / Connect it in
+      Settings, then approve this again." Verified: the row stays `proposed`.
+- [x] **"Edit first" never edited anything.** It was wired to `onEvidence`, so it
+      seeked the player to the evidence timestamp, and on the Slack recap — which has
+      no timestamp — it rendered with no handler at all. Renamed to "Play the moment"
+      and no longer rendered when there is no moment to play. A real payload editor
+      is still unbuilt; it belongs in Phase 5 with the rest of the actions surface.
+- [x] **Names reworked across both screens.** The tab "What happened" sat directly
+      above a section heading "WHAT HAPPENED"; the meeting page called action items
+      "Someone needs to" while Home called the same data "Follow-ups"; and the three
+      peer sections were in three different grammatical persons, one of which had
+      Raven referring to itself. Now: tabs are Summary · Transcript with the
+      duplicate heading deleted, sections are Decisions / Needs your approval /
+      Follow-ups, Home is Live / Recent / Next up / Follow-ups, and the proposal card
+      leads with the act ("File a Linear issue") instead of "Raven wants to file a
+      Linear issue". Buttons are Approve / Play the moment / Dismiss. `/design` moved
+      with them so the gallery cannot drift.
 - [ ] `/design` overflows horizontally by 68px at a 678px viewport, with no overflow
       at 1024 or 1440. That is the already-known desktop-only shell showing up on the
       gallery page; recorded so the responsive item in Phase 1 has one concrete
@@ -657,6 +719,8 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
+| 2026-08-30 | **Approve, "Edit first" and the naming, after the surfaces went in.** Approve on an unconnected integration wrote `failed` to a row nothing had been tried for and surfaced as the bare word "Conflict", because the API answers with `.error` and the client only read `.message`. Both halves fixed; the row now stays `proposed` and the toast names Linear. "Edit first" was seeking the player, not editing, and was inert on any proposal without a timestamp — renamed to what it does. Media-less meetings stopped claiming to be preparing a recording, and stopped polling a 409 that can never clear. Names reworked to one set across both screens: Summary · Transcript, Decisions / Needs your approval / Follow-ups, Live / Recent / Next up. Landed as the surfaces commit this row was written in, one after `626a111`. | — |
+| 2026-08-29 | **End detection rebuilt; the wired surfaces verified.** Root-caused the bot overstaying: there was no end-of-call detector at all — the `/bye` URL check matches a path Meet retired, `isKicked` matched post-call copy against `textContent("body")`, and the surviving `alone_too_long` path was gated behind a participant counter that fell back to scraping any digits on the page whenever the tiles were gone. Proved it in Chromium (ended call with a stale badge read 3; a bare post-call screen read null and froze the timer). Exit is now driven by the call view, the counter reads tiles only, and every path is bounded (15s/60s/180s). Then brought the stack up against the local fixture account and closed §6b: proposals render and reject end to end with the toast and the DB write, and the "Right now" block plus its confirm were exercised with a parked bot job. Fixed Stop's copy, which promised a queued bot's recording would be processed. Found: media-less meetings claim to be preparing a recording forever. | `626a111` |
 | 2026-08-21 | **Calendar proven end to end on a real account; Home restructured; capability audit closed four orphans.** Applied `0009` (reconciling an out-of-band `0008` into the migrations journal first), completed real Google OAuth, and confirmed the refresh token is stored as ciphertext. Split `/` into Home (greeting · Recent · Up next) and `/meetings` (archive · search · Join · Upload); added `GET /calendar/upcoming` + `UpNext` with four calendar-aware empty states; cut plain search. Built the missing primitives — Sonner toasts, `Confirm`, `Menu`, `Dialog`, `Sheet` — and used them to give `POST /bots/:jobId/stop` a home ("Right now" on Home) and to wire the agent-proposal loop into `/m/[id]`. Web typecheck/lint/build green (2 pre-existing lint errors untouched), 22 API tests pass. ⚠️ No new UI verified in a browser. | uncommitted |
 | 2026-08-18 | **Calendar Phase A foundation + UI.** Added migration `0009`, encrypted per-owner OAuth account/state, rolling 48h reconciler, deterministic delayed jobs, cancellation/late guards, scheduled metadata through bot→ingest, empty-room suppression, Calendar worker/routes, and `/settings/integrations` using existing Raven components. Verified temp Postgres migration, Redis idempotency, 22 API tests, all service typechecks, web production build, browser states at 640px, and React Doctor 100/100. Added repository pnpm-only rule and repaired pnpm workspace declarations. ⚠️ Real Google OAuth and scheduled Meet remain unverified. | uncommitted |
 | 2026-08-15 | **Phase 2 started — rebuild + owner stop.** Rebuilt `meet-bot:latest` (`20c8d65b`, `--no-cache`) and verified transcriber fix in image; owner can now `POST /bots/:jobId/stop` (api `controlQueue` + orchestrator `bot-control` worker + `dockerManager.stopByJobId` with `com.meetbot.jobId` label). Recording consent decided: user-based exit, no auto chat announcement. ⚠️ not yet verified on a live meeting/container. | `f690e5f` |

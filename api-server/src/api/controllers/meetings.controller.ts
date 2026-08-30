@@ -392,6 +392,36 @@ export const getMeeting = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+const PREPARING_STATUSES = new Set([
+  "pending",
+  "transcoding",
+  "diarizing",
+  "ingesting",
+]);
+
+// A meeting that finished processing without the artifact never gets one:
+// transcript-only imports, seeded rows, a transcode that failed after the row
+// reached `ready`. Saying "still being prepared" to those is a promise the
+// pipeline is not going to keep, and the client renders it as a banner that
+// never resolves.
+function notReady(
+  meeting: typeof meetings.$inferSelect,
+  noun: "recording" | "transcript"
+) {
+  const preparing = PREPARING_STATUSES.has(meeting.status);
+  return {
+    statusCode: 409,
+    reason: preparing
+      ? "preparing"
+      : noun === "recording"
+        ? "no_media"
+        : "no_transcript",
+    message: preparing
+      ? `${noun} for ${meeting.id} is still being prepared`
+      : `no ${noun} exists for ${meeting.id}`,
+  };
+}
+
 export const getMeetingTranscript = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = requireUserId(req);
@@ -405,9 +435,8 @@ export const getMeetingTranscript = asyncHandler(
       );
     } catch (err) {
       if (err instanceof ArtifactNotFoundError) {
-        throw new ConflictError(
-          `transcript for ${meetingId} is still being prepared`
-        );
+        res.status(409).json(notReady(meeting, "transcript"));
+        return;
       }
       throw err;
     }
@@ -450,9 +479,8 @@ export const getMeetingRecording = asyncHandler(
 
     const playable = await resolvePlayable(meeting);
     if (!playable) {
-      throw new ConflictError(
-        `recording for ${meetingId} is still being prepared`
-      );
+      res.status(409).json(notReady(meeting, "recording"));
+      return;
     }
 
     const store = getArtifactStore();
@@ -533,9 +561,8 @@ export const streamMeetingRecording = asyncHandler(
 
     const playable = await resolvePlayable(meeting);
     if (!playable) {
-      throw new ConflictError(
-        `recording for ${meetingId} is still being prepared`
-      );
+      res.status(409).json(notReady(meeting, "recording"));
+      return;
     }
     await streamLocalArtifact(res, req, playable.key, playable.mime);
   }

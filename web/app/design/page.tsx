@@ -50,7 +50,7 @@ const SECTIONS = [
   { id: "people", label: "Speakers" },
   { id: "evidence", label: "Evidence" },
   { id: "ask", label: "Ask & answer" },
-  { id: "upnext", label: "Up next" },
+  { id: "upnext", label: "Next up" },
   { id: "meetings", label: "Rows & cards" },
   { id: "proposals", label: "Proposals" },
   { id: "tasks", label: "Action items" },
@@ -316,7 +316,7 @@ function Type() {
         </Spec>
         <Spec label="Eyebrow · 600 · 11.5px · 0.11em">
           <span className="text-[11.5px] font-semibold tracking-[0.11em] text-ink-3 uppercase">
-            Someone needs to
+            Needs your approval
           </span>
         </Spec>
         <Spec label="Timecode · mono · tabular">
@@ -425,17 +425,17 @@ function Buttons() {
         </Button>
       </Row>
       <Row label="Secondary">
-        <Button variant="secondary">Edit first</Button>
+        <Button variant="secondary">Play the moment</Button>
         <Button variant="secondary" size="sm">
-          Edit first
+          Play the moment
         </Button>
         <Button variant="secondary" disabled>
-          Edit first
+          Play the moment
         </Button>
       </Row>
       <Row label="Ghost / quiet">
         <Button variant="ghost">Show all 214 turns</Button>
-        <Button variant="quiet">Not this one</Button>
+        <Button variant="quiet">Dismiss</Button>
       </Row>
       <Row label="Danger">
         <Button variant="danger">Delete recording</Button>
@@ -457,9 +457,9 @@ function Buttons() {
       <Row label="In context">
         <div className="flex w-full items-center gap-2 rounded-xl bg-accent-tint p-4">
           <Button variant="primary">Approve</Button>
-          <Button variant="secondary">Edit first</Button>
+          <Button variant="secondary">Play the moment</Button>
           <Button variant="quiet" className="ml-auto">
-            Not this one
+            Dismiss
           </Button>
         </div>
       </Row>
@@ -661,7 +661,7 @@ function UpNextSection() {
   return (
     <Section
       id="upnext"
-      title="Up next"
+      title="Next up"
       note="What Raven is scheduled to join, from the connected calendar. Rows, not cards — this is a glance, and nothing has happened yet to show a thumbnail of. Status is exception-only, so a normal scheduled call says only that Raven will join."
     >
       <div className="max-w-[680px]">

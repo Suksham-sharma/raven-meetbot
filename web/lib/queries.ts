@@ -209,8 +209,11 @@ export function useRecording(id: string) {
     enabled: Boolean(id),
     retry: (count, error) =>
       !(error instanceof ApiError && error.status < 500) && count < 2,
+    // Only a meeting still in the pipeline is worth waiting on. Polling a
+    // meeting that has no media forever is a background request that can
+    // never succeed.
     refetchInterval: (q) =>
-      q.state.error instanceof ApiError && q.state.error.status === 409
+      q.state.error instanceof ApiError && q.state.error.reason === "preparing"
         ? 20_000
         : false,
     staleTime: 5 * 60_000,

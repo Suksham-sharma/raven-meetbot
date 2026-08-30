@@ -101,6 +101,8 @@ function MeetingView() {
 
   const notFound =
     meeting.error instanceof ApiError && meeting.error.status === 404;
+  const noMedia =
+    recording.error instanceof ApiError && recording.error.reason === "no_media";
 
   if (notFound) {
     return (
@@ -296,7 +298,7 @@ function MeetingView() {
             {/* Who and when first, then the recording. The title is what tells
                 you which meeting you are in; the video is what you came to
                 watch, and it reads as a subject once it is named. */}
-            {bigPlayer && (
+            {bigPlayer && !noMedia && (
               <TheaterSlot>
                 <RecordingPane
                   state={recording}
@@ -313,14 +315,14 @@ function MeetingView() {
                 active={tab === "happened"}
                 onClick={() => chooseTab("happened")}
               >
-                What happened
+                Summary
               </TabChip>
               <TabChip
                 active={tab === "said"}
                 onClick={() => chooseTab("said")}
                 count={transcript.data?.turns.length}
               >
-                Everything said
+                Transcript
               </TabChip>
             </nav>
 
@@ -408,7 +410,6 @@ function Happened({
     <div className="pb-8">
       {meeting.summary && (
         <section className="mb-10">
-          <SectionHead>What happened</SectionHead>
           {/* Summary prose is speech reported back, so it is serif (§4). */}
           <p className="measure font-serif text-[18.5px] leading-[1.62] font-light">
             {meeting.summary}
@@ -418,7 +419,7 @@ function Happened({
 
       {meeting.decisions.length > 0 && (
         <section className="mb-10">
-          <SectionHead>Decided</SectionHead>
+          <SectionHead>Decisions</SectionHead>
           <ul className="flex flex-col gap-5">
             {meeting.decisions.map((d) => (
               <li key={d.id}>
@@ -433,7 +434,7 @@ function Happened({
 
       {meeting.action_items.length > 0 && (
         <section className="mb-10">
-          <SectionHead>Someone needs to</SectionHead>
+          <SectionHead>Follow-ups</SectionHead>
           <Tasks meeting={meeting} me={me} />
         </section>
       )}
@@ -450,7 +451,7 @@ function ProposalSection({ meetingId }: { meetingId: string }) {
 
   return (
     <section className="mb-10">
-      <SectionHead>Raven would like to</SectionHead>
+      <SectionHead>Needs your approval</SectionHead>
       <Proposals
         meetingId={meetingId}
         actions={actions}
@@ -610,6 +611,14 @@ function SaidTab({
   offsetS: number;
 }) {
   if (error instanceof ApiError && error.status === 409) {
+    if (error.reason === "no_transcript") {
+      return (
+        <EmptyState
+          title="No transcript"
+          body="This meeting was added without a recording, so there is nothing to read along with."
+        />
+      );
+    }
     return <Processing />;
   }
   if (error) {
@@ -661,6 +670,8 @@ function RecordingPane({
   }
 
   if (state.error instanceof ApiError && state.error.status === 409) {
+    // Exception-only (§7): a meeting that simply has no video says nothing.
+    if (state.error.reason === "no_media") return null;
     return <Processing label="Preparing the recording" hint="Usually a few minutes" />;
   }
   if (state.error) {

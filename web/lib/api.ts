@@ -14,6 +14,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly reason?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -34,17 +35,26 @@ export class StreamStalledError extends Error {
 const STREAM_CONNECT_MS = 20_000;
 const STREAM_IDLE_MS = 40_000;
 
-async function errorMessage(res: Response): Promise<string> {
-  let raw = "";
+// Routes answer with `message`, but the action endpoints answer with `error`
+// and carry a `reason` discriminant. Reading only `message` turned "linear is
+// not connected" into the bare word "Conflict".
+async function errorInfo(res: Response): Promise<{ message: string; reason?: string }> {
+  let body: { message?: string; error?: string; reason?: string } = {};
   try {
-    raw = ((await res.json()) as { message?: string })?.message ?? "";
+    body = (await res.json()) as typeof body;
   } catch {
   }
+  const raw = body.message || body.error || "";
   if (res.status >= 500) {
     if (raw) console.error("[api]", res.status, raw);
-    return SERVER_FAULT;
+    return { message: SERVER_FAULT };
   }
-  return raw || res.statusText || "Request failed";
+  return { message: raw || res.statusText || "Request failed", reason: body.reason };
+}
+
+async function apiError(res: Response): Promise<ApiError> {
+  const { message, reason } = await errorInfo(res);
+  return new ApiError(res.status, message, reason);
 }
 
 async function request<T>(
@@ -60,7 +70,7 @@ async function request<T>(
     ...rest,
     headers: { "content-type": "application/json", ...rest.headers },
   });
-  if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
+  if (!res.ok) throw await apiError(res);
   return res.json() as Promise<T>;
 }
 
@@ -185,7 +195,7 @@ export const api = {
       headers: { "Content-Type": file.type || "video/webm" },
       body: file,
     }).then(async (r) => {
-      if (!r.ok) throw new ApiError(r.status, await errorMessage(r));
+      if (!r.ok) throw await apiError(r);
       return r.json() as Promise<{ meeting_id: string; key: string }>;
     }),
 
@@ -276,7 +286,7 @@ export const api = {
         body: JSON.stringify({ q, meeting_id: opts?.meetingId }),
         signal: control.signal,
       });
-      if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
+      if (!res.ok) throw await apiError(res);
       if (!res.body) throw new Error("No response body for stream");
 
       const reader = res.body.getReader();

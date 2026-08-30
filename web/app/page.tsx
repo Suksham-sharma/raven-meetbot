@@ -106,7 +106,7 @@ export default function HomePage() {
             actually in flight. */}
         {liveBots.length > 0 && (
           <section className="rise mb-11 max-w-[46rem]">
-            <h2 className={cn(EYEBROW, "mb-3")}>Right now</h2>
+            <h2 className={cn(EYEBROW, "mb-3")}>Live</h2>
             <LiveSessions bots={liveBots} />
           </section>
         )}
@@ -168,7 +168,7 @@ export default function HomePage() {
 
         {data && meetings.length > 0 && (
           <section className="rise mt-11 max-w-[46rem]">
-            <h2 className={cn(EYEBROW, "mb-3")}>Up next</h2>
+            <h2 className={cn(EYEBROW, "mb-3")}>Next up</h2>
             {next.length > 0 ? (
               <UpNext items={next} />
             ) : (

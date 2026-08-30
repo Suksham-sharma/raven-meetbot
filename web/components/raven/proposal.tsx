@@ -26,14 +26,14 @@ export interface Proposal {
 export function ProposalCard({
   proposal,
   onApprove,
-  onEdit,
+  onPlayMoment,
   onDismiss,
   onRetry,
   onCancel,
 }: {
   proposal: Proposal;
   onApprove?: () => void;
-  onEdit?: () => void;
+  onPlayMoment?: () => void;
   onDismiss?: () => void;
   onRetry?: () => void;
   onCancel?: () => void;
@@ -66,7 +66,7 @@ export function ProposalCard({
         )}
         {status === "failed" && (
           <Pill tone="live" size="sm" className="shrink-0">
-            Couldn&rsquo;t file it
+            Didn&rsquo;t go through
           </Pill>
         )}
       </div>
@@ -114,11 +114,13 @@ export function ProposalCard({
           <Button variant="primary" onClick={onApprove}>
             Approve
           </Button>
-          <Button variant="secondary" onClick={onEdit}>
-            Edit first
-          </Button>
+          {onPlayMoment && (
+            <Button variant="secondary" onClick={onPlayMoment}>
+              Play the moment
+            </Button>
+          )}
           <Button variant="quiet" className="ml-auto" onClick={onDismiss}>
-            Not this one
+            Dismiss
           </Button>
         </div>
       )}
@@ -142,7 +144,7 @@ export function ProposalCard({
             Try again
           </Button>
           <Button variant="quiet" className="ml-auto" onClick={onDismiss}>
-            Give up on this
+            Dismiss
           </Button>
         </div>
       )}
@@ -179,10 +181,14 @@ function kindLabel(p: Proposal): string {
 
   switch (p.status) {
     case "executed":
-      return `Raven ${past} ${what}`;
+      return `${capitalize(past)} ${what}`;
     case "rejected":
-      return `Raven wanted to ${present} ${what}`;
+      return `Would have ${past} ${what}`;
     default:
-      return `Raven wants to ${present} ${what}`;
+      return `${capitalize(present)} ${what}`;
   }
+}
+
+function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
 }

@@ -2,6 +2,7 @@
 
 import { ProposalCard, type Proposal } from "./proposal";
 import { toast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/api";
 import { useApproveAction, useRejectAction } from "@/lib/queries";
 import type { AgentAction } from "@/lib/types";
 
@@ -32,10 +33,17 @@ export function Proposals({
           description: res.action.result?.url ?? res.action.result?.externalId,
         });
       },
-      onError: (error) =>
-        toast.error("Couldn't run that action.", {
+      onError: (error) => {
+        if (error instanceof ApiError && error.reason === "not_connected") {
+          toast.error(`${integrationName(a.kind)} is not connected yet.`, {
+            description: "Connect it in Settings, then approve this again.",
+          });
+          return;
+        }
+        toast.error(`Couldn't create the ${kindNoun(a.kind).toLowerCase()}.`, {
           description: error instanceof Error ? error.message : String(error),
-        }),
+        });
+      },
     });
   }
 
@@ -62,7 +70,7 @@ export function Proposals({
             a.status === "proposed" ? () => onDismiss(a) : undefined
           }
           onRetry={a.status === "failed" ? () => onApprove(a) : undefined}
-          onEdit={
+          onPlayMoment={
             a.evidence?.start_s != null && onEvidence
               ? () => onEvidence(a.evidence!.start_s!)
               : undefined
@@ -98,4 +106,8 @@ function toProposal(a: AgentAction): Proposal {
 
 function kindNoun(kind: AgentAction["kind"]): string {
   return kind === "linear_issue" ? "Linear issue" : "Slack message";
+}
+
+function integrationName(kind: AgentAction["kind"]): string {
+  return kind === "linear_issue" ? "Linear" : "Slack";
 }

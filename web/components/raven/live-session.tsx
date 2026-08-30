@@ -27,16 +27,22 @@ function LiveSession({ bot }: { bot: BotSummary }) {
   const stop = useStopBot();
   const elapsed = useElapsed(bot.createdAt);
   const { label, live } = describe(bot.status);
+  const joined = hasJoined(bot.status);
 
   function confirmStop() {
     stop.mutate(bot.jobId, {
       onSuccess: ({ status }) => {
         setConfirming(false);
+        const cancelled = status === "cancelled";
         toast.success(
-          status === "cancelled"
+          cancelled
             ? "Bot cancelled before it joined."
             : "Raven is leaving the call.",
-          { description: "The recording so far is kept and will be processed." },
+          {
+            description: cancelled
+              ? "It never reached the call, so there is nothing to process."
+              : "The recording so far is kept and will be processed.",
+          },
         );
       },
       onError: (error) => {
@@ -83,16 +89,32 @@ function LiveSession({ bot }: { bot: BotSummary }) {
       <Confirm
         open={confirming}
         onOpenChange={setConfirming}
-        title="Stop recording?"
-        body="Raven leaves the call and finishes uploading what it has. Everything recorded so far is kept and processed as usual — but it cannot rejoin on its own."
-        confirmLabel="Stop recording"
-        cancelLabel="Keep recording"
+        title={joined ? "Stop recording?" : "Cancel this bot?"}
+        body={
+          joined
+            ? "Raven leaves the call and finishes uploading what it has. Everything recorded so far is kept and processed as usual — but it cannot rejoin on its own."
+            : "Raven has not reached the call yet, so there is nothing recorded to keep. It will not join later on its own."
+        }
+        confirmLabel={joined ? "Stop recording" : "Cancel the bot"}
+        cancelLabel={joined ? "Keep recording" : "Leave it queued"}
         destructive
         pending={stop.isPending}
         onConfirm={confirmStop}
       />
     </div>
   );
+}
+
+function hasJoined(state: BotState): boolean {
+  switch (state) {
+    case "queued":
+    case "dispatched":
+    case "joining_meeting":
+    case "waiting_admission":
+      return false;
+    default:
+      return true;
+  }
 }
 
 function describe(state: BotState): { label: string; live: boolean } {

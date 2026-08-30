@@ -97,6 +97,20 @@ export const approveAction = asyncHandler(async (req: Request, res: Response) =>
   const invalid = adapter.validate(action.payload);
   if (invalid) throw new ConflictError(`payload invalid: ${invalid}`);
 
+  // A missing credential is a setup gap, not a failed attempt. Catching it
+  // inside execute() recorded `failed` on a row nothing had been tried for, and
+  // burned the proposal into an error state the user could not act on.
+  if (!adapter.configured()) {
+    res.status(409).json({
+      executed: false,
+      reason: "not_connected",
+      integration: action.kind,
+      message: `${action.kind} is not connected`,
+      action: serialize(action),
+    });
+    return;
+  }
+
   const dryRun = Boolean(req.body?.dry_run) || systemConfig.AGENT_DRY_RUN;
   if (dryRun) {
     res.status(200).json({
@@ -129,7 +143,9 @@ export const approveAction = asyncHandler(async (req: Request, res: Response) =>
       .where(eq(agentActions.id, id))
       .returning();
     const status = err instanceof AdapterConfigError ? 409 : 502;
-    res.status(status).json({ executed: false, error: message, action: serialize(updated) });
+    res
+      .status(status)
+      .json({ executed: false, message, error: message, action: serialize(updated) });
   }
 });
 
