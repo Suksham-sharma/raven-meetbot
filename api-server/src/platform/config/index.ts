@@ -43,7 +43,7 @@ const systemConfig = {
     Number(process.env.CALENDAR_MAX_LATE_MS) || 5 * 60 * 1000,
 
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
-  OPENAI_EXTRACT_MODEL: process.env.OPENAI_EXTRACT_MODEL || "gpt-4o-mini",
+  OPENAI_EXTRACT_MODEL: process.env.OPENAI_EXTRACT_MODEL || "gpt-5-mini",
   OPENAI_EMBED_MODEL: process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small",
   OPENAI_ASK_MODEL: process.env.OPENAI_ASK_MODEL || "gpt-4o-mini",
   OPENAI_JUDGE_MODEL: process.env.OPENAI_JUDGE_MODEL || "gpt-4o-mini",

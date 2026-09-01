@@ -31,9 +31,12 @@ class OpenAIProvider implements LLMProvider, EmbeddingProvider, ChatProvider {
     schema: JsonSchema;
     schemaName: string;
   }): Promise<T> {
+    const model = systemConfig.OPENAI_EXTRACT_MODEL;
     const resp = await this.client.chat.completions.create({
-      model: systemConfig.OPENAI_EXTRACT_MODEL,
-      temperature: 0,
+      model,
+      // Reasoning models reject any temperature but the default and 400 the
+      // whole call; determinism there comes from the schema, not the sampler.
+      ...(supportsTemperature(model) ? { temperature: 0 } : {}),
       messages: [
         { role: "system", content: args.system },
         { role: "user", content: args.user },
@@ -42,6 +45,11 @@ class OpenAIProvider implements LLMProvider, EmbeddingProvider, ChatProvider {
         type: "json_schema",
         json_schema: { name: args.schemaName, strict: true, schema: args.schema },
       },
+    }, {
+      // A reasoning model spends 40-60s on a full transcript, so the client's
+      // 60s default expires mid-call and each retry pays for the reasoning
+      // tokens again. Extraction runs once per meeting in a worker; it can wait.
+      timeout: 300_000,
     });
 
     const content = resp.choices[0]?.message?.content;
@@ -108,6 +116,10 @@ function toOpenAIMessage(m: ChatMessage): ChatCompletionMessageParam {
         })),
       };
   }
+}
+
+function supportsTemperature(model: string): boolean {
+  return !/^(gpt-5|o\d)/.test(model);
 }
 
 export const openaiProvider = new OpenAIProvider();

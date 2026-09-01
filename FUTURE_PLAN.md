@@ -167,9 +167,25 @@ to the DOM. The speaker timeline is the replacement, not a compromise.
       self-built LLM judge validated against real Ragas.
 - [x] Real-data run: the Hire100x mock interview ingested and queried end to end.
 
-**Baseline to beat:** answer fact ~0.69 · faithfulness ~0.87 · grounded 0.96 ·
-evidence recall ~0.72 with high per-question variance. That variance is a
-**gpt-4o-mini capability ceiling**, diagnosed and confirmed — stop prompt-tuning it.
+**Baseline, measured 2026-08-31 on gpt-5-mini extraction:** answer fact 0.771 ·
+faithfulness 0.977 · relevancy 0.958 · cite-or-refuse 0.852 · grounded 0.926 ·
+refusal 0.667. Retrieval is unchanged at chunk recall@8 0.854 · MRR 0.618 ·
+nDCG@8 0.656 · meeting recall@8 0.938, and it stays unchanged by anything
+extraction does: `hybridSearch` reads only `chunks`, and `chunkTranscript` takes
+the transcript alone.
+
+**The previous baseline of fact ~0.69 · faithfulness ~0.87 was blamed on a
+gpt-4o-mini ceiling in the ask loop. Half of it was extraction.** That corpus was
+built by an extractor that found 5 decisions in the arch review where there are
+11, credited every one of them to Sarah, and missed Alex's benchmark commitment
+outright. Fact rose 8 points and faithfulness 11 without touching the ask model,
+which still runs gpt-4o-mini. Unsupported claims fell to 4 across 27 questions.
+
+Three failures survive and are not extraction problems: `q25-vague-sales-tiers`
+answers a question it should refuse, and `q11-acme-current-tool` and
+`q21-acme-current-status` both score 0.00, the second also failing relevancy and
+cite-or-refuse. q21 is `structured_recency`, which is the temporal-resolution gap
+Phase 8 already names.
 
 ### Post-processing — v4
 - [x] Diarize worker (`56b1902`): R2 fetch → ffmpeg audio extract → Deepgram batch
@@ -719,6 +735,7 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
+| 2026-08-31 | **Extraction moved to gpt-5-mini and split into two calls.** The summary was a 3-5 sentence restatement of the decision list rendered directly beneath it, so it carried nothing the reader could not already see. It now writes the reasoning instead: what was weighed, what was rejected, the numbers said out loud, who held which position, what was left open. Prompt tuning alone could not get there. Every model tested rendered the decisions into the summary as well when it held their schemas in the same call, so records and summary are now separate calls and the summary call is told what has already been shown. gpt-5-mini found 11 decisions in the arch review against gpt-4o-mini's 5, split them correctly across Sarah, Alex and Jordan instead of crediting all five to Sarah, and caught Alex's benchmark commitment, which had never entered the system. Quote guard dropped nothing on either model. On sales calls it extracts fewer decisions, which is correct: Northwind is a discovery call whose only forward-looking lines are next steps, so zero decisions is the right answer and the old count was over-extraction. Eval: fact 0.69 to 0.771, faithfulness 0.87 to 0.977. Deleted 145MB of raw webm that already had an mp4. | uncommitted |
 | 2026-08-30 | **Approve, "Edit first" and the naming, after the surfaces went in.** Approve on an unconnected integration wrote `failed` to a row nothing had been tried for and surfaced as the bare word "Conflict", because the API answers with `.error` and the client only read `.message`. Both halves fixed; the row now stays `proposed` and the toast names Linear. "Edit first" was seeking the player, not editing, and was inert on any proposal without a timestamp — renamed to what it does. Media-less meetings stopped claiming to be preparing a recording, and stopped polling a 409 that can never clear. Names reworked to one set across both screens: Summary · Transcript, Decisions / Needs your approval / Follow-ups, Live / Recent / Next up. Landed as the surfaces commit this row was written in, one after `626a111`. | — |
 | 2026-08-29 | **End detection rebuilt; the wired surfaces verified.** Root-caused the bot overstaying: there was no end-of-call detector at all — the `/bye` URL check matches a path Meet retired, `isKicked` matched post-call copy against `textContent("body")`, and the surviving `alone_too_long` path was gated behind a participant counter that fell back to scraping any digits on the page whenever the tiles were gone. Proved it in Chromium (ended call with a stale badge read 3; a bare post-call screen read null and froze the timer). Exit is now driven by the call view, the counter reads tiles only, and every path is bounded (15s/60s/180s). Then brought the stack up against the local fixture account and closed §6b: proposals render and reject end to end with the toast and the DB write, and the "Right now" block plus its confirm were exercised with a parked bot job. Fixed Stop's copy, which promised a queued bot's recording would be processed. Found: media-less meetings claim to be preparing a recording forever. | `626a111` |
 | 2026-08-21 | **Calendar proven end to end on a real account; Home restructured; capability audit closed four orphans.** Applied `0009` (reconciling an out-of-band `0008` into the migrations journal first), completed real Google OAuth, and confirmed the refresh token is stored as ciphertext. Split `/` into Home (greeting · Recent · Up next) and `/meetings` (archive · search · Join · Upload); added `GET /calendar/upcoming` + `UpNext` with four calendar-aware empty states; cut plain search. Built the missing primitives — Sonner toasts, `Confirm`, `Menu`, `Dialog`, `Sheet` — and used them to give `POST /bots/:jobId/stop` a home ("Right now" on Home) and to wire the agent-proposal loop into `/m/[id]`. Web typecheck/lint/build green (2 pre-existing lint errors untouched), 22 API tests pass. ⚠️ No new UI verified in a browser. | uncommitted |
