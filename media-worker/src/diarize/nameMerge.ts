@@ -1,4 +1,4 @@
-import type { SpeakerTimeline } from "./speakerTimeline";
+import type { SpeakerTimeline, TileSpan } from "./speakerTimeline";
 
 export interface DiarizedUtterance {
   start: number;
@@ -59,6 +59,41 @@ function argmax(mass: Map<number, number>): { id: number; share: number } | null
   return { id: bestId, share: bestVal / total };
 }
 
+interface TimeWindow {
+  startMs: number;
+  endMs: number;
+}
+
+function overlapMs(tile: TileSpan, windows: TimeWindow[]): number {
+  let total = 0;
+  for (const w of windows) {
+    const lo = Math.max(tile.firstSeenMs, w.startMs);
+    const hi = Math.min(tile.lastSeenMs, w.endMs);
+    if (hi > lo) total += hi - lo;
+  }
+  return total;
+}
+
+function bestOverlappingTile(
+  tiles: TileSpan[],
+  windows: TimeWindow[],
+  usedNames: Set<string>,
+  usedTiles: Set<string>
+): TileSpan | null {
+  let best: TileSpan | null = null;
+  let bestMs = 0;
+  for (const tile of tiles) {
+    if (!tile.name || tile.presentation) continue;
+    if (usedNames.has(tile.name) || usedTiles.has(tile.pid)) continue;
+    const ms = overlapMs(tile, windows);
+    if (ms > bestMs) {
+      bestMs = ms;
+      best = tile;
+    }
+  }
+  return best;
+}
+
 export function mergeNames(
   utterances: DiarizedUtterance[],
   timeline: SpeakerTimeline
@@ -102,14 +137,19 @@ export function mergeNames(
     if (bound) usedNames.add(bound);
   }
 
-  const remainingNames = timeline.participants.filter((n) => !usedNames.has(n));
-  let ri = 0;
+  const usedTiles = new Set<string>();
   for (const label of labels) {
     const a = assignments.get(label)!;
     if (a.name) continue;
-    if (ri < remainingNames.length) {
-      a.name = remainingNames[ri++];
+    const windows = perUtt
+      .filter(({ u }) => u.speaker === label)
+      .map(({ u }) => ({ startMs: recStart + u.start * 1000, endMs: recStart + u.end * 1000 }));
+    const pick = bestOverlappingTile(timeline.tiles, windows, usedNames, usedTiles);
+    if (pick) {
+      a.name = pick.name;
       a.method = "elimination";
+      usedNames.add(pick.name);
+      usedTiles.add(pick.pid);
     } else {
       a.name = `Speaker ${label}`;
       a.method = "unresolved";

@@ -93,6 +93,44 @@ test.
 
 ---
 
+## D7 — Speaker names come from tile lifetimes, not DOM order (2026-09-02)
+
+The 2026-09-02 meeting named Ankur's 64 utterances "Suksham (Presentation)".
+Two defects stacked up.
+
+The bot's online bind vote counted every tile that toggled a CSS class in the
+previous 3 seconds and demanded a 2x lead. Meet animates the speaking indicator
+at roughly 100ms cadence for the whole burst, so in ordinary turn-taking the
+previous speaker's tile is still inside the window when the next one starts.
+Only the first speaker of a meeting, who talks into a silent room, ever bound.
+Every recording on disk has exactly one bind, including two with two audio
+sources. The vote is now exclusive: it counts only when exactly one tile is
+churning inside a 1 second window. The 3-vote, 2x-lead rule stays, and it now
+means something. The self-calibrating ring detector is gone: it ORed over every
+learned class, the silence class `gjg47c` is present on every tile, so the
+"ring" lit every tile at once and nothing consumed it. In its place the bot logs
+a `churn` event whenever the set of churning tiles changes, so the next bind
+failure can be diagnosed from the artifact instead of guessed at.
+
+The media-worker's elimination handed unbound diarized labels the leftover
+participant names in tile insertion order, and the participant roster included
+the screen-share tile. The presentation tile came before Ankur's in the DOM, so
+it won. The parser now keeps a lifetime per tile (`tile` to `tile-`), marks
+presentation tiles, and elimination picks the unbound human tile whose lifetime
+overlaps the label's utterances the most. The presentation tile lived 21 seconds;
+Ankur's lived the whole meeting. Re-run on the same artifact, Speaker 1 resolves
+to Ankur Singh, 65 utterances, and the keyterms passed to Deepgram drop the
+presentation name.
+
+Left open: binding offline. The bot now logs enough (`csrc` plus `churn`) for
+the media-worker to compute the CSRC to tile mapping itself from the whole
+meeting, with a discriminative score (tile churns when this CSRC is hot and not
+when it is cold) instead of a raw co-occurrence tally. That would make the
+online bind a hint rather than the only signal, and it is testable against
+artifacts. Do it once a recording with `churn` events exists.
+
+---
+
 ## Failure modes
 
 | Failure | Covered by |
