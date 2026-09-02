@@ -39,7 +39,7 @@ class SpeakerTimeline {
     await page.evaluate(speakerTrackerMain, {
       sampleMs: 250,
       levelThreshold: 0.05,
-      ringWindowMs: 3000,
+      voteWindowMs: 1000,
       bindVotes: 3,
     });
 

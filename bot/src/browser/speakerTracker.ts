@@ -2,7 +2,7 @@
 export function speakerTrackerMain(opts: {
   sampleMs: number;
   levelThreshold: number;
-  ringWindowMs: number;
+  voteWindowMs: number;
   bindVotes: number;
 }): void {
   const log = (type: string, data: Record<string, unknown> = {}) => {
@@ -58,13 +58,11 @@ export function speakerTrackerMain(opts: {
       if (!seen.has(pid)) {
         tiles.delete(pid);
         toggles.delete(pid);
-        if (ringActive.get(pid)) log("ring", { pid, on: false });
-        ringActive.delete(pid);
         log("tile-", { pid });
       }
     }
 
-    const cutoff = Date.now() - opts.ringWindowMs;
+    const cutoff = Date.now() - opts.voteWindowMs;
     for (const map of toggles.values()) {
       for (const [token, ts] of map) {
         if (ts < cutoff) map.delete(token);
@@ -109,13 +107,12 @@ export function speakerTrackerMain(opts: {
     attributeFilter: ["class"],
   });
 
-  const tilesTogglingWithin = (now: number, windowMs: number, learnedOnly: boolean): string[] => {
+  const tilesTogglingWithin = (now: number, windowMs: number): string[] => {
     const out: string[] = [];
     for (const [pid, map] of toggles) {
       if (!tiles.has(pid)) continue;
-      for (const [token, ts] of map) {
+      for (const ts of map.values()) {
         if (now - ts > windowMs) continue;
-        if (learnedOnly && !speakingClasses.has(token)) continue;
         out.push(pid);
         break;
       }
@@ -155,27 +152,10 @@ export function speakerTrackerMain(opts: {
     return out;
   };
 
-  const speakingClasses = new Set<string>();
-  const classVotes = new Map<string, number>();
   const bindTallies = new Map<number, Map<string, number>>();
   const locked = new Map<number, string>();
-  const ringActive = new Map<string, boolean>();
   let lastVoteSec = 0;
-
-  const tileShowsSpeakingClass = (tile: Tile): boolean => {
-    for (const cls of speakingClasses) {
-      try {
-        if (
-          tile.el.querySelector("." + CSS.escape(cls)) ||
-          (tile.el instanceof HTMLElement && tile.el.classList.contains(cls))
-        ) {
-          return true;
-        }
-      } catch {
-      }
-    }
-    return false;
-  };
+  let lastChurnKey = "";
 
   const sample = () => {
     const now = Date.now();
@@ -192,66 +172,38 @@ export function speakerTrackerMain(opts: {
       });
     }
 
-    const nowSec = Math.floor(now / 1000);
-    if (hot.length === 1 && nowSec !== lastVoteSec) {
-      const churning = tilesTogglingWithin(now, opts.ringWindowMs, false);
-      if (churning.length > 0) {
-        lastVoteSec = nowSec;
-
-        if (churning.length === 1) {
-          const map = toggles.get(churning[0]);
-          if (map) {
-            for (const [token, ts] of map) {
-              if (now - ts > opts.ringWindowMs) continue;
-              const v = (classVotes.get(token) || 0) + 1;
-              classVotes.set(token, v);
-              if (v >= 3 && !speakingClasses.has(token)) {
-                speakingClasses.add(token);
-                log("cal", { classes: [...speakingClasses] });
-              }
-            }
-          }
-        }
-
-        const id = hot[0].id;
-        if (!locked.has(id)) {
-          let tally = bindTallies.get(id);
-          if (!tally) {
-            tally = new Map();
-            bindTallies.set(id, tally);
-          }
-          for (const pid of churning) {
-            tally.set(pid, (tally.get(pid) || 0) + 1);
-          }
-          const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]);
-          const lead = ranked[0];
-          if (lead) {
-            const [leadPid, leadVotes] = lead;
-            const runnerUp = ranked[1]?.[1] ?? 0;
-            if (leadVotes >= opts.bindVotes && leadVotes >= runnerUp * 2) {
-              locked.set(id, leadPid);
-              bindTallies.delete(id);
-              log("bind", {
-                id,
-                kind: hot[0].kind,
-                pid: leadPid,
-                names: tiles.get(leadPid)?.names || [],
-              });
-            }
-          }
-        }
-      }
+    const churning = tilesTogglingWithin(now, opts.voteWindowMs);
+    const churnKey = churning.slice().sort().join("|");
+    if (churnKey !== lastChurnKey) {
+      lastChurnKey = churnKey;
+      log("churn", { pids: churning });
     }
 
-    if (speakingClasses.size > 0) {
-      const churning = new Set(tilesTogglingWithin(now, 1500, true));
-      for (const [pid, tile] of tiles) {
-        const active = churning.has(pid) || tileShowsSpeakingClass(tile);
-        if (active !== (ringActive.get(pid) || false)) {
-          ringActive.set(pid, active);
-          log("ring", { pid, on: active });
-        }
-      }
+    const nowSec = Math.floor(now / 1000);
+    if (hot.length !== 1 || churning.length !== 1 || nowSec === lastVoteSec) return;
+    lastVoteSec = nowSec;
+
+    const id = hot[0].id;
+    if (locked.has(id)) return;
+    const pid = churning[0];
+    let tally = bindTallies.get(id);
+    if (!tally) {
+      tally = new Map();
+      bindTallies.set(id, tally);
+    }
+    tally.set(pid, (tally.get(pid) || 0) + 1);
+    const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]);
+    const [leadPid, leadVotes] = ranked[0];
+    const runnerUp = ranked[1]?.[1] ?? 0;
+    if (leadVotes >= opts.bindVotes && leadVotes >= runnerUp * 2) {
+      locked.set(id, leadPid);
+      bindTallies.delete(id);
+      log("bind", {
+        id,
+        kind: hot[0].kind,
+        pid: leadPid,
+        names: tiles.get(leadPid)?.names || [],
+      });
     }
   };
 
@@ -274,7 +226,6 @@ export function speakerTrackerMain(opts: {
         pid,
         names: tiles.get(pid)?.names || [],
       })),
-      classes: [...speakingClasses],
     });
   };
 }
