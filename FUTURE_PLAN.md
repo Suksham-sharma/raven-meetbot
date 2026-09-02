@@ -725,10 +725,14 @@ contract. In order:
        box can hold (each bot is Chromium under Xvfb with 2 GB shm; 4 vCPU /
        8 GB covers two or three).
 6. [ ] **Reverse proxy with TLS in front of the API.** Caddy is one file.
-7. [ ] **Deploy the web app.** Vercel with `API_ORIGIN` set is least work;
-       otherwise add a Dockerfile and serve it through the same proxy. Set
-       credentialed CORS and the cookie domain, and close the deferred CSRF
-       item at the same time, since credentialed CORS is what makes it real.
+7. [~] **Deploy the web app.** Vercel project `raven`, root directory
+       `web`, deployed to production 2026-09-03 with `API_ORIGIN` set to
+       `https://api.raven.suksham.xyz` ahead of the API existing. The
+       `/api/v1` rewrite proxies to that origin, so the browser stays
+       same-origin and no credentialed CORS is needed; the cookie domain and
+       the CSRF item only become real if the API is ever called directly.
+       Still open: the Cloudflare DNS record for `raven.suksham.xyz`, and
+       Deployment Protection covers the `*.vercel.app` URLs until then.
 8. [ ] **Production secrets.** `JWT_SECRET`, `CALENDAR_TOKEN_KEY`,
        `UNLIMITED_EMAILS`, `WEB_APP_URL`, both Google redirect URIs on the
        OAuth client. `assertConfig()` refuses to boot on the committed dev
