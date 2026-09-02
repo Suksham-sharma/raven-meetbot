@@ -479,3 +479,36 @@ function toSource(c: Citation): Source {
     clipLength: Math.max(0, Math.round(c.end_s - c.start_s)),
   };
 }
+
+export function AskPanelMuted() {
+  return (
+    <div aria-label="Ask across everything, available once a meeting is recorded">
+      <header className="mb-5">
+        <h2 className="font-serif text-[23px] leading-tight tracking-[-0.014em]">
+          Ask across everything
+        </h2>
+        <p className="mt-1 text-[12.5px] text-ink-3">Nothing recorded yet</p>
+      </header>
+
+      <div className="rounded-lg border border-rule-lo bg-paper px-4 py-3.5">
+        <p className="font-serif text-[17px] leading-[1.5] font-light text-ink-3">
+          Ask about anything that was said…
+        </p>
+      </div>
+
+      <div className="mt-5">
+        <p className="mb-1 px-2 text-[12.5px] text-ink-3">
+          The kind of thing you&rsquo;ll be able to ask
+        </p>
+        {OPENERS.map((o) => (
+          <p
+            key={o}
+            className="px-2 py-2 font-serif text-[15px] leading-snug font-light text-ink-3"
+          >
+            {o}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}

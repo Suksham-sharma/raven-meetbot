@@ -29,6 +29,19 @@ before (the live-transcription fix sat "done" for weeks while being broken).
 | **C — The bet** | 6 | Why this instead of Granola? |
 | **D — Make it real** | 7–8 | Can it run in production and be trusted? |
 
+### Phases remaining at a glance (2026-09-03)
+
+| Phase | Left | One line |
+|---|---|---|
+| 1 — complete the loop | 4 items | accessibility pass, responsive shell, keyboard nav beyond ⌘K, answers persistence |
+| 2 — capture | 6 items | call-ended exit on a real teardown, bot's own tile filter, login-wall detection, concurrency under load, time-based flush, audio-duration guard |
+| 3 — get data in | 2 items | publish the Google OAuth app (hard gate), Zoom/Teams capture |
+| 4 — get value out | all 6 | digest email, share link, clip export, Slack delivery, webhooks, proposal notifications. Nothing started |
+| 5 — actions surface | 6 items | payload editor, cross-meeting inbox, real Linear/Slack creds, assignee mapping, Slack DMs, integration settings, third integration. The approve/reject UI is done |
+| 6 — compounding memory | 6 of 7 | open questions, commitment ledger, decision timelines + contradiction, brief delivery, person view, correction flywheel, honest confidence. Only the pre-meeting brief is done |
+| 7 — production | see the deploy steps below | |
+| 8 — depth | all | temporal tool, decomposition revisit, token streaming, model experiment, golden set to 100, coverage, writeup |
+
 Part C is the differentiated work. It is sequenced *after* adoption plumbing but
 *before* production polish on purpose: compounding memory is worthless without a
 corpus to compound, and pointless to deploy if it isn't built.
@@ -212,6 +225,25 @@ Phase 8 already names.
       orchestrator → diarize → ingest.
 - [x] Senior review caught a real **cross-tenant IDOR** on `/bots` — fixed and
       re-verified with a 12-point isolation proof.
+- [x] **Google sign-in** (2026-09-03). Server-side authorization code with
+      `openid email profile` only; the id token is verified against Google's keys
+      with jose, `users.google_sub` links the account, and a verified email that
+      matches an existing password account links rather than duplicating. Calendar
+      stays a separate incremental consent and passes the signed-in email as a
+      login hint. `password_hash` is nullable; password login on a Google-only
+      account fails with the same generic message as any bad login.
+- [x] **Free allowance** (2026-09-03). `users.plan` is `free` or `unlimited`;
+      `FREE_MEETING_LIMIT` (default 2) counts non-failed meeting rows plus bot
+      jobs still queued or running, so two parallel requests cannot both slip
+      through and a failed capture hands the slot back. Enforced at join-meet,
+      upload presign (single and bulk) and in the calendar reconciler, which
+      silently stops scheduling instead of failing. `UNLIMITED_EMAILS` grants
+      the plan at signup; `pnpm plan <email> <plan>` flips it later. `/auth/me`
+      carries `usage`, the free plan sees "1 of 2 free meetings used" on Home and
+      Meetings, and the Join and Upload dialogs render an explanation at the
+      limit. Unlimited accounts see nothing. Verified over HTTP and in the
+      browser against a fixture account; Google sign-in verified up to the
+      redirect, since the console needs the new callback URI added.
 
 ### Dashboard
 - [x] Next.js 16.2 / React 19 in `web/`. Design tokens with Tailwind's palette
@@ -302,7 +334,17 @@ merged-but-dead code.*
 
 ### Quality bar
 - [x] Empty / loading / failure states — `failed` flag + `status_error` detail on row/card/detail; processing banners for `transcoding/diarizing/ingesting`; existing `EmptyState`/`Skeleton` reused. `d8196ca`.
-- [ ] Onboarding: an empty account dead-ends today. Sample meeting, or a first-run flow that dispatches a bot.
+- [x] **Onboarding** (2026-09-03). Home for an account with no meetings no longer
+      says "Welcome back" and offers the same button twice. It reads: a one-line
+      serif lede on what Raven keeps, the calendar banner as the only solid
+      control (auto-join is the path that keeps working after today), a single
+      quiet row for joining a call now, and the allowance as a footnote. Upload
+      is not offered on Home; it stays on Meetings. The banner rewrites itself
+      as the calendar state changes and has no control once Raven is already
+      watching. The rail keeps the Home silhouette with a muted ask panel
+      instead of vanishing; a painted plate was tried and cut. Chosen from a
+      three-direction design board, then a combined fourth; in `/design` under
+      "First run".
 - [ ] Accessibility pass (ink scale is AA; the rest is unaudited).
 - [ ] Responsive — the 232/fluid/420 shell assumes a desktop.
 - [ ] Keyboard-first navigation beyond ⌘K.
@@ -317,7 +359,10 @@ merged-but-dead code.*
 without it.*
 
 - [x] **Rebuilt `meet-bot:latest`** — `2026-08-15` `20c8d65b` (`--no-cache`); verified `dist/services/transcriber.js` omits `encoding`/`sample_rate` so Deepgram auto-detects `audio/webm;codecs=opus`. Image is fresh.
-- [ ] ⚠️ **Re-verify the live-transcription fix (`40dc3c0`) on a fresh meeting.** Oldest outstanding risk in the project — the fix has sat built-but-unproven since 2026-06-27; the rebuild alone does not prove it. Needs a real Meet with Deepgram segments.
+- [x] **Live transcription verified on a real meeting, 2026-09-02.** 209 segments with real text and 0.87-0.99 confidence, from a 10-minute call. `40dc3c0` had sat built-but-unproven since 2026-06-27; it was the oldest outstanding risk in the project and it works.
+- [ ] ⚠️ Still unverified against a live container after the 2026-09-02 run: the
+      bot was in flight for ten minutes and nobody opened the UI, so neither Stop
+      nor the "Right now" block was exercised. Both need one more short call.
 - [ ] ⚠️ **Owner-controlled exit — `POST /bots/:jobId/stop`** — owner-scoped (404 if not owned; 400 if `completed`/`failed`; 200 `cancelled` for `waiting`/`delayed` via `job.remove()`; 202 `stopping` for `active` via `bot-control` queue). Orchestrator `bot-control` worker → `dockerManager.stopByJobId` (label `com.meetbot.jobId`, `stop({t:10})` → bot `SIGTERM` → graceful `cleanup()` + `finalizing_upload`). `dockerManager` now tracks `jobId→containerId`, labels containers, and falls back to `listContainers` by label. Committed and given a surface in `ab5a909` (the "Right now" block on Home, behind a confirm). Still not verified against a live container.
 - [ ] **Recording consent** — **decided: not building auto-announce.** Per session decision 2026-08-15: keep it user-based — if the owner wants the bot to exit they can call `POST /bots/:jobId/stop`; no automatic chat announcement. Two-party risk is acknowledged but deferred in favour of explicit owner control.
 - [x] **End-detection rebuilt.** Root cause: there was no end-of-call detector.
@@ -337,9 +382,19 @@ without it.*
       gone → 15s, alone → 60s, unreadable → 180s. Poll dropped 20s → 5s.
       Empty-room suppression in the orchestrator now keys on
       `hadOtherParticipants`, not on one specific reason.
-- [ ] ⚠️ End-detection is proven against reconstructed DOM states, not a live
-      meeting. Real Meet teardown is the remaining unknown, and it rides along
-      with the Phase 3 scheduled-Meet proof.
+- [x] **The counter is proven on a real Meet DOM, 2026-09-02.** It read real
+      tile counts throughout a live call (1 → 4 → 3 → 1) and never once returned
+      `null`, so the 180s unreadable fuse never armed. That was the risk in
+      rewriting it: a counter that reads `null` against the real page would cut
+      every meeting short at three minutes.
+- [x] The room emptying exits in 60.3s, measured from `alone_detected` to
+      `ended`. Exactly the 20s grace plus 40s delay. `hadOtherParticipants` came
+      through `true`, so the orchestrator ran the pipeline instead of suppressing
+      it, which is the rewiring that replaced the reason-string check.
+- [ ] ⚠️ The `call_ended` / `call_view_gone` branch is still unproven on a real
+      meeting. The 2026-09-02 run left the bot alone rather than tearing the call
+      down, so the call view stayed up and `isInCall` stayed true. Needs a call
+      that is ended for everyone, or the bot removed from it.
 - [ ] Filter the bot's own tile from name events (the "shadow note" tile).
 - [ ] Sturdier login-wall / anti-bot detection; auth-session refresh path.
 - [ ] Concurrent meetings — orchestrator container-per-meeting under real load.
@@ -396,14 +451,32 @@ while the meeting is happening. That is the adoption ceiling.*
         event IDs Google had never heard of were cancelled by the reconciler within
         one 5-minute cycle. Rows the reconciler does **not** recognise inside its
         48-hour window are exactly what it cancels.
-  - [ ] Real scheduled-Meet path: reconcile a near-future event, prove exactly one
-        delayed job across repeated syncs, then prove unattended admission, title
-        propagation, scheduled-start alone handling, empty-room suppression, and
-        live Deepgram segments.
+  - [x] **Real scheduled-Meet path proven end to end, 2026-09-02.** A calendar
+        event 2 minutes out produced one schedule row and exactly one delayed job
+        in `gmeet-bot`; the orchestrator dispatched it, the container joined
+        signed-in on an 82-day-old auth state, and lobby admission took 2 seconds
+        unattended. Title propagated from the event onto the meetings row. The
+        scheduled-start guard held: the bot read 1 participant twice before
+        anyone joined and did not arm the alone timer. The schedule row ended
+        `completed`.
+  - [x] Whole pipeline behind it: transcode wrote a 616s mp4 and a poster,
+        diarize bound a CSRC to a real name from 877 samples and wrote 154 named
+        utterances, ingest finished `ready` with 0 quote-guard drops about 75
+        seconds after the bot left. First real meeting through gpt-5-mini and the
+        two-call summary; the 595-word recap tracked the argument, kept the
+        numbers, named what was left unresolved, and flagged a garbled passage as
+        garbled rather than guessing.
   - [ ] Keep the calendar unit and Redis tests until the live feature path passes;
         remove them afterward to match the repository convention.
-  - [ ] Google OAuth production verification. Testing-mode refresh tokens expire
-        after seven days, so this is a launch gate rather than follow-up polish.
+  - [ ] **Google OAuth production verification. Confirmed as a hard gate, not a
+        worry.** The refresh token stored on 2026-08-20 stopped working exactly
+        seven days later: the last successful sync was 2026-08-27 and the next
+        attempt returned `Google authorization ended`, flipping the account to
+        `disconnected`. Reconnecting on 2026-09-02 restored it immediately. Until
+        the app is verified, every user is silently cut off weekly. The failure
+        path itself is good: status flips, the error is actionable, and
+        `/settings/integrations` renders "Raven has stopped joining your
+        meetings" with a reconnect button.
 - [x] **Upload an existing recording.** `POST /meetings/upload/presign` → presigned `PUT` (R2 presigned `PutObject`, local `PUT /meetings/:id/upload` streaming via `writeStream`) → `POST /meetings/:id/complete` enqueues `transcode` + `diarize` with `speakersKey=null` fallback to `diarizeWithoutTimeline` (Speaker N) → `cb632a7`. Demoable without a bot.
 - [x] **Bulk backfill import** — `POST /meetings/bulk-upload/presign` reuses the same presigned path per file; `web` drag-drop calls single vs bulk automatically → `cb632a7`.
 - [x] Manual join UX in the dashboard — **done** `6c2330f` (`Join a meeting` + `Upload recording` buttons on `/`, `JoinDialog` → `POST /join-meet` → polls `GET /bots/:jobId/status` timeline, `UploadDialog` with drag-drop/title).
@@ -626,6 +699,58 @@ story in this document.
 
 ## 10. Phase 7 — production readiness
 
+### Steps remaining before the first deploy (one VM, docker compose)
+
+The compose file already is the single-VM architecture. Nothing structural
+changes; the Docker socket on one host is accepted for now and is what a Fly
+Machines or Kubernetes backend replaces later, behind the same orchestrator
+contract. In order:
+
+1. [ ] **Run the pipeline in R2 mode once.** Every real run so far used the
+       local store. Set the R2 keys, capture one meeting, watch transcode,
+       diarize and ingest read and write the bucket.
+2. [ ] **Publish the Google OAuth app.** Testing status expires refresh tokens
+       after seven days; the calendar and sign-in both die weekly until this is
+       done. Flip to Production first (removes the expiry, shows an unverified
+       warning), then request verification for the calendar scope.
+3. [ ] **Managed Postgres with pgvector, managed Redis, R2 with a CDN.** Point
+       `DATABASE_URL`, `REDIS_URL` and the R2 keys at them. Run migrations as
+       an explicit step before the first boot and on every deploy.
+4. [ ] **Bot image.** Build it on the VM or push to a registry and set
+       `BOT_IMAGE`. Produce the Google auth state on a machine with a screen and
+       copy `bot/.auth/state.json` to the VM; it mounts read-only as today.
+5. [ ] **Fix the compose file for a real host.** Replace `${PWD}` binds for
+       auth, recordings and screenshots with absolute paths. Stop publishing
+       Postgres on the public interface. Lower `MAX_CONCURRENT_BOTS` to what the
+       box can hold (each bot is Chromium under Xvfb with 2 GB shm; 4 vCPU /
+       8 GB covers two or three).
+6. [ ] **Reverse proxy with TLS in front of the API.** Caddy is one file.
+7. [ ] **Deploy the web app.** Vercel with `API_ORIGIN` set is least work;
+       otherwise add a Dockerfile and serve it through the same proxy. Set
+       credentialed CORS and the cookie domain, and close the deferred CSRF
+       item at the same time, since credentialed CORS is what makes it real.
+8. [ ] **Production secrets.** `JWT_SECRET`, `CALENDAR_TOKEN_KEY`,
+       `UNLIMITED_EMAILS`, `WEB_APP_URL`, both Google redirect URIs on the
+       OAuth client. `assertConfig()` refuses to boot on the committed dev
+       values, so this surfaces on the first start.
+9. [ ] **Rate limit and a per-user spend cap on `/ask`.** The one open door:
+       an authenticated user can spend unbounded OpenAI budget.
+10. [ ] **Delete the raw webm once the mp4 exists.** The only unbounded
+        resource; it filled the dev disk once already.
+11. [ ] **CI: typecheck and tests on push.**
+12. [ ] **Error tracking and structured logs.** Sentry, plus per-call-type
+        cost logging.
+13. [ ] **Auth hardening leftovers.** Register race → 409, `lower(email)`
+        unique index, async scrypt.
+
+Soon after, not before: retention policy, an onboarding path that survives an
+empty account (done on the web side 2026-09-03), the concurrency test under
+real load, Stop verified against a live container, the audio-duration guard
+after transcode, and a pool of bot accounts before opening to strangers, since
+one shared Google identity joining many unrelated calls is a lockout waiting to
+happen.
+
+
 - [ ] **Deploy.** The hard part is the orchestrator needing `docker.sock` to spawn
       bots. Either bot-as-a-cloud-machine per meeting, or document the self-host
       constraint honestly. Managed Postgres + Redis, R2 + CDN, staging + prod.
@@ -730,11 +855,12 @@ cheaper and nothing consumes it live — revisit only if in-meeting Q&A ships).
 | **Postgres port roulette** | Two *other* projects hold `:5432` (crashpad) and `:5433` (xeliport), and they change. Raven's own compose postgres is now on **`:5434`** with its data in the `meet-bot-ai_pgdata` volume; `docker-compose.override.yml` and `api-server/.env` must agree, and both are gitignored. If the corpus looks empty or a column is "missing", you are talking to someone else's database. |
 | **`web/node_modules`** | Can be empty even though the repo looks complete — `tsc` then resolves React from a parent directory and emits hundreds of phantom errors. `pnpm install` in `web/`. |
 | **Port 3000** | Taken by your other Next.js app. Run api-server on `PORT=3100`. |
-| **Node version** | Shell default is v16 — no global `fetch`, so the OpenAI SDK crashes. `export PATH="$HOME/.nvm/versions/node/v20.17.0/bin:$PATH"`. |
+| **Node version** | Shell default is v16 — no global `fetch`, so the OpenAI SDK crashes. The pnpm in `PNPM_HOME` is 11.x and needs Node 22: `export PATH="$HOME/Library/pnpm:$HOME/.nvm/versions/node/v22.23.2/bin:$PATH"`. The corepack shim under Node 20 is broken. |
 | **Package manager** | `AGENTS.md` makes pnpm mandatory across the repository. Never use npm or npx. The web, bot, and media-worker workspace files require `packages: ['.']`; without it pnpm fails before running a command. |
 | **pnpm in api-server** | `pnpm add`/`update` can prune rolldown's native binding and break vitest → `pnpm install --force`. If pnpm itself is unavailable, restore it with the machine's package/version manager, not npm or npx. |
 | **pnpm arg parsing** | Bareword script args can mis-parse; use `pnpm exec tsx <file> <args>` when a package script cannot forward them cleanly. |
 | **OrbStack** | Drops mid-session. `open -a OrbStack`. |
+| **Stray orchestrator** | A `tsx` orchestrator from an earlier session can still be running against the compose Redis. Any `join-meet` job you enqueue to test the API, fake URL included, gets a real bot container spawned for it. Check `ps` for `tsx` node processes before enqueuing. |
 | **OpenAI billing** | Complimentary shared-data tokens **exclude tool use and embeddings**. The `/ask` loop *is* tool use, so it bills at full rate. Iterate with `eval:answer --fast` and low `--runs`. |
 | **Drizzle + pgvector** | drizzle-kit does not emit `CREATE EXTENSION vector`. Prepended manually in `0000`. |
 | **Next.js 16** | Not the Next in training data. Read `node_modules/next/dist/docs/` before writing route code (`web/AGENTS.md`). |
@@ -747,6 +873,10 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
+| 2026-09-03 | **Meetings search: one box, no flicker.** The Type and Participant fields were exact-match filters on values a user cannot guess (extracted free-text type, JSON containment on a name), so they are gone; the one search box now also matches type and participant names server-side. The list flickered because a new search term is a new query key, so it went pending and showed skeletons on every keystroke; `keepPreviousData` plus a 60s stale time keeps the last results on screen at 60% opacity until the next page lands, and a search you have already typed comes back from cache. | uncommitted |
+| 2026-09-03 | **First-run Home.** Design shotgun with three hand-built HTML directions (document, three doors, worked example) on the real tokens; the pick was a combination: document voice, calendar banner as the one solid control, join-now a tier below, no upload, allowance as a footnote. Built as `FirstRun` and added to the gallery. | uncommitted |
+| 2026-09-03 | **Google sign-in and a free allowance.** Sign-in reuses the calendar's OAuth client with a second redirect URI and identity scopes only; the state table gained a `purpose` column and a nullable owner so both flows share it. The generic OAuth pieces moved out of the calendar module into `platform/google/oauth.ts` so auth does not depend on calendar. Allowance is a `plan` column plus config, counted from meeting rows and reserved bot jobs rather than a stored counter. Two test join jobs were picked up by a stray orchestrator and spawned real bots against a fake URL, which is now a landmine row. | uncommitted |
+| 2026-09-02 | **First full live run. Most of what was unproven is now proven.** A real calendar event produced one schedule row and exactly one delayed job, the orchestrator dispatched it, and the bot joined signed-in and was admitted unattended in 2 seconds on an auth state 82 days old. Live Deepgram returned 209 segments, which closes `40dc3c0` — built 2026-06-27 and unverified until today, the oldest risk in the project. The rewritten participant counter read real tile counts on the real Meet DOM and never returned `null`, which was the failure mode that would have cut every meeting short at 180s. The room emptying exited in 60.3s. Title propagated, the speaker timeline bound a CSRC to a real name from 877 samples, transcode wrote a 616s mp4 and poster, diarize wrote 154 named utterances, and ingest reached `ready` with zero quote-guard drops about 75 seconds after the bot left. The 595-word summary on a real rambling conversation kept the numbers, named the unresolved decision, and flagged a garbled passage instead of guessing. Also confirmed the Google testing-mode expiry as a hard gate: the token died exactly 7 days after it was stored. Not covered: the `call_ended` branch, because the bot was left alone rather than the call being torn down, and the live-session UI, because nobody opened Home while a bot was in flight. | uncommitted |
 | 2026-09-02 | **Tasks you can ask for, and a brief before the meeting.** Re-ingest deleted every action item on a meeting and re-inserted what extraction found, carrying only `completed_at` forward by evidence quote. Anything not extracted had no quote to be carried by, so it was not just reset, it was gone — and re-ingest fires on retry, on re-extraction, and fired across the whole corpus yesterday. `action_items.source` now separates the two and the delete only touches extracted rows. Survivors are pushed past the extracted `seq` range, which is unique per meeting and is what `propose.ts` keys its maps on. `create_action_item` gives the ask agent its first write tool, owner-scoped, refusing when there is no authenticated user so the CLI and eval paths cannot write into the corpus they read across. Tasks without a quote cannot become proposals, which the typechecker caught on its own. Auto-anchoring a task to a transcript moment was built and then removed: against chunks it put a task about the clock offset on the database discussion two minutes away, and against extracted records it fired hardest when the task duplicated one that already existed. A task you asked for does not need a moment to be trusted. The pre-meeting brief renders in `Up next` from `last_time` on the upcoming payload. | uncommitted |
 | 2026-08-31 | **Extraction moved to gpt-5-mini and split into two calls.** The summary was a 3-5 sentence restatement of the decision list rendered directly beneath it, so it carried nothing the reader could not already see. It now writes the reasoning instead: what was weighed, what was rejected, the numbers said out loud, who held which position, what was left open. Prompt tuning alone could not get there. Every model tested rendered the decisions into the summary as well when it held their schemas in the same call, so records and summary are now separate calls and the summary call is told what has already been shown. gpt-5-mini found 11 decisions in the arch review against gpt-4o-mini's 5, split them correctly across Sarah, Alex and Jordan instead of crediting all five to Sarah, and caught Alex's benchmark commitment, which had never entered the system. Quote guard dropped nothing on either model. On sales calls it extracts fewer decisions, which is correct: Northwind is a discovery call whose only forward-looking lines are next steps, so zero decisions is the right answer and the old count was over-extraction. Eval: fact 0.69 to 0.771, faithfulness 0.87 to 0.977. Deleted 145MB of raw webm that already had an mp4. | uncommitted |
 | 2026-08-30 | **Approve, "Edit first" and the naming, after the surfaces went in.** Approve on an unconnected integration wrote `failed` to a row nothing had been tried for and surfaced as the bare word "Conflict", because the API answers with `.error` and the client only read `.message`. Both halves fixed; the row now stays `proposed` and the toast names Linear. "Edit first" was seeking the player, not editing, and was inert on any proposal without a timestamp — renamed to what it does. Media-less meetings stopped claiming to be preparing a recording, and stopped polling a 409 that can never clear. Names reworked to one set across both screens: Summary · Transcript, Decisions / Needs your approval / Follow-ups, Live / Recent / Next up. Landed as the surfaces commit this row was written in, one after `626a111`. | — |

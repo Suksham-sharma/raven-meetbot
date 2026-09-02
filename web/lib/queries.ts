@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -122,15 +123,19 @@ export function useSyncCalendar() {
   });
 }
 
-export function useMeetings(filters: { q?: string; type?: string; participant?: string } = {}) {
+export function useMeetings(filters: { q?: string } = {}) {
   const { data: session } = useSession();
-  const f = { q: filters.q || undefined, type: filters.type || undefined, participant: filters.participant || undefined };
+  const f = { q: filters.q || undefined };
   return useInfiniteQuery({
     queryKey: [...keys.meetings, f],
     queryFn: ({ pageParam }) => api.meetings({ before: pageParam, ...f }),
     enabled: Boolean(session),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next_before ?? undefined,
+    // A new search term is a new query key. Without this the list drops to
+    // skeletons on every keystroke and comes back a beat later.
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
     select: (data) => ({
       meetings: data.pages.flatMap((p) => p.meetings),
       corpus: data.pages[0].corpus,

@@ -333,6 +333,17 @@ The card speaks in the tense it is in. "Raven wants to file…" is correct while
 the decision has been made. A settled card still offering to do the thing it
 already did reads as a stuck UI.
 
+**First run has one door.** An account with no meetings sees a one-line lede
+on what Raven keeps, then the calendar banner as the only solid control on the
+page, because auto-join is the path that keeps working after today. Joining a
+call now is a tier below: one quiet row, an outlined button. Upload is not
+offered on Home. Two solid buttons on an empty page means the user has to
+choose before they understand, and the empty state is where they understand
+least. The page keeps the Home silhouette: the block sits at the top of the
+column, and the rail carries the ask panel muted, with plain-text openers,
+rather than disappearing. A painted plate was tried in the rail's place and
+cut: it made the first visit look like a second sign-in screen.
+
 **Plain language over system labels.** Section headings read
 "What happened", "Decided", "Someone needs to", "Raven would like to",
 "Everything said" — not "Summary / Decisions / Action Items / Agent Actions /

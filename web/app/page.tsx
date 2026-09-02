@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "@phosphor-icons/react";
 import { AppShell } from "@/components/layout/app-shell";
-import { AskPanel } from "@/components/raven/ask-panel";
+import { AllowanceLine } from "@/components/raven/allowance";
+import { AskPanel, AskPanelMuted } from "@/components/raven/ask-panel";
+import { FirstRun } from "@/components/raven/first-run";
 import { FollowUps } from "@/components/raven/follow-ups";
 import { JoinMeetingDialog } from "@/components/raven/join-meeting";
 import { LiveSessions } from "@/components/raven/live-session";
@@ -52,6 +54,7 @@ export default function HomePage() {
   const { data, error, isPending, refetch } = useMeetings();
 
   const meetings = data?.meetings ?? [];
+  const firstRun = Boolean(data) && meetings.length === 0;
   const recent = meetings.slice(0, RECENT);
   const next = upcoming.data?.upcoming ?? [];
   const followUps = actions.data?.items ?? [];
@@ -80,27 +83,43 @@ export default function HomePage() {
               </div>
             )}
           </div>
+        ) : firstRun ? (
+          <div className="px-7 py-11">
+            <AskPanelMuted />
+          </div>
         ) : null
       }
     >
+      {firstRun ? (
+        <FirstRun
+          name={firstName}
+          calendar={calendar.data?.calendar}
+          onJoin={() => setJoinOpen(true)}
+          live={
+            liveBots.length > 0 ? (
+              <section className="mb-9">
+                <h2 className={cn(EYEBROW, "mb-3")}>Live</h2>
+                <LiveSessions bots={liveBots} />
+              </section>
+            ) : null
+          }
+        />
+      ) : (
       <div className="px-12 py-11">
         <header className="mb-9">
           <h1 className="font-serif text-[34px] leading-[1.1] font-normal tracking-[-0.018em] text-balance">
             Welcome back{firstName ? `, ${firstName}` : ""}
           </h1>
           <p className="mt-1.5 text-[13px] text-ink-3">
-            {meetings.length > 0
-              ? "Here's a recap of some of your last meetings."
-              : "Raven keeps what was said, so you don't have to."}
+            Here&rsquo;s a recap of some of your last meetings.
           </p>
           <div className="mt-5">
             <Button variant="primary" size="sm" onClick={() => setJoinOpen(true)}>
               Join a meeting
             </Button>
           </div>
+          <AllowanceLine className="mt-3" />
         </header>
-
-        <JoinMeetingDialog open={joinOpen} onOpenChange={setJoinOpen} />
 
         {/* Exception-only, per DESIGN.md §7: nothing renders unless a bot is
             actually in flight. */}
@@ -126,15 +145,6 @@ export default function HomePage() {
             title="Couldn't load your meetings"
             body={error.message}
             action={{ label: "Try again", onClick: () => refetch() }}
-          />
-        )}
-
-        {data && meetings.length === 0 && (
-          <EmptyState
-            title="No meetings yet"
-            body="Invite Raven to a Google Meet call and it will join, record, and remember it."
-            boundary="Raven joins as a visible participant. Everyone in the call can see it."
-            action={{ label: "Join a meeting", onClick: () => setJoinOpen(true) }}
           />
         )}
 
@@ -177,6 +187,8 @@ export default function HomePage() {
           </section>
         )}
       </div>
+      )}
+      <JoinMeetingDialog open={joinOpen} onOpenChange={setJoinOpen} />
     </AppShell>
   );
 }

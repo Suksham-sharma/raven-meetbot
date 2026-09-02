@@ -11,6 +11,7 @@ import { Confirm } from "@/components/ui/confirm";
 import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { toast } from "@/components/ui/toast";
 import { UpNext, UpNextEmpty } from "@/components/raven/up-next";
+import { FirstRun } from "@/components/raven/first-run";
 import { SpeakerName, Participants } from "@/components/raven/speaker";
 import { EvidenceFootnote, type Source } from "@/components/raven/evidence";
 import { MeetingCard } from "@/components/raven/meeting-card";
@@ -24,6 +25,7 @@ import { TaskRow, type ActionItem } from "@/components/raven/task-row";
 import { FollowUps } from "@/components/raven/follow-ups";
 import {
   AnswerBlock,
+  AskPanelMuted,
   Openers,
   Thinking,
 } from "@/components/raven/ask-panel";
@@ -51,6 +53,7 @@ const SECTIONS = [
   { id: "evidence", label: "Evidence" },
   { id: "ask", label: "Ask & answer" },
   { id: "upnext", label: "Next up" },
+  { id: "firstrun", label: "First run" },
   { id: "meetings", label: "Rows & cards" },
   { id: "proposals", label: "Proposals" },
   { id: "tasks", label: "Action items" },
@@ -90,6 +93,7 @@ export default function DesignSystem() {
         <Evidence />
         <Ask />
         <UpNextSection />
+        <FirstRunSection />
         <Meetings />
         <Proposals />
         <Tasks />
@@ -755,6 +759,47 @@ function UpNextSection() {
           nothing scheduled. Only the first two can be acted on, so only they
           carry a link — the third is a fact, not a problem.
         </p>
+      </div>
+    </Section>
+  );
+}
+
+function FirstRunSection() {
+  return (
+    <Section
+      id="firstrun"
+      title="First run"
+      note="Home for an account with no meetings. One serif line on what Raven keeps, then the calendar banner as the only solid control on the page: auto-join is the path that keeps working after today, so it gets the weight. Joining a call now is a tier below, one quiet row with an outlined button. Upload is not offered here; it lives on Meetings. The allowance is said once, as a footnote. The banner rewrites itself as the calendar state changes and has no control at all once Raven is already watching. The rail keeps its shape: the ask panel renders muted, inert box and the openers as plain text, so the page has the same silhouette it will have once there is something to ask."
+    >
+      <div className="flex flex-col gap-14">
+        <div className="max-w-[420px] rounded-xl bg-rail px-7 py-9">
+          <AskPanelMuted />
+        </div>
+        <FirstRun name="Asha" calendar={null} onJoin={() => toast("Join a meeting")} />
+        <FirstRun
+          name="Asha"
+          calendar={{
+            email: "you@example.com",
+            mode: "manual",
+            status: "connected",
+            lastCheckedAt: null,
+            lastError: null,
+            connectedAt: new Date().toISOString(),
+          }}
+          onJoin={() => toast("Join a meeting")}
+        />
+        <FirstRun
+          name="Asha"
+          calendar={{
+            email: "you@example.com",
+            mode: "all",
+            status: "connected",
+            lastCheckedAt: null,
+            lastError: null,
+            connectedAt: new Date().toISOString(),
+          }}
+          onJoin={() => toast("Join a meeting")}
+        />
       </div>
     </Section>
   );

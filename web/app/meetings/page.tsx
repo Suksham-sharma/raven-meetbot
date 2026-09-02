@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { AppShell } from "@/components/layout/app-shell";
+import { AllowanceLine } from "@/components/raven/allowance";
 import { JoinMeetingDialog } from "@/components/raven/join-meeting";
 import { UploadRecordingSheet } from "@/components/raven/upload-recording";
 import { MeetingCard } from "@/components/raven/meeting-card";
@@ -12,6 +13,7 @@ import { EmptyState, SkeletonCard, SkeletonRow } from "@/components/raven/states
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { useMeetings, useRetryMeeting } from "@/lib/queries";
+import { cn } from "@/lib/cn";
 import { corpusLabel, groupByDay, toRow } from "@/lib/meetings";
 import type { MeetingSummary } from "@/lib/types";
 
@@ -30,22 +32,17 @@ function useDebounced<T>(value: T, ms = 250): T {
 export default function MeetingsPage() {
   const router = useRouter();
   const [q, setQ] = React.useState("");
-  const [type, setType] = React.useState("");
-  const [participant, setParticipant] = React.useState("");
   const [joinOpen, setJoinOpen] = React.useState(false);
   const [uploadOpen, setUploadOpen] = React.useState(false);
 
-  const filters = {
-    q: useDebounced(q),
-    type: useDebounced(type),
-    participant: useDebounced(participant),
-  };
-  const filtered = Boolean(filters.q || filters.type || filters.participant);
+  const filters = { q: useDebounced(q) };
+  const filtered = Boolean(filters.q);
 
   const {
     data,
     error,
     isPending,
+    isPlaceholderData,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
@@ -60,8 +57,6 @@ export default function MeetingsPage() {
 
   function clearFilters() {
     setQ("");
-    setType("");
-    setParticipant("");
   }
 
   return (
@@ -88,35 +83,20 @@ export default function MeetingsPage() {
               Upload recording
             </Button>
           </div>
+          <AllowanceLine className="mt-3" />
         </header>
 
         <JoinMeetingDialog open={joinOpen} onOpenChange={setJoinOpen} />
         <UploadRecordingSheet open={uploadOpen} onOpenChange={setUploadOpen} />
 
         <div className="mb-8 flex flex-wrap items-center gap-2.5">
-          <div className="min-w-[240px] flex-1 basis-64 sm:max-w-sm">
+          <div className="min-w-[240px] flex-1 basis-64 sm:max-w-md">
             <Field
               value={q}
               onChange={(e) => setQ(e.target.value)}
               aria-label="Search meetings"
-              placeholder="Search meetings"
+              placeholder="Search by title, person, or what it was about"
               icon={<MagnifyingGlass size={15} />}
-            />
-          </div>
-          <div className="w-36">
-            <Field
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              aria-label="Filter by meeting type"
-              placeholder="Type"
-            />
-          </div>
-          <div className="w-44">
-            <Field
-              value={participant}
-              onChange={(e) => setParticipant(e.target.value)}
-              aria-label="Filter by participant"
-              placeholder="Participant"
             />
           </div>
           {filtered && (
@@ -136,11 +116,11 @@ export default function MeetingsPage() {
           />
         )}
 
-        {data && meetings.length === 0 && filtered && (
+        {data && !isPlaceholderData && meetings.length === 0 && filtered && (
           <EmptyState
-            title="Nothing matches those filters"
-            body="Try a looser search, or clear the filters to see everything."
-            action={{ label: "Clear filters", onClick: clearFilters }}
+            title={`Nothing matches “${filters.q}”`}
+            body="Try a shorter word, or clear the search to see everything."
+            action={{ label: "Clear search", onClick: clearFilters }}
           />
         )}
 
@@ -154,6 +134,7 @@ export default function MeetingsPage() {
 
         {meetings.length > 0 && (
           <Archive
+            settling={isPlaceholderData}
             meetings={meetings}
             grouped={!filtered}
             hasNextPage={hasNextPage}
@@ -168,6 +149,7 @@ export default function MeetingsPage() {
 }
 
 function Archive({
+  settling,
   meetings,
   grouped,
   hasNextPage,
@@ -175,6 +157,7 @@ function Archive({
   onLoadMore,
   onOpen,
 }: {
+  settling: boolean;
   meetings: MeetingSummary[];
   grouped: boolean;
   hasNextPage: boolean;
@@ -187,7 +170,13 @@ function Archive({
   const rest = grouped ? meetings.slice(RECENT) : meetings;
 
   return (
-    <div className="rise">
+    <div
+      className={cn(
+        "rise transition-opacity duration-150 ease-out",
+        settling && "opacity-60",
+      )}
+      aria-busy={settling || undefined}
+    >
       {recent.length > 0 && (
         <div className={CARD_GRID}>
           {recent.map((m) => (

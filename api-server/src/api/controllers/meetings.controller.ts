@@ -185,7 +185,12 @@ export const listMeetings = asyncHandler(async (req: Request, res: Response) => 
   if (before) conds.push(lt(meetings.startedAt, before));
   if (type) conds.push(eq(meetings.type, type));
   if (participant) conds.push(sql`${meetings.participants} @> ${JSON.stringify([participant])}::jsonb`);
-  if (q) conds.push(sql`(${meetings.title} ILIKE ${`%${q}%`} OR ${meetings.summary} ILIKE ${`%${q}%`})`);
+  if (q) {
+    const needle = `%${q}%`;
+    conds.push(
+      sql`(${meetings.title} ILIKE ${needle} OR ${meetings.summary} ILIKE ${needle} OR ${meetings.type} ILIKE ${needle} OR ${meetings.participants}::text ILIKE ${needle})`
+    );
+  }
   if (from) conds.push(sql`${meetings.startedAt} >= ${from.toISOString()}::timestamptz`);
   if (to) conds.push(sql`${meetings.startedAt} <= ${to.toISOString()}::timestamptz`);
 
