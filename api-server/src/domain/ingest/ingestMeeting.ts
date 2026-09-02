@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "../../platform/db/client";
 import {
   actionItems,
@@ -124,7 +124,17 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
     await tx.delete(chunks).where(eq(chunks.meetingId, meetingId));
     await tx.delete(chapters).where(eq(chapters.meetingId, meetingId));
     await tx.delete(decisions).where(eq(decisions.meetingId, meetingId));
-    await tx.delete(actionItems).where(eq(actionItems.meetingId, meetingId));
+    // Only what extraction produced. An agent-created task has no evidence quote
+    // to be carried forward by, so an unguarded delete does not just lose its
+    // completion state, it loses the row.
+    await tx
+      .delete(actionItems)
+      .where(
+        and(
+          eq(actionItems.meetingId, meetingId),
+          eq(actionItems.source, "extracted")
+        )
+      );
 
     if (chunked.length > 0) {
       await tx.insert(chunks).values(
@@ -168,6 +178,19 @@ export async function ingestMeeting(input: IngestInput): Promise<IngestResult> {
         }))
       );
     }
+
+    // Extraction owns seq 0..n-1. Agent-created rows survived the delete and may
+    // be sitting anywhere in that range, and seq is unique per meeting and is the
+    // key propose.ts builds its maps on, so push them past the new set first.
+    await tx
+      .update(actionItems)
+      .set({ seq: sql`${actionItems.seq} + ${1000 + extraction.actionItems.length}` })
+      .where(
+        and(
+          eq(actionItems.meetingId, meetingId),
+          ne(actionItems.source, "extracted")
+        )
+      );
 
     if (extraction.actionItems.length > 0) {
       await tx.insert(actionItems).values(

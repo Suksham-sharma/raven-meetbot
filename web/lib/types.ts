@@ -59,6 +59,14 @@ export interface AgentAction {
   executed_at: string | null;
 }
 
+export interface LastTime {
+  meeting_id: string;
+  title: string | null;
+  date: string | null;
+  decisions: { text: string; speaker: string | null; start_s: number }[];
+  open_actions: { text: string; owner: string | null; due: string | null }[];
+}
+
 export interface UpcomingMeeting {
   id: number;
   jobId: string;
@@ -67,6 +75,7 @@ export interface UpcomingMeeting {
   startsAt: string;
   endsAt: string | null;
   status: "scheduled" | "running" | "skipped";
+  last_time: LastTime | null;
 }
 
 export interface CalendarConnection {

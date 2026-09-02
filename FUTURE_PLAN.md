@@ -572,9 +572,21 @@ one field in the existing structured-output call.
       demo-able feature in the doc.
 
 ### 6.4 Pre-meeting brief
-- [ ] Before a recurring meeting: what you decided last time, what's still open,
-      what was promised and by whom.
-- [ ] Delivered by email/Slack on the calendar trigger (needs Phase 3 + 4).
+- [x] Before a recurring meeting: what you decided last time, what's still open,
+      what was promised and by whom. Lives in the `Up next` block on Home rather
+      than waiting on a delivery channel. `GET /calendar/upcoming` returns a
+      `last_time` per row: the decisions and the still-open action items of the
+      most recent `ready` meeting sharing the event's title. Every decision links
+      into that recording at its own second. Folded to one line by default,
+      because a brief is document-density inside a list-density row (§5, and the
+      same tension TODOS item 5 raised for the calendar block).
+- [x] "Last time" is a title match, not recurrence handling. The calendar already
+      propagates the event title onto the meeting it produces, so occurrences of
+      a recurring event share one and a one-off simply has no previous instance.
+- [ ] Delivered by email/Slack on the calendar trigger (needs Phase 4). The
+      content is built; only the channel is missing.
+- [ ] ⚠️ Verified against a hand-seeded `calendar_schedules` row, not a real
+      recurring event. Rides with the scheduled-Meet proof.
 
 **Why this matters strategically:** every competitor competes on the *post*-meeting
 summary. Nobody occupies the five minutes *before* a meeting, and that is where a
@@ -735,6 +747,7 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
+| 2026-09-02 | **Tasks you can ask for, and a brief before the meeting.** Re-ingest deleted every action item on a meeting and re-inserted what extraction found, carrying only `completed_at` forward by evidence quote. Anything not extracted had no quote to be carried by, so it was not just reset, it was gone — and re-ingest fires on retry, on re-extraction, and fired across the whole corpus yesterday. `action_items.source` now separates the two and the delete only touches extracted rows. Survivors are pushed past the extracted `seq` range, which is unique per meeting and is what `propose.ts` keys its maps on. `create_action_item` gives the ask agent its first write tool, owner-scoped, refusing when there is no authenticated user so the CLI and eval paths cannot write into the corpus they read across. Tasks without a quote cannot become proposals, which the typechecker caught on its own. Auto-anchoring a task to a transcript moment was built and then removed: against chunks it put a task about the clock offset on the database discussion two minutes away, and against extracted records it fired hardest when the task duplicated one that already existed. A task you asked for does not need a moment to be trusted. The pre-meeting brief renders in `Up next` from `last_time` on the upcoming payload. | uncommitted |
 | 2026-08-31 | **Extraction moved to gpt-5-mini and split into two calls.** The summary was a 3-5 sentence restatement of the decision list rendered directly beneath it, so it carried nothing the reader could not already see. It now writes the reasoning instead: what was weighed, what was rejected, the numbers said out loud, who held which position, what was left open. Prompt tuning alone could not get there. Every model tested rendered the decisions into the summary as well when it held their schemas in the same call, so records and summary are now separate calls and the summary call is told what has already been shown. gpt-5-mini found 11 decisions in the arch review against gpt-4o-mini's 5, split them correctly across Sarah, Alex and Jordan instead of crediting all five to Sarah, and caught Alex's benchmark commitment, which had never entered the system. Quote guard dropped nothing on either model. On sales calls it extracts fewer decisions, which is correct: Northwind is a discovery call whose only forward-looking lines are next steps, so zero decisions is the right answer and the old count was over-extraction. Eval: fact 0.69 to 0.771, faithfulness 0.87 to 0.977. Deleted 145MB of raw webm that already had an mp4. | uncommitted |
 | 2026-08-30 | **Approve, "Edit first" and the naming, after the surfaces went in.** Approve on an unconnected integration wrote `failed` to a row nothing had been tried for and surfaced as the bare word "Conflict", because the API answers with `.error` and the client only read `.message`. Both halves fixed; the row now stays `proposed` and the toast names Linear. "Edit first" was seeking the player, not editing, and was inert on any proposal without a timestamp — renamed to what it does. Media-less meetings stopped claiming to be preparing a recording, and stopped polling a 409 that can never clear. Names reworked to one set across both screens: Summary · Transcript, Decisions / Needs your approval / Follow-ups, Live / Recent / Next up. Landed as the surfaces commit this row was written in, one after `626a111`. | — |
 | 2026-08-29 | **End detection rebuilt; the wired surfaces verified.** Root-caused the bot overstaying: there was no end-of-call detector at all — the `/bye` URL check matches a path Meet retired, `isKicked` matched post-call copy against `textContent("body")`, and the surviving `alone_too_long` path was gated behind a participant counter that fell back to scraping any digits on the page whenever the tiles were gone. Proved it in Chromium (ended call with a stale badge read 3; a bare post-call screen read null and froze the timer). Exit is now driven by the call view, the counter reads tiles only, and every path is bounded (15s/60s/180s). Then brought the stack up against the local fixture account and closed §6b: proposals render and reject end to end with the toast and the DB write, and the "Right now" block plus its confirm were exercised with a parked bot job. Fixed Stop's copy, which promised a queued bot's recording would be processed. Found: media-less meetings claim to be preparing a recording forever. | `626a111` |

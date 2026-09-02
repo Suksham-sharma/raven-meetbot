@@ -8,7 +8,8 @@ import { Menu, MenuItem } from "@/components/ui/menu";
 import { toast } from "@/components/ui/toast";
 import { useJoinMeet, useStopBot } from "@/lib/queries";
 import { cn } from "@/lib/cn";
-import type { CalendarConnection, UpcomingMeeting } from "@/lib/types";
+import { timecode } from "@/lib/speaker";
+import type { CalendarConnection, LastTime, UpcomingMeeting } from "@/lib/types";
 
 export function UpNext({ items }: { items: UpcomingMeeting[] }) {
   if (items.length === 0) return null;
@@ -99,6 +100,7 @@ function Row({ meeting }: { meeting: UpcomingMeeting }) {
             ? ` · ${lengthLabel(meeting.startsAt, meeting.endsAt)}`
             : ""}
         </span>
+        {meeting.last_time && <LastTimeBrief brief={meeting.last_time} />}
       </span>
 
       {/* Status is exception-only (§7). A call Raven is simply going to join
@@ -239,4 +241,81 @@ function lengthLabel(startIso: string, endIso: string): string {
   const h = Math.floor(mins / 60);
   const rest = mins % 60;
   return rest ? `${h} hr ${rest} min` : `${h} hr`;
+}
+
+// The brief is document-density inside a list-density row (§5), so it stays
+// folded to one line until asked for. What it says while folded is the part
+// worth reading at a glance: how much is carried over.
+function LastTimeBrief({ brief }: { brief: LastTime }) {
+  const [open, setOpen] = React.useState(false);
+  const decided = brief.decisions.length;
+  const owed = brief.open_actions.length;
+
+  const summary = [
+    decided ? `${decided} decided` : null,
+    owed ? `${owed} still open` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <span className="mt-1.5 block">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2"
+      >
+        Last time: {summary}
+        <span aria-hidden="true" className="ml-1.5 inline-block">
+          {open ? "\u2212" : "+"}
+        </span>
+      </button>
+
+      {open && (
+        <span className="mt-2.5 block border-l border-rule-lo pl-3.5">
+          {brief.decisions.length > 0 && (
+            <span className="block">
+              {brief.decisions.map((d, i) => (
+                <Link
+                  key={i}
+                  href={`/m/${brief.meeting_id}?t=${Math.floor(d.start_s)}`}
+                  className="mb-1.5 block font-serif text-[14.5px] leading-snug text-ink-2 hover:text-accent"
+                >
+                  {d.text}
+                  <span className="ml-1.5 font-mono text-[11.5px] text-ink-3">
+                    {d.speaker ? `${d.speaker} ` : ""}
+                    {timecode(d.start_s)}
+                  </span>
+                </Link>
+              ))}
+            </span>
+          )}
+
+          {brief.open_actions.length > 0 && (
+            <span className="mt-2 block">
+              {brief.open_actions.map((a, i) => (
+                <span key={i} className="block text-[13px] text-ink-2">
+                  {a.text}
+                  {(a.owner || a.due) && (
+                    <span className="text-ink-3">
+                      {" "}
+                      {[a.owner, a.due].filter(Boolean).join(" \u00b7 ")}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </span>
+          )}
+
+          <Link
+            href={`/m/${brief.meeting_id}`}
+            className="mt-2.5 block text-[12.5px] text-ink-3 hover:text-accent"
+          >
+            Open that meeting
+          </Link>
+        </span>
+      )}
+    </span>
+  );
 }

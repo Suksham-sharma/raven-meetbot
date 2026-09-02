@@ -114,11 +114,21 @@ export async function proposeActions(
     .from(decisions)
     .where(eq(decisions.meetingId, meetingId))
     .orderBy(asc(decisions.seq));
-  const items = await db
-    .select()
-    .from(actionItems)
-    .where(eq(actionItems.meetingId, meetingId))
-    .orderBy(asc(actionItems.seq));
+  // A proposal must trace to a quote-guarded record. An agent-created task the
+  // agent could not anchor to a transcript line has no quote to trace to, so it
+  // is not proposable — it stays a task the owner can act on themselves.
+  const items = (
+    await db
+      .select()
+      .from(actionItems)
+      .where(eq(actionItems.meetingId, meetingId))
+      .orderBy(asc(actionItems.seq))
+  ).filter(
+    (
+      r
+    ): r is typeof r & { evidenceQuote: string; startS: number; endS: number } =>
+      r.evidenceQuote != null && r.startS != null && r.endS != null
+  );
 
   const skipped = { unsourced: 0, invalid: 0, duplicate: 0 };
   if (decs.length === 0 && items.length === 0) {

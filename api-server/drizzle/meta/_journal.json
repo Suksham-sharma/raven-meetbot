@@ -71,6 +71,13 @@
       "when": 1787032080132,
       "tag": "0009_same_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788297972669,
+      "tag": "0010_flimsy_maginty",
+      "breakpoints": true
     }
   ]
 }

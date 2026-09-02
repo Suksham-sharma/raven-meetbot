@@ -1,11 +1,14 @@
 import { createHash, randomBytes } from "crypto";
-import { and, asc, eq, gt, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt } from "drizzle-orm";
 import { Request, Response } from "express";
 import { db } from "../../platform/db/client";
 import {
+  actionItems,
   calendarAccounts,
   calendarOauthStates,
   calendarSchedules,
+  decisions,
+  meetings,
 } from "../../platform/db/schema";
 import systemConfig from "../../platform/config";
 import {
@@ -140,6 +143,89 @@ export const getCalendar = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({ calendar: account ?? null });
 });
 
+const normalizeTitle = (t: string) =>
+  t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+// "Last time" is the most recent past meeting carrying the same title. The
+// calendar propagates the event title onto the meeting it produces, so a
+// recurring event's occurrences share one, and matching on it needs no
+// recurrence handling. A one-off event simply has no previous instance.
+async function lastTimeBrief(
+  ownerId: string,
+  title: string | null,
+  before: Date
+): Promise<{
+  meeting_id: string;
+  title: string | null;
+  date: string | null;
+  decisions: { text: string; speaker: string | null; start_s: number }[];
+  open_actions: { text: string; owner: string | null; due: string | null }[];
+} | null> {
+  if (!title?.trim()) return null;
+  const wanted = normalizeTitle(title);
+  if (!wanted) return null;
+
+  const past = await db
+    .select({ id: meetings.id, title: meetings.title, startedAt: meetings.startedAt })
+    .from(meetings)
+    .where(
+      and(
+        eq(meetings.ownerId, ownerId),
+        eq(meetings.status, "ready"),
+        lt(meetings.startedAt, before)
+      )
+    )
+    .orderBy(desc(meetings.startedAt))
+    .limit(50);
+
+  const previous = past.find(
+    (m) => m.title && normalizeTitle(m.title) === wanted
+  );
+  if (!previous) return null;
+
+  const [decs, acts] = await Promise.all([
+    db
+      .select({
+        text: decisions.text,
+        speaker: decisions.speaker,
+        startS: decisions.startS,
+      })
+      .from(decisions)
+      .where(eq(decisions.meetingId, previous.id))
+      .orderBy(asc(decisions.seq))
+      .limit(5),
+    db
+      .select({
+        text: actionItems.text,
+        owner: actionItems.owner,
+        due: actionItems.due,
+      })
+      .from(actionItems)
+      .where(
+        and(
+          eq(actionItems.meetingId, previous.id),
+          isNull(actionItems.completedAt)
+        )
+      )
+      .orderBy(asc(actionItems.seq))
+      .limit(5),
+  ]);
+
+  if (decs.length === 0 && acts.length === 0) return null;
+
+  return {
+    meeting_id: previous.id,
+    title: previous.title,
+    date: previous.startedAt?.toISOString() ?? null,
+    decisions: decs.map((d) => ({
+      text: d.text,
+      speaker: d.speaker,
+      start_s: d.startS,
+    })),
+    open_actions: acts,
+  };
+}
+
 export const getUpcomingMeetings = asyncHandler(
   async (req: Request, res: Response) => {
     const ownerId = requireOwnerId(req);
@@ -170,7 +256,13 @@ export const getUpcomingMeetings = asyncHandler(
       )
       .orderBy(asc(calendarSchedules.occurrenceStart))
       .limit(5);
-    res.status(200).json({ upcoming: rows });
+
+    const briefs = await Promise.all(
+      rows.map((r) => lastTimeBrief(ownerId, r.title, r.startsAt))
+    );
+    res.status(200).json({
+      upcoming: rows.map((r, i) => ({ ...r, last_time: briefs[i] })),
+    });
   }
 );
 

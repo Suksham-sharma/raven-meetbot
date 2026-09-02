@@ -425,6 +425,116 @@ async function listMeetings(
   return { ambiguous, count: list.length, meetings: list };
 }
 
+const createActionItemSchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["meeting_id", "text"],
+  properties: {
+    meeting_id: { type: "string", description: "the meeting this task belongs to" },
+    text: { type: "string", description: "the task, as an instruction" },
+    owner: { type: ["string", "null"], description: "who owes it, or null" },
+    due: { type: ["string", "null"], description: "stated timeframe, or null" },
+    evidence_start_s: {
+      type: ["number", "null"],
+      description:
+        "seconds into the meeting where this came up, if you already know it from a search you ran. Pass null otherwise; do not go looking for one.",
+    },
+  },
+};
+
+async function createActionItem(
+  a: {
+    meeting_id: string;
+    text: string;
+    owner?: string | null;
+    due?: string | null;
+    evidence_start_s?: number | null;
+  },
+  ownerId: string | null
+) {
+  // Writes are owner-scoped without exception. A null ownerId is the CLI and
+  // eval path, which reads across the corpus; it must never write into it.
+  if (!ownerId) return { error: "creating a task requires an authenticated user" };
+  if (!a.text?.trim()) return { error: "text is required" };
+
+  const [m] = await db
+    .select({ id: meetings.id })
+    .from(meetings)
+    .where(and(eq(meetings.id, a.meeting_id), eq(meetings.ownerId, ownerId)));
+  if (!m) return { error: `no meeting with id ${a.meeting_id}` };
+
+  // Only anchor when a timestamp was actually given. Guessing one was worse
+  // than leaving it empty: matching the task text against the meeting's records
+  // fired hardest when the task duplicated one that already existed, and
+  // matching against chunks put a task about the clock offset on the database
+  // discussion two minutes away. A task the user asked for does not need a
+  // transcript moment to be trusted, because nothing about it was inferred.
+  let anchor: {
+    quote: string;
+    speaker: string | null;
+    startS: number;
+    endS: number;
+  } | null = null;
+
+  if (a.evidence_start_s != null) {
+    const [c] = await db
+      .select({
+        text: chunks.text,
+        speaker: chunks.speaker,
+        startS: chunks.startS,
+        endS: chunks.endS,
+      })
+      .from(chunks)
+      .where(
+        and(
+          eq(chunks.meetingId, a.meeting_id),
+          lte(chunks.startS, a.evidence_start_s),
+          gte(chunks.endS, a.evidence_start_s)
+        )
+      )
+      .limit(1);
+    if (c) {
+      anchor = {
+        quote: c.text.slice(0, 500),
+        speaker: c.speaker,
+        startS: a.evidence_start_s,
+        endS: c.endS,
+      };
+    }
+  }
+
+  const [{ next }] = await db
+    .select({ next: sql<number>`coalesce(max(${actionItems.seq}), -1) + 1` })
+    .from(actionItems)
+    .where(eq(actionItems.meetingId, a.meeting_id));
+
+  const [row] = await db
+    .insert(actionItems)
+    .values({
+      meetingId: a.meeting_id,
+      seq: next,
+      text: a.text.trim(),
+      owner: a.owner ?? null,
+      due: a.due ?? null,
+      source: "agent",
+      evidenceQuote: anchor?.quote ?? null,
+      speaker: anchor?.speaker ?? null,
+      startS: anchor?.startS ?? null,
+      endS: anchor?.endS ?? null,
+    })
+    .returning();
+
+  return {
+    created: true,
+    id: row.id,
+    text: row.text,
+    owner: row.owner,
+    due: row.due,
+    anchored_at_s: row.startS,
+    note: anchor ? "Created, anchored to the given moment." : "Created.",
+  };
+}
+
 export const TOOL_SPECS: ToolSpec[] = [
   {
     name: "search_transcript",
@@ -445,6 +555,12 @@ export const TOOL_SPECS: ToolSpec[] = [
     parameters: fetchMeetingSchema,
   },
   {
+    name: "create_action_item",
+    description:
+      "Create a task on a meeting when the user asks for one ('add a task for Sam to...', 'remind me to...'). Only when they ask; never invent tasks from what you read. Returns the created row.",
+    parameters: createActionItemSchema,
+  },
+  {
     name: "list_meetings",
     description:
       "Resolve / browse meetings by title, date range, participant, or type, to get the EXACT meeting_id before scoping a search. A title is matched loosely (real ids/titles are normalized). Returns { ambiguous, count, meetings: [{ meeting_id, title, date, participants, ... }] }. If ambiguous=true or count>1, several meetings matched the title — disambiguate by date/participant before searching, don't assume the first.",
@@ -458,6 +574,7 @@ const DISPATCH: Record<string, ToolFn> = {
   search_structured: searchStructured,
   fetch_meeting: fetchMeeting,
   list_meetings: listMeetings,
+  create_action_item: createActionItem,
 };
 
 export async function runTool(

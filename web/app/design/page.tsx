@@ -662,7 +662,7 @@ function UpNextSection() {
     <Section
       id="upnext"
       title="Next up"
-      note="What Raven is scheduled to join, from the connected calendar. Rows, not cards — this is a glance, and nothing has happened yet to show a thumbnail of. Status is exception-only, so a normal scheduled call says only that Raven will join."
+      note="What Raven is scheduled to join, from the connected calendar. Rows, not cards — this is a glance, and nothing has happened yet to show a thumbnail of. Status is exception-only, so a normal scheduled call says only that Raven will join. A recurring call also carries what the last one decided and what it left open, folded to a single line because a brief is document-density inside a list."
     >
       <div className="max-w-[680px]">
         <UpNext
@@ -675,6 +675,7 @@ function UpNextSection() {
               startsAt: iso(-4),
               endsAt: iso(11),
               status: "running",
+              last_time: null,
             },
             {
               id: 2,
@@ -684,6 +685,27 @@ function UpNextSection() {
               startsAt: iso(95),
               endsAt: iso(155),
               status: "scheduled",
+              last_time: {
+                meeting_id: "design-review_2026-06-17_10-00-00",
+                title: "Design review — transcript polish",
+                date: iso(-10080),
+                decisions: [
+                  {
+                    text: "the transcript follows playback, and manual scroll wins",
+                    speaker: "Priya",
+                    start_s: 412,
+                  },
+                  {
+                    text: "chapter marks stay on the scrubber, not in a sidebar",
+                    speaker: "Alex",
+                    start_s: 883,
+                  },
+                ],
+                open_actions: [
+                  { text: "measure find-in-transcript against 2h of turns", owner: "Sam", due: "Friday" },
+                  { text: "decide what a citation does on a meeting with no mp4", owner: null, due: null },
+                ],
+              },
             },
             {
               id: 3,
@@ -693,6 +715,7 @@ function UpNextSection() {
               startsAt: iso(1520),
               endsAt: iso(1550),
               status: "scheduled",
+              last_time: null,
             },
           ]}
         />

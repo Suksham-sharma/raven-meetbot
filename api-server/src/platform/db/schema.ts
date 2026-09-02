@@ -254,10 +254,11 @@ export const actionItems = pgTable(
     text: text("text").notNull(),
     owner: text("owner"),
     due: text("due"),
-    evidenceQuote: text("evidence_quote").notNull(),
+    source: text("source").notNull().default("extracted"),
+    evidenceQuote: text("evidence_quote"),
     speaker: text("speaker"),
-    startS: doublePrecision("start_s").notNull(),
-    endS: doublePrecision("end_s").notNull(),
+    startS: doublePrecision("start_s"),
+    endS: doublePrecision("end_s"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
