@@ -22,6 +22,9 @@ function writeFixture(): string {
   ];
   for (let s = 14; s < 30; s++) lines.push({ type: "csrc", t: T0 + s * 1000, entries: [{ id: SUKSHAM, lvl: 0.3, kind: "csrc" }] });
   for (let s = 35; s < 540; s += 5) lines.push({ type: "csrc", t: T0 + s * 1000, entries: [{ id: ANKUR, lvl: 0.3, kind: "csrc" }] });
+  lines.push({ type: "churn", t: T0 + 14_000, pids: ["d/562"] });
+  lines.push({ type: "churn", t: T0 + 30_000, pids: [] });
+  lines.push({ type: "churn", t: T0 + 35_000, pids: ["d/563"] });
   lines.push({ type: "end", t: T0 + 618_000, bindings: [{ id: SUKSHAM, pid: "d/562", names: [] }] });
 
   const dir = mkdtempSync(path.join(os.tmpdir(), "speakers-"));
@@ -43,6 +46,12 @@ describe("parseSpeakerTimeline", () => {
 
     const ankur = tl.tiles.find((t) => t.pid === "d/563")!;
     expect(ankur.lastSeenMs).toBe(T0 + 618_000);
+
+    expect(tl.churn).toEqual([
+      { fromMs: T0 + 14_000, toMs: T0 + 30_000, pids: ["d/562"] },
+      { fromMs: T0 + 30_000, toMs: T0 + 35_000, pids: [] },
+      { fromMs: T0 + 35_000, toMs: T0 + 618_000, pids: ["d/563"] },
+    ]);
 
     const utterances = [
       { speaker: 0, start: 15, end: 20, transcript: "hello" },

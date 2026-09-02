@@ -122,12 +122,19 @@ Ankur's lived the whole meeting. Re-run on the same artifact, Speaker 1 resolves
 to Ankur Singh, 65 utterances, and the keyterms passed to Deepgram drop the
 presentation name.
 
-Left open: binding offline. The bot now logs enough (`csrc` plus `churn`) for
-the media-worker to compute the CSRC to tile mapping itself from the whole
-meeting, with a discriminative score (tile churns when this CSRC is hot and not
-when it is cold) instead of a raw co-occurrence tally. That would make the
-online bind a hint rather than the only signal, and it is testable against
-artifacts. Do it once a recording with `churn` events exists.
+Binding also runs offline now, in `churnBind.ts`. The bot logs `csrc` plus
+`churn`, and the media-worker lays both on a 250ms grid and fills a 2x2 table
+per source and tile: hot and churning, hot and quiet, cold and churning, cold
+and quiet. The score is the phi coefficient of that table, which is what
+separates "this tile animates when this source is loud" from "this tile
+animates all the time". A source binds when the leading tile scores at least
+0.4, leads the runner-up by 0.15, and has at least 5 seconds of hot ticks. Each
+tile goes to at most one source. An offline bind overrides the bot's online one,
+which stays as the fallback for artifacts recorded before churn logging. The
+thresholds were chosen against synthetic conversations, including a 2 second
+indicator lag and a tile that churns for the whole meeting; no real artifact
+with `churn` events existed when this was written, so the first such recording
+should be checked against the logged phi values.
 
 ---
 

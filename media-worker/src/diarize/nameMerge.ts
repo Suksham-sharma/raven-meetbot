@@ -15,7 +15,7 @@ export interface NamedUtterance {
   confidence: number;
 }
 
-export type AttributionMethod = "bind" | "elimination" | "unresolved";
+export type AttributionMethod = "churn" | "bind" | "elimination" | "unresolved";
 
 export interface SpeakerAssignment {
   speaker: number;
@@ -125,12 +125,13 @@ export function mergeNames(
   for (const label of labels) {
     const dom = argmax(labelMass.get(label) ?? new Map());
     const csrcId = dom?.id ?? null;
-    const bound = csrcId != null ? timeline.binds.get(csrcId) : undefined;
+    const churnBound = csrcId != null ? timeline.churnBinds?.get(csrcId) : undefined;
+    const bound = churnBound ?? (csrcId != null ? timeline.binds.get(csrcId) : undefined);
     assignments.set(label, {
       speaker: label,
       csrcId,
       name: bound ?? "",
-      method: bound ? "bind" : "unresolved",
+      method: churnBound ? "churn" : bound ? "bind" : "unresolved",
       mappingConfidence: dom?.share ?? 0,
       utterances: labelCount.get(label) ?? 0,
     });

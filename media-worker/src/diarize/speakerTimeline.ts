@@ -14,11 +14,19 @@ export interface TileSpan {
   lastSeenMs: number;
 }
 
+export interface ChurnInterval {
+  fromMs: number;
+  toMs: number;
+  pids: string[];
+}
+
 export interface SpeakerTimeline {
   recordingStartEpochMs: number;
   csrc: CsrcSample[];
   binds: Map<number, string>;
   tiles: TileSpan[];
+  churn: ChurnInterval[];
+  churnBinds?: Map<number, string>;
   participants: string[];
 }
 
@@ -64,6 +72,7 @@ export function parseSpeakerTimeline(path: string): SpeakerTimeline {
   const binds = new Map<number, string>();
   const openTiles = new Map<string, TileSpan>();
   const closedTiles: TileSpan[] = [];
+  const churn: ChurnInterval[] = [];
   let lastEventMs = 0;
 
   for (const line of readFileSync(path, "utf8").split("\n")) {
@@ -119,6 +128,13 @@ export function parseSpeakerTimeline(path: string): SpeakerTimeline {
         closedTiles.push(span);
         break;
       }
+      case "churn": {
+        const pids = Array.isArray(e.pids) ? (e.pids as unknown[]).filter((x): x is string => typeof x === "string") : [];
+        const prev = churn[churn.length - 1];
+        if (prev) prev.toMs = t;
+        churn.push({ fromMs: t, toMs: t, pids });
+        break;
+      }
     }
   }
 
@@ -130,6 +146,8 @@ export function parseSpeakerTimeline(path: string): SpeakerTimeline {
     span.lastSeenMs = lastEventMs;
     closedTiles.push(span);
   }
+  const lastChurn = churn[churn.length - 1];
+  if (lastChurn) lastChurn.toMs = lastEventMs;
   const tiles = closedTiles.sort((a, b) => a.firstSeenMs - b.firstSeenMs);
 
   const participantSet = new Set<string>();
@@ -142,6 +160,7 @@ export function parseSpeakerTimeline(path: string): SpeakerTimeline {
     csrc,
     binds,
     tiles,
+    churn,
     participants: [...participantSet],
   };
 }

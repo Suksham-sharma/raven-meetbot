@@ -2,6 +2,7 @@ import { rmSync } from "fs";
 import os from "os";
 import path from "path";
 import { extractAudio, transcribeBatch } from "./batchTranscribe";
+import { bindFromChurn } from "./churnBind";
 import { mergeNames, type MergeResult } from "./nameMerge";
 import { parseSpeakerTimeline } from "./speakerTimeline";
 
@@ -21,10 +22,15 @@ export async function diarizeRecording(
   const timeline = parseSpeakerTimeline(speakersPath);
   const keyterms = timeline.participants;
   log(
-    `timeline: ${timeline.csrc.length} csrc samples, ` +
+    `timeline: ${timeline.csrc.length} csrc samples, ${timeline.churn.length} churn intervals, ` +
       `binds=[${[...timeline.binds.entries()].map(([id, n]) => `${id}→${n}`).join(", ")}], ` +
       `keyterms=[${keyterms.join(", ")}]`
   );
+  const churnBinds = bindFromChurn(timeline);
+  timeline.churnBinds = new Map(churnBinds.map((b) => [b.csrcId, b.name]));
+  for (const b of churnBinds) {
+    log(`churn bind: ${b.csrcId}→${b.name} (phi=${b.phi}, runner-up ${b.runnerUpPhi}, ${b.hotTicks} hot ticks)`);
+  }
 
   const wav = path.join(os.tmpdir(), `${path.basename(webmPath, ".webm")}.diarize.wav`);
   log("extracting audio…");

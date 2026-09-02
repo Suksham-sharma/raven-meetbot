@@ -28,6 +28,7 @@ function timeline(overrides: Partial<SpeakerTimeline> = {}): SpeakerTimeline {
     csrc,
     binds: new Map([[5001, "Alice"]]),
     tiles,
+    churn: [],
     participants: tiles.map((t) => t.name),
     ...overrides,
   };
@@ -100,6 +101,14 @@ describe("mergeNames", () => {
     const names = assignments.map((a) => a.name);
     expect(new Set(names).size).toBe(3);
     expect(names).toContain("Speaker 2");
+  });
+
+  it("prefers an offline churn bind over the bot's online bind", () => {
+    const tl = timeline({ churnBinds: new Map([[5001, "Bob"], [6002, "Alice"]]) });
+    const { assignments } = mergeNames([utt(0, 1, 5), utt(1, 11, 15)], tl);
+
+    expect(assignments.find((a) => a.speaker === 0)!).toMatchObject({ name: "Bob", method: "churn" });
+    expect(assignments.find((a) => a.speaker === 1)!).toMatchObject({ name: "Alice", method: "churn" });
   });
 
   it("gives zero confidence when an utterance window has no CSRC overlap", () => {
