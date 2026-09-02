@@ -15,6 +15,7 @@ async function main(): Promise<void> {
         email,
         passwordHash: hashPassword(systemConfig.DEFAULT_USER_PASSWORD),
         name: systemConfig.DEFAULT_USER_NAME,
+        plan: "unlimited",
       })
       .returning();
     console.log(`created default user ${email} (${user.id})`);

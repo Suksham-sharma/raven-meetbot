@@ -207,12 +207,15 @@ pnpm ask "which deal is closest to closing and what's blocking it?"
 
 ## API
 
-All routes are under `/api/v1`. `register`/`login`/`logout` are public; everything else needs the session cookie or a `Bearer` token.
+All routes are under `/api/v1`. `register`/`login`/`logout` and the Google sign-in pair are public; everything else needs the session cookie or a `Bearer` token.
+
+Accounts start on the `free` plan, which allows `FREE_MEETING_LIMIT` meetings (default 2) across bot joins, uploads and calendar auto-joins. Emails listed in `UNLIMITED_EMAILS` get the `unlimited` plan at signup; `pnpm plan <email> unlimited` flips an existing account. Google sign-in needs `GOOGLE_SIGNIN_REDIRECT_URI` registered on the same OAuth client as the calendar.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `POST` | `/auth/register` · `/auth/login` · `/auth/logout` | Session lifecycle |
-| `GET`  | `/auth/me` | Current user |
+| `GET`  | `/auth/google` · `/auth/google/signin/callback` | Sign in with Google |
+| `GET`  | `/auth/me` | Current user and meeting usage |
 | `POST` | `/join-meet` | Dispatch a bot to a meeting URL |
 | `GET`  | `/bots` · `/bots/:jobId/status` | Your bot jobs (owner-scoped) |
 | `POST` | `/ask` | Agentic Q&A over your meetings |

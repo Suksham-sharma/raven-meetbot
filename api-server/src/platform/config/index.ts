@@ -19,6 +19,11 @@ const systemConfig = {
   DEFAULT_USER_EMAIL: process.env.DEFAULT_USER_EMAIL || "dev@raven.local",
   DEFAULT_USER_PASSWORD: process.env.DEFAULT_USER_PASSWORD || "devpassword",
   DEFAULT_USER_NAME: process.env.DEFAULT_USER_NAME || "Dev User",
+  FREE_MEETING_LIMIT: Number(process.env.FREE_MEETING_LIMIT) || 2,
+  UNLIMITED_EMAILS: (process.env.UNLIMITED_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
 
   DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY || "",
 
@@ -33,6 +38,9 @@ const systemConfig = {
   GOOGLE_REDIRECT_URI:
     process.env.GOOGLE_REDIRECT_URI ||
     "http://localhost:3000/api/v1/auth/google/callback",
+  GOOGLE_SIGNIN_REDIRECT_URI:
+    process.env.GOOGLE_SIGNIN_REDIRECT_URI ||
+    "http://localhost:3000/api/v1/auth/google/signin/callback",
   CALENDAR_TOKEN_KEY: process.env.CALENDAR_TOKEN_KEY || "",
   CALENDAR_LOOKAHEAD_HOURS: Number(process.env.CALENDAR_LOOKAHEAD_HOURS) || 48,
   CALENDAR_SYNC_INTERVAL_MS:

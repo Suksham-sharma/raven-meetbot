@@ -20,7 +20,7 @@ export const asyncHandler =
 const handleError = (error: unknown, res: Response): void => {
   console.error("[API] Error:", error);
 
-  const errorResponse = {
+  const errorResponse: { statusCode: number; message: string; reason?: string } = {
     statusCode: 500,
     message: "Internal server error",
   };
@@ -28,6 +28,7 @@ const handleError = (error: unknown, res: Response): void => {
   if (error instanceof AppError) {
     errorResponse.statusCode = error.statusCode;
     errorResponse.message = error.message;
+    if (error.reason) errorResponse.reason = error.reason;
   } else if (error instanceof Error) {
     errorResponse.message = error.message;
   }

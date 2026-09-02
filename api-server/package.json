@@ -16,6 +16,7 @@
     "worker:calendar:dev": "tsx watch src/workers/calendar.worker.ts",
     "propose": "tsx src/cli/propose.ts",
     "seed:owner": "tsx src/cli/seedOwner.ts",
+    "plan": "tsx src/cli/setPlan.ts",
     "ingest:seed": "tsx src/cli/ingest.ts",
     "enqueue:seed": "tsx src/cli/enqueueSeeds.ts",
     "gen:seed": "tsx src/cli/genTranscript.ts",

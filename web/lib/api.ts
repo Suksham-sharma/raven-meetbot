@@ -6,8 +6,8 @@ import type {
   MeetingsPage,
   OpenAction,
   Recording,
+  Session,
   Transcript,
-  User,
 } from "./types";
 
 export class ApiError extends Error {
@@ -84,16 +84,16 @@ function query(params: Record<string, string | number | undefined>): string {
 }
 
 export const api = {
-  me: () => request<{ user: User }>("/auth/me"),
+  me: () => request<Session>("/auth/me"),
 
   login: (email: string, password: string) =>
-    request<{ user: User }>("/auth/login", {
+    request<Session>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
 
   register: (email: string, password: string, name?: string) =>
-    request<{ user: User }>("/auth/register", {
+    request<Session>("/auth/register", {
       method: "POST",
       body: JSON.stringify({ email, password, name }),
     }),

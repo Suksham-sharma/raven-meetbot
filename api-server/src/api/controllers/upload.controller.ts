@@ -8,6 +8,7 @@ import systemConfig from "../../platform/config";
 import { diarizeQueue, memoryQueue, transcodeQueue } from "../../platform/queues";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../../platform/utils/AppError";
 import { asyncHandler } from "../../platform/utils/asyncHandler";
+import { assertMeetingQuota } from "../../domain/auth/quota";
 
 const MAX_BYTES = 500 * 1024 * 1024;
 const PRESIGN_TTL_S = 3600;
@@ -56,6 +57,7 @@ export const presignUpload = asyncHandler(async (req: Request, res: Response) =>
   if (typeof contentLength === "number" && contentLength > MAX_BYTES) {
     throw new BadRequestError(`file too large — max ${MAX_BYTES} bytes`);
   }
+  await assertMeetingQuota(userId);
 
   const meetingId = generateMeetingId();
   const recordingKey = `${meetingId}.webm`;
@@ -105,6 +107,7 @@ export const presignBulkUpload = asyncHandler(async (req: Request, res: Response
   };
   if (!Array.isArray(files) || files.length === 0) throw new BadRequestError("files[] is required");
   if (files.length > 20) throw new BadRequestError("too many files — max 20");
+  await assertMeetingQuota(userId, files.length);
 
   const store = getArtifactStore();
   const out: Array<{ meeting_id: string; key: string; upload_url: string; method: string; headers: Record<string, string> }> = [];

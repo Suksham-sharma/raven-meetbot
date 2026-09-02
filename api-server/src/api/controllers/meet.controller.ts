@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { BadRequestError, UnauthorizedError } from "../../platform/utils/AppError";
 import { asyncHandler } from "../../platform/utils/asyncHandler";
 import { meetQueue } from "../../platform/queues";
+import { assertMeetingQuota } from "../../domain/auth/quota";
 
 export const joinMeet = asyncHandler(async (req: Request, res: Response) => {
   const ownerId = req.userId;
@@ -9,6 +10,7 @@ export const joinMeet = asyncHandler(async (req: Request, res: Response) => {
 
   const { url, botName, maxDurationMinutes } = req.body;
   if (!url) throw new BadRequestError("Meeting URL is required");
+  await assertMeetingQuota(ownerId);
 
   const job = await meetQueue.add("join-meet", {
     url,

@@ -2,6 +2,7 @@
 
 import { CalendarBlank, WarningCircle } from "@phosphor-icons/react";
 import { AppShell } from "@/components/layout/app-shell";
+import { useAllowance } from "@/components/raven/allowance";
 import { EmptyState } from "@/components/raven/states";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -131,6 +132,8 @@ function ConnectedCalendar({
   onSync: () => void;
 }) {
   const error = modeError ?? disconnectError ?? syncError;
+  const allowance = useAllowance();
+  const paused = calendar.mode === "all" && Boolean(allowance?.exhausted);
 
   return (
     <div className="py-6 sm:py-7">
@@ -164,6 +167,13 @@ function ConnectedCalendar({
             Try again
           </Button>
         </div>
+      )}
+
+      {paused && allowance && (
+        <p className="mt-5 rounded-lg bg-card px-4 py-3 text-[13px] leading-relaxed text-ink-2">
+          You&rsquo;ve used your {allowance.limit} free meetings, so Raven
+          won&rsquo;t join new ones from your calendar.
+        </p>
       )}
 
       <div className="my-6 border-t border-rule-lo" />

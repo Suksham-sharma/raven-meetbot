@@ -1,9 +1,11 @@
 class AppError extends Error {
   statusCode: number;
+  reason?: string;
 
-  constructor(message: string, statusCode: number = 500) {
+  constructor(message: string, statusCode: number = 500, reason?: string) {
     super(message);
     this.statusCode = statusCode;
+    this.reason = reason;
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -21,8 +23,8 @@ class UnauthorizedError extends AppError {
 }
 
 class ForbiddenError extends AppError {
-  constructor(message: string = "Forbidden Request") {
-    super(message, 403);
+  constructor(message: string = "Forbidden Request", reason?: string) {
+    super(message, 403, reason);
   }
 }
 

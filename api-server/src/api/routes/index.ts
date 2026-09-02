@@ -23,7 +23,14 @@ import {
 } from "../controllers/meetings.controller";
 import { plainSearch } from "../controllers/search.controller";
 import { completeUpload, directUpload, presignBulkUpload, presignUpload } from "../controllers/upload.controller";
-import { login, logout, me, register } from "../controllers/auth.controller";
+import {
+  googleSignIn,
+  googleSignInCallback,
+  login,
+  logout,
+  me,
+  register,
+} from "../controllers/auth.controller";
 import {
   connectCalendar,
   disconnectCalendar,
@@ -40,6 +47,8 @@ const apiRouter = Router();
 apiRouter.post("/auth/register", register);
 apiRouter.post("/auth/login", login);
 apiRouter.post("/auth/logout", logout);
+apiRouter.get("/auth/google", googleSignIn);
+apiRouter.get("/auth/google/signin/callback", googleSignInCallback);
 apiRouter.get("/auth/google/callback", googleCalendarCallback);
 
 apiRouter.use(requireAuth);

@@ -5,6 +5,8 @@ import { UploadSimple } from "@phosphor-icons/react";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { AllowanceReached, useAllowance } from "@/components/raven/allowance";
+import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBulkUpload, useUploadMeeting } from "@/lib/queries";
 
@@ -21,6 +23,9 @@ export function UploadRecordingSheet({
   const [title, setTitle] = React.useState("");
   const [queued, setQueued] = React.useState<string[]>([]);
   const [err, setErr] = React.useState("");
+  const [reached, setReached] = React.useState(false);
+  const allowance = useAllowance();
+  const blocked = reached || Boolean(allowance?.exhausted);
 
   const busy = upload.isPending || bulk.isPending;
 
@@ -41,8 +46,23 @@ export function UploadRecordingSheet({
       }
       setTitle("");
     } catch (ex) {
+      if (ex instanceof ApiError && ex.reason === "quota_exhausted") {
+        setReached(true);
+        return;
+      }
       setErr(ex instanceof Error ? ex.message : String(ex));
     }
+  }
+
+  if (blocked && queued.length === 0) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange} title="Upload recording">
+        <AllowanceReached
+          limit={allowance?.limit ?? 0}
+          onDone={() => onOpenChange(false)}
+        />
+      </Sheet>
+    );
   }
 
   return (

@@ -1,7 +1,20 @@
+export type Plan = "free" | "unlimited";
+
 export interface User {
   id: string;
   email: string;
   name: string | null;
+  plan: Plan;
+}
+
+export interface MeetingUsage {
+  used: number;
+  limit: number | null;
+}
+
+export interface Session {
+  user: User;
+  usage: MeetingUsage;
 }
 
 export type CalendarMode = "manual" | "all";

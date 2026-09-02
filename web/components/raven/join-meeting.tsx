@@ -4,6 +4,8 @@ import * as React from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { AllowanceReached, useAllowance } from "@/components/raven/allowance";
+import { ApiError } from "@/lib/api";
 import { useBotStatus, useJoinMeet } from "@/lib/queries";
 
 export function JoinMeetingDialog({
@@ -16,13 +18,17 @@ export function JoinMeetingDialog({
   const [url, setUrl] = React.useState("");
   const [err, setErr] = React.useState("");
   const [jobId, setJobId] = React.useState<string | null>(null);
+  const [reached, setReached] = React.useState(false);
   const join = useJoinMeet();
   const status = useBotStatus(jobId ?? "", Boolean(jobId));
+  const allowance = useAllowance();
+  const blocked = reached || Boolean(allowance?.exhausted);
 
   function reset() {
     setUrl("");
     setErr("");
     setJobId(null);
+    setReached(false);
   }
 
   function close() {
@@ -41,6 +47,10 @@ export function JoinMeetingDialog({
       const res = await join.mutateAsync({ url: url.trim() });
       setJobId(res.jobId);
     } catch (ex) {
+      if (ex instanceof ApiError && ex.reason === "quota_exhausted") {
+        setReached(true);
+        return;
+      }
       setErr(ex instanceof Error ? ex.message : String(ex));
     }
   }
@@ -53,12 +63,14 @@ export function JoinMeetingDialog({
       onOpenChange={(next) => (next ? onOpenChange(true) : close())}
       title="Join a meeting"
       description={
-        jobId
+        jobId || blocked
           ? undefined
           : "Raven joins as a visible participant. Everyone in the call can see it."
       }
     >
-      {!jobId ? (
+      {blocked && !jobId ? (
+        <AllowanceReached limit={allowance?.limit ?? 0} onDone={close} />
+      ) : !jobId ? (
         <form onSubmit={submit} className="flex flex-col gap-4">
           <Field
             value={url}

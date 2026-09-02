@@ -33,6 +33,7 @@ const POSITIVE_NUMBERS = [
   "CALENDAR_MAX_LATE_MS",
   "JOB_ATTEMPTS",
   "JOB_BACKOFF_MS",
+  "FREE_MEETING_LIMIT",
 ] as const;
 
 type Env = Record<string, string | undefined>;

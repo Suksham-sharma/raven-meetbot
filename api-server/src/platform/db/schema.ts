@@ -26,13 +26,18 @@ export const users = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     email: text("email").notNull(),
-    passwordHash: text("password_hash").notNull(),
+    passwordHash: text("password_hash"),
+    googleSub: text("google_sub"),
     name: text("name"),
+    plan: text("plan").notNull().default("free"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (table) => [uniqueIndex("users_email_uq").on(table.email)]
+  (table) => [
+    uniqueIndex("users_email_uq").on(table.email),
+    uniqueIndex("users_google_sub_uq").on(table.googleSub),
+  ]
 );
 
 export const calendarAccounts = pgTable("calendar_accounts", {
@@ -57,9 +62,8 @@ export const calendarOauthStates = pgTable(
   "calendar_oauth_states",
   {
     stateHash: text("state_hash").primaryKey(),
-    ownerId: uuid("owner_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: text("purpose").notNull().default("calendar"),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

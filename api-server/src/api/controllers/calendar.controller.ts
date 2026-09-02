@@ -9,6 +9,7 @@ import {
   calendarSchedules,
   decisions,
   meetings,
+  users,
 } from "../../platform/db/schema";
 import systemConfig from "../../platform/config";
 import {
@@ -53,10 +54,15 @@ export const connectCalendar = asyncHandler(async (req: Request, res: Response) 
   const ownerId = requireOwnerId(req);
   const now = new Date();
   await db.delete(calendarOauthStates).where(lt(calendarOauthStates.expiresAt, now));
+  const [user] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, ownerId));
   const state = randomBytes(32).toString("base64url");
-  const authorizationUrl = googleAuthorizationUrl(state);
+  const authorizationUrl = googleAuthorizationUrl(state, user?.email);
   await db.insert(calendarOauthStates).values({
     stateHash: hashState(state),
+    purpose: "calendar",
     ownerId,
     expiresAt: new Date(now.getTime() + STATE_TTL_MS),
   });
@@ -72,11 +78,13 @@ export const googleCalendarCallback = asyncHandler(
       .where(
         and(
           eq(calendarOauthStates.stateHash, hashState(state)),
+          eq(calendarOauthStates.purpose, "calendar"),
           gt(calendarOauthStates.expiresAt, new Date())
         )
       )
       .returning({ ownerId: calendarOauthStates.ownerId });
-    if (!stored) throw new BadRequestError("OAuth state is invalid or expired");
+    if (!stored?.ownerId) throw new BadRequestError("OAuth state is invalid or expired");
+    const ownerId = stored.ownerId;
 
     if (req.query.error) {
       res.redirect(integrationsUrl("denied"));
@@ -92,7 +100,7 @@ export const googleCalendarCallback = asyncHandler(
     const [existing] = await db
       .select({ refreshToken: calendarAccounts.refreshToken })
       .from(calendarAccounts)
-      .where(eq(calendarAccounts.ownerId, stored.ownerId));
+      .where(eq(calendarAccounts.ownerId, ownerId));
     const refreshToken = token.refresh_token
       ? encryptCalendarToken(token.refresh_token)
       : existing?.refreshToken;
@@ -104,7 +112,7 @@ export const googleCalendarCallback = asyncHandler(
     await db
       .insert(calendarAccounts)
       .values({
-        ownerId: stored.ownerId,
+        ownerId,
         email: profile.email,
         refreshToken,
         status: "connected",

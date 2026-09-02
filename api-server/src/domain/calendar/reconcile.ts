@@ -7,8 +7,9 @@ import {
 import systemConfig from "../../platform/config";
 import { controlQueue, meetQueue } from "../../platform/queues";
 import { decryptCalendarToken } from "../../platform/calendar/tokenCipher";
+import { GoogleApiError } from "../../platform/google/oauth";
+import { meetingUsage, remainingMeetings } from "../auth/quota";
 import {
-  GoogleCalendarError,
   listGoogleCalendarEvents,
   refreshGoogleAccessToken,
 } from "./googleCalendar";
@@ -102,6 +103,7 @@ async function ensureScheduled(
   if (now.getTime() - event.startsAt.getTime() > systemConfig.CALENDAR_MAX_LATE_MS) {
     return;
   }
+  if (remainingMeetings(await meetingUsage(account.ownerId)) === 0) return;
 
   const jobId = calendarJobId(account.ownerId, event.eventId, event.startsAt);
   const [schedule] = await db
@@ -245,7 +247,7 @@ export async function syncCalendarAccount(ownerId: string): Promise<void> {
       .where(eq(calendarAccounts.ownerId, ownerId));
   } catch (error) {
     if (
-      error instanceof GoogleCalendarError &&
+      error instanceof GoogleApiError &&
       error.status === 400 &&
       error.code === "invalid_grant"
     ) {
