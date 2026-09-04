@@ -65,11 +65,9 @@ lives in `docs/decisions.md`; endpoint contracts come from `api-server/src/route
 
 ## 1. Position
 
-**Branch:** `main` = `ab5a909`. The Home/Meetings split, the `Up next` block, the
-overlay/menu/toast primitives, the live-session surface and the proposal wiring
-all landed in PR #4. Two PRs are open against `main` and neither needs a live
-meeting to review: **#5** creates the `meetings` row the moment processing starts,
-**#6** makes a misconfigured deploy fail at boot instead of at the first call.
+**Branch:** `main`. The signed-out landing is live at `raven.suksham.xyz`; the
+application routes remain behind the same origin and proxy `/api/v1` to the API
+host. The API host itself is not deployed yet.
 
 **What works end to end today:** bot joins a real Google Meet → records →
 transcode to a seekable mp4 → batch diarization with real speaker names → memory
@@ -105,31 +103,22 @@ coerce to a default.
 
 **Bot image rebuilt.** `meet-bot:latest` rebuilt `2026-08-15` (`20c8d65b`, `--no-cache`) and verified `encoding`/`sample_rate` are omitted so Deepgram auto-detects `audio/webm;codecs=opus`. Owner can now stop their bot via `POST /bots/:jobId/stop` (queued `bot-control` → `docker stop` → graceful finalize).
 
-**Calendar position:** OAuth is real and working as of 2026-08-21. A live sync
-against Google succeeded end to end — decrypt the stored refresh token → mint an
-access token → list events → reconcile — and the token is on disk as AES-256-GCM
-ciphertext. Cancellation is proven too: rows the reconciler does not find in Google
-inside its 48-hour window get cancelled within one cycle. **The remaining gate is
-narrower than it was: a real scheduled Meet producing exactly one delayed BullMQ job,
-then unattended admission, title propagation, empty-room suppression, and live
-Deepgram segments.** Still no event overrides, no incremental sync tokens, no more
-integration UI before that proof.
+**Calendar position:** OAuth, live sync and the whole scheduled-Meet path are
+proven. A real calendar event produced exactly one delayed job; the bot joined
+unattended, recorded, transcribed, diarized and ingested it with the event title.
+The remaining Google gate is operational: publish the OAuth app so refresh tokens
+do not expire after seven days, then complete verification for Calendar access.
 
-**Next session starts here:** both of these need a real meeting, which is the only
-reason they are still open. Everything reachable without one has been done.
+**Next session starts here:** finish the Google production surface, then deploy the
+API stack needed to record the verification video.
 
-1. **The scheduled-Meet proof.** Credentials, migration and OAuth are all done —
-   start Postgres/Redis/API/web/orchestrator plus the calendar worker, put a real
-   Meet on the calendar ~15 minutes out with mode `all`, and watch the chain:
-   schedule row → exactly one delayed job across repeated syncs → unattended
-   admission → title propagation → empty-room suppression → **live Deepgram
-   segments**. That last one also closes `40dc3c0`, the oldest unproven fix in the
-   project. Record the exact failure if lobby admission or transcription breaks.
-2. **See the new UI against real data.** The `/design` half of this is done — the
-   menu, confirm and toast primitives were exercised in the gallery on 2026-08-27
-   and all three behave. What is left needs the meeting from step 1: the
-   live-session block only appears with a bot actually in flight, and the proposal
-   section only appears with `agent_actions` rows.
+1. Publish `/privacy` and `/terms`, linked from the landing, auth and Calendar
+   connection surfaces.
+2. Verify `suksham.xyz` as a Search Console Domain property; configure both
+   production redirect URIs, Branding, External audience and the exact scopes;
+   publish the app to Production.
+3. Deploy the API stack, record the real consent-and-calendar demo, and submit the
+   Calendar scope justification and video in Verification Center.
 
 **Note for whoever restarts the stack:** the datastores live in OrbStack and go
 down with it. `docker compose up -d postgres redis` before the dev processes, or
@@ -137,11 +126,9 @@ everything fails to connect. Postgres is on **5434** and Redis on **6380** via
 `docker-compose.override.yml`, and the API listens on **3001**, not the 3000 that
 `.env.example` still implies for `GOOGLE_REDIRECT_URI`.
 
-**The one-line summary:** Phase 0 and Phase 1 are done. Phase 2's live capture
-re-verification remains the oldest open risk. Phase 3 Calendar now has a proven
-OAuth and sync path; only the scheduled-Meet leg is unproven. A surface audit
-(§6b) closed four capabilities that had shipped with no way to reach them. What
-is left in every open phase either needs a live meeting or is Phase 4 and beyond.
+**The one-line summary:** The core product and scheduled Google Meet pipeline are
+proven, the web is live, and Google OAuth production publishing is the immediate
+gate before the API deployment and verification demo.
 
 ---
 
@@ -712,7 +699,9 @@ contract. In order:
 2. [ ] **Publish the Google OAuth app.** Testing status expires refresh tokens
        after seven days; the calendar and sign-in both die weekly until this is
        done. Flip to Production first (removes the expiry, shows an unverified
-       warning), then request verification for the calendar scope.
+       warning), then request verification for the calendar scope. `/privacy` and
+       `/terms` are implemented with public footer links and in-product disclosures;
+       verify them on the production domain before entering the URLs in Branding.
 3. [ ] **Managed Postgres with pgvector, managed Redis, R2 with a CDN.** Point
        `DATABASE_URL`, `REDIS_URL` and the R2 keys at them. Run migrations as
        an explicit step before the first boot and on every deploy.
@@ -725,14 +714,16 @@ contract. In order:
        box can hold (each bot is Chromium under Xvfb with 2 GB shm; 4 vCPU /
        8 GB covers two or three).
 6. [ ] **Reverse proxy with TLS in front of the API.** Caddy is one file.
-7. [~] **Deploy the web app.** Vercel project `raven`, root directory
+7. [x] **Deploy the web app.** Live at https://raven.suksham.xyz since
+       2026-09-05 with the landing page. Vercel project `raven`, root directory
        `web`, deployed to production 2026-09-03 with `API_ORIGIN` set to
        `https://api.raven.suksham.xyz` ahead of the API existing. The
        `/api/v1` rewrite proxies to that origin, so the browser stays
        same-origin and no credentialed CORS is needed; the cookie domain and
        the CSRF item only become real if the API is ever called directly.
-       Still open: the Cloudflare DNS record for `raven.suksham.xyz`, and
-       Deployment Protection covers the `*.vercel.app` URLs until then.
+       DNS is a Cloudflare CNAME to Vercel, DNS-only. The `*.vercel.app`
+       URLs stay behind Deployment Protection; only the custom domain is
+       public.
 8. [ ] **Production secrets.** `JWT_SECRET`, `CALENDAR_TOKEN_KEY`,
        `UNLIMITED_EMAILS`, `WEB_APP_URL`, both Google redirect URIs on the
        OAuth client. `assertConfig()` refuses to boot on the committed dev
@@ -877,7 +868,7 @@ One line per session. Newest first.
 
 | Date | What moved | Commits |
 |---|---|---|
-| 2026-09-04 | **Landing page.** `/` now branches on the `token` cookie: signed-out visitors get a marketing page (`web/components/landing`), signed-in users get the app home, which moved to `components/home/home-page.tsx` unchanged. Built after reading the live pages of Granola, Fathom, Circleback, tl;dv, Otter, Notion, Fireflies, Linear and Cursor: every notetaker leads with "notes", a screenshot hero and a bot-free claim, so Raven leads with the follow-through (an approval that plays out in the hero), owns the visible bot, and keeps to seven blocks of one claim plus one UI crop. Crops are rendered from the product's own vocabulary, not screenshots. Both painted plates (dusk hero, first-light closing) were generated from the brief in `docs/landing-images.md` and are in `web/public/landing/`; the social preview image is still open. Verified at desktop and 375px, no horizontal overflow, typecheck and lint clean. | uncommitted |
+| 2026-09-04 | **Landing page.** `/` now branches on the `token` cookie: signed-out visitors get a marketing page (`web/components/landing`), signed-in users get the app home, which moved to `components/home/home-page.tsx` unchanged. Built after reading the live pages of Granola, Fathom, Circleback, tl;dv, Otter, Notion, Fireflies, Linear and Cursor: every notetaker leads with "notes", a screenshot hero and a bot-free claim, so Raven leads with the follow-through (an approval that plays out in the hero), owns the visible bot, and keeps to seven blocks of one claim plus one UI crop. Crops are rendered from the product's own vocabulary, not screenshots. Both painted plates (dusk hero, first-light closing) were generated from the brief in `docs/landing-images.md` and are in `web/public/landing/`; the social preview image is still open. Verified at desktop and 375px, no horizontal overflow, typecheck and lint clean. Shipped 2026-09-05 as `4d9a74e` and live at raven.suksham.xyz. | `4d9a74e` |
 | 2026-09-03 | **Meetings search: one box, no flicker.** The Type and Participant fields were exact-match filters on values a user cannot guess (extracted free-text type, JSON containment on a name), so they are gone; the one search box now also matches type and participant names server-side. The list flickered because a new search term is a new query key, so it went pending and showed skeletons on every keystroke; `keepPreviousData` plus a 60s stale time keeps the last results on screen at 60% opacity until the next page lands, and a search you have already typed comes back from cache. | uncommitted |
 | 2026-09-03 | **First-run Home.** Design shotgun with three hand-built HTML directions (document, three doors, worked example) on the real tokens; the pick was a combination: document voice, calendar banner as the one solid control, join-now a tier below, no upload, allowance as a footnote. Built as `FirstRun` and added to the gallery. | uncommitted |
 | 2026-09-03 | **Google sign-in and a free allowance.** Sign-in reuses the calendar's OAuth client with a second redirect URI and identity scopes only; the state table gained a `purpose` column and a nullable owner so both flows share it. The generic OAuth pieces moved out of the calendar module into `platform/google/oauth.ts` so auth does not depend on calendar. Allowance is a `plan` column plus config, counted from meeting rows and reserved bot jobs rather than a stored counter. Two test join jobs were picked up by a stray orchestrator and spawned real bots against a fake URL, which is now a landmine row. | uncommitted |

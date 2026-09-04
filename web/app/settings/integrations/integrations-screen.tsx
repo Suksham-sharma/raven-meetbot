@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarBlank, WarningCircle } from "@phosphor-icons/react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { useAllowance } from "@/components/raven/allowance";
 import { EmptyState } from "@/components/raven/states";
@@ -102,6 +103,14 @@ export function IntegrationsScreen({
               />
             )}
           </div>
+          <p className="mt-3 text-[12.5px] leading-relaxed text-ink-3">
+            Raven reads upcoming event details to find Google Meet calls. It never writes to your
+            calendar. See the{" "}
+            <Link href="/privacy" className="font-medium text-ink-2 hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </section>
       </div>
     </AppShell>

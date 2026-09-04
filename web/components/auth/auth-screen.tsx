@@ -207,6 +207,18 @@ export function AuthScreen({
             </Button>
           </form>
 
+          <p className="mt-5 text-[12px] leading-relaxed text-ink-3">
+            By continuing, you agree to Raven&rsquo;s{" "}
+            <Link href="/terms" className="font-medium text-ink-2 hover:underline">
+              Terms
+            </Link>{" "}
+            and acknowledge the{" "}
+            <Link href="/privacy" className="font-medium text-ink-2 hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
+
           <p className="mt-6 text-[13.5px] text-ink-3">
             {registering ? "Already have an account?" : "No account yet?"}{" "}
             <Link

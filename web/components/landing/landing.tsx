@@ -382,7 +382,13 @@ function Footer() {
       >
         <Wordmark className="text-[18px] text-ink-1" />
         <p>Works with Google Meet today. Zoom and Teams are next.</p>
-        <div className="flex items-center gap-5">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <Link href="/privacy" className="transition-colors hover:text-ink-1">
+            Privacy
+          </Link>
+          <Link href="/terms" className="transition-colors hover:text-ink-1">
+            Terms
+          </Link>
           <Link href="/login" className="transition-colors hover:text-ink-1">
             Sign in
           </Link>
