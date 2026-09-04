@@ -212,3 +212,51 @@ input:-webkit-autofill:focus {
     scroll-behavior: auto !important;
   }
 }
+
+.reveal {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 440ms var(--ease-out),
+      transform 440ms var(--ease-out);
+  }
+
+  .reveal.in {
+    opacity: 1;
+    transform: none;
+  }
+
+  .hero-rise {
+    animation: rise 640ms var(--ease-out) both;
+  }
+
+  .hero-pill {
+    animation: pop-in 220ms var(--ease-out) both;
+  }
+
+  .reveal.in .timeline-fill {
+    animation: sweep 1400ms 200ms var(--ease-out) both;
+  }
+}
+
+.timeline-fill {
+  width: 75%;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes sweep {
+  from {
+    width: 0;
+  }
+}

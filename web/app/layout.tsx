@@ -6,6 +6,7 @@ import "./globals.css";
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -17,7 +18,8 @@ const instrument = Instrument_Sans({
 
 export const metadata: Metadata = {
   title: "Raven",
-  description: "Your meetings, remembered.",
+  description:
+    "Raven joins your Google Meet calls, records them, writes the notes, tracks who owes what, and drafts the follow-up work for you to approve.",
 };
 
 export default function RootLayout({
